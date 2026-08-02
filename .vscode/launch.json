@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CertichainBackendApplication",
+            "request": "launch",
+            "mainClass": "com.certichain.certichainbackend.CertichainBackendApplication",
+            "projectName": "certichain-backend",
+            "cwd": "${workspaceFolder}/certichain-backend"
+        }
+    ]
+}
