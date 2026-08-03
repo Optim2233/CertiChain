@@ -1,7 +1,13 @@
 {
     "recommendations": [
         "vscjava.vscode-java-pack",
-        "vmware.vscode-boot-dev-pack"
+        "vmware.vscode-boot-dev-pack",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "ms-ossdata.vscode-pgsql",
+        "eamodio.gitlens",
+        "usernamehw.errorlens",
+        "christian-kohler.path-intellisense"
     ],
     "unwantedRecommendations": [
         "oracle.oracle-java"
