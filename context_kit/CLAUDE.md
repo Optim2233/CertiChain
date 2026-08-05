@@ -1,6 +1,6 @@
 # CertiChain — Project Context
 
-This file is the authoritative context for Claude Code working on CertiChain.
+This file is the authoritative context for Claude Code or any AI coding tool working on CertiChain.
 Read this before making architectural decisions or generating code. If something
 here conflicts with a stray comment, filename, or old doc in the repo, **this
 file wins** unless the person working with you says otherwise.
@@ -100,13 +100,27 @@ the former.
   registry.
   - Institution account states: `pending` → `approved` / `rejected`, and
     later `suspended` / `revoked` from the approved state. Rejected
-    institutions may resubmit.
-  - A suspended institution keeps its previously issued certificates valid
-    in the sense that signatures still check out, but the institution shows
-    as suspended to all verifiers going forward, and the institution cannot
-    issue new certificates while suspended.
-- **Public institution list: yes.** Graduates (and likely verifiers) can see
-  a public list of currently accredited institutions.
+    institutions may resubmit. The Accreditation Authority's review step has
+    **four possible decisions**, not just approve/reject: **Approve**,
+    **Request Info** (application stays pending, institution resubmits
+    documents without starting over), **Suspend**, **Reject**.
+  - **Suspend and Revoke are distinct actions, not one "deactivate"
+    action.** Suspend is reversible — the institution can be reinstated,
+    existing certificates stay valid, the institution just can't issue new
+    ones until reinstated. Revoke is explicitly permanent — cannot be
+    reversed by re-approval, existing certificates keep a valid signature
+    but the institution shows as revoked to all verifiers going forward.
+    Both require a reason, logged and shown to the institution — model
+    these as two distinct transitions/actions in the backend, not two
+    values of the same enum-triggered endpoint.
+- **Public institution list: yes.** Graduates and Verifiers can browse a
+  public, no-login directory of institutions. The wireframe explicitly shows
+  `approved` institutions listed, with a caption "pending/rejected/revoked
+  institutions are not listed here" — but the same mockup also shows a
+  `suspended` institution in that list (dimmed). **Resolve this before
+  building it**: most likely intent is "only pending/rejected/revoked are
+  hidden, suspended is shown but visually distinguished as a warning," but
+  confirm with Optim rather than assuming.
 
 ## Roles (4 total)
 
@@ -143,9 +157,11 @@ the former.
   underlying credential is untouched.
 - **Pending/unclaimed credential state** exists purely to handle batch
   issuance timing when a graduate hasn't registered yet (see above).
-- **Dispute flagging** marks a credential for review without hiding/revoking
-  it — the flag is informational, not a status change visible to verifiers
-  (confirm this against final requirements before building it either way).
+- **Dispute flagging has two outcomes, both shown to the graduate:**
+  **upheld** (institution corrects or revokes the flagged entry) or
+  **dismissed** (institution disagrees, record stands as issued, no change).
+  The flag itself doesn't change verifier-visible status while pending —
+  only the outcome does.
 
 ## Known, deliberately out-of-scope items
 
