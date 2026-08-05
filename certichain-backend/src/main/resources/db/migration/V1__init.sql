@@ -1,0 +1,2 @@
+-- Baseline migration. Add entity tables here as they're built
+-- (see context_kit/portals/00-shared-foundations.md for the core entity list).
