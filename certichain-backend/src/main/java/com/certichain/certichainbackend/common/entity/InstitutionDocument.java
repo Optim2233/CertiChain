@@ -1,0 +1,38 @@
+package com.certichain.certichainbackend.common.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "institution_document")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class InstitutionDocument {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(name = "institution_id", nullable = false)
+    private UUID institutionId;
+
+    @Column(name = "file_name", nullable = false)
+    private String fileName;
+
+    @Lob
+    @Column(name = "file_data", columnDefinition = "bytea", nullable = false)
+    private byte[] fileData;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean verified = false;
+
+    @Column(name = "uploaded_at", nullable = false)
+    private Instant uploadedAt;
+}
