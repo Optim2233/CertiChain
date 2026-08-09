@@ -22,8 +22,10 @@ public class InstitutionController {
     @PostMapping("/apply")
     public Institution apply(@RequestParam String name,
                               @RequestParam String ministry,
+                              @RequestParam String email,
+                              @RequestParam String password,
                               @RequestParam("documents") List<MultipartFile> documents) {
-        return institutionService.apply(name, ministry, documents);
+        return institutionService.apply(name, ministry, email, password, documents);
     }
 
     @GetMapping("/me")

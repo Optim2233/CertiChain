@@ -114,13 +114,13 @@ the former.
     these as two distinct transitions/actions in the backend, not two
     values of the same enum-triggered endpoint.
 - **Public institution list: yes.** Graduates and Verifiers can browse a
-  public, no-login directory of institutions. The wireframe explicitly shows
-  `approved` institutions listed, with a caption "pending/rejected/revoked
-  institutions are not listed here" — but the same mockup also shows a
-  `suspended` institution in that list (dimmed). **Resolve this before
-  building it**: most likely intent is "only pending/rejected/revoked are
-  hidden, suspended is shown but visually distinguished as a warning," but
-  confirm with Optim rather than assuming.
+  public, no-login directory of institutions. **Resolved (confirmed by
+  Optim, 2026-08-09):** the directory lists `APPROVED` **and** `SUSPENDED`
+  institutions, and hides `PENDING` / `REJECTED` / `REVOKED`. Suspended
+  institutions are shown but visually distinguished as a warning (dimmed),
+  not omitted — this matches the wireframe caption
+  ("pending/rejected/revoked institutions are not listed here") and the
+  dimmed `suspended` row in the same mockup.
 
 ## Roles (4 total)
 

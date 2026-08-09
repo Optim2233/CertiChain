@@ -10,7 +10,17 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface InstitutionService {
-    Institution apply(String name, String ministry, List<MultipartFile> documents);
+    /**
+     * Self-registration. Creates the Institution (PENDING), the INSTITUTION-role User that
+     * logs in from here on, and the uploaded accreditation documents.
+     *
+     * <p>email/password are not in 02-institution.md's documented request body, but that
+     * body cannot satisfy its own requirement to create "a User to log in with going
+     * forward" - and the users table CHECK constraint forces an institution user to carry an
+     * institution_id. Confirmed with the team before changing this signature.
+     */
+    Institution apply(String name, String ministry, String email, String password,
+                      List<MultipartFile> documents);
     Institution getOwnInstitution();
     Page<Credential> listCredentials(int page, int size);
     Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields);

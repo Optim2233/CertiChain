@@ -38,4 +38,18 @@ public class Institution {
 
     @Column(name = "decided_at")
     private Instant decidedAt;
+
+    /** Institution's signing public key. Null until the AA approves the institution. */
+    @Column(name = "public_key", columnDefinition = "text")
+    private String publicKey;
+
+    /** Encrypted private key — never stored or returned as raw PKCS#8. */
+    @Column(name = "private_key_enc", columnDefinition = "text")
+    private String privateKeyEnc;
+
+    @Column(name = "key_algorithm", length = 20)
+    private String keyAlgorithm;
+
+    @Column(name = "key_generated_at")
+    private Instant keyGeneratedAt;
 }

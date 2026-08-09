@@ -79,14 +79,13 @@ data since there isn't any to log.
 
 ### 2. Public institution directory
 - Table: Name | Ministry | Status
-- **⚠️ Resolve before building:** the wireframe caption says
-  "pending/rejected/revoked institutions are not listed here" while also
-  showing a dimmed `SUSPENDED` row in the same mockup — these two
-  statements agree (only 3 of 5 statuses are excluded, suspended is
-  meant to be visible), but it's an easy detail to implement wrong as
-  "only show APPROVED." Build it as APPROVED + SUSPENDED (dimmed),
-  excluding PENDING/REJECTED/REVOKED, and flag to the team if that's not
-  actually the intended behavior.
+- **Resolved (confirmed by Optim):** list `APPROVED` + `SUSPENDED`,
+  exclude `PENDING` / `REJECTED` / `REVOKED`. `SUSPENDED` rows are shown
+  dimmed / visually distinguished as a warning, not hidden. This matches
+  the wireframe caption ("pending/rejected/revoked institutions are not
+  listed here" — only 3 of 5 statuses excluded) and the dimmed
+  `SUSPENDED` row in the same mockup. Easy to implement wrong as "only
+  show APPROVED" — don't.
 
 ### 3. Single-credential result — Verified
 - Green "✓ Verified" tag, credential title, "Issued to: [name]"

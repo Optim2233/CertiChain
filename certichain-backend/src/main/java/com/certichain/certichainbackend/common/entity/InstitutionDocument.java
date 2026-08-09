@@ -25,7 +25,8 @@ public class InstitutionDocument {
     @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @Lob
+    // No @Lob: on Postgres it makes Hibernate write a large-object OID (bigint) instead of
+    // inline bytea, which the bytea column rejects outright.
     @Column(name = "file_data", columnDefinition = "bytea", nullable = false)
     private byte[] fileData;
 
