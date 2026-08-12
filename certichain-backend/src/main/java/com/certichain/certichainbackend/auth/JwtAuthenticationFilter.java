@@ -23,10 +23,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                      FilterChain filterChain) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
+        String token = null;
+        
+        // Check for token in cookies first (cookie-based auth)
+        if (request.getCookies() != null) {
+            for (var cookie : request.getCookies()) {
+                if ("jwt".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        
+        // Fallback to Authorization header for backwards compatibility
+        if (token == null) {
+            String header = request.getHeader("Authorization");
+            if (header != null && header.startsWith("Bearer ")) {
+                token = header.substring(7);
+            }
+        }
+        
+        if (token != null) {
             try {
-                var claims = jwtService.parse(header.substring(7));
+                var claims = jwtService.parse(token);
                 String role = claims.get("role", String.class);
                 var authToken = new UsernamePasswordAuthenticationToken(
                         claims.getSubject(), null,
