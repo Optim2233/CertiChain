@@ -35,5 +35,7 @@ export function usePublicInstitutions() {
   return useQuery({
     queryKey: ['verify-institutions'],
     queryFn: () => verifierService.getPublicInstitutions(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }

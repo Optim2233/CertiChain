@@ -8,6 +8,8 @@ export function useInstitutions(status: InstitutionStatusFilter, page = 0, size 
   return useQuery({
     queryKey: ['institutions', status, page, size],
     queryFn: () => accreditationService.listInstitutions(status, page, size),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
@@ -16,6 +18,8 @@ export function useInstitution(id: string) {
     queryKey: ['institution', id],
     queryFn: () => accreditationService.getInstitution(id),
     enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
@@ -23,6 +27,8 @@ export function useAuditLog(institutionId: string | null, page = 0, size = 20) {
   return useQuery({
     queryKey: ['audit-log', institutionId, page, size],
     queryFn: () => accreditationService.getAuditLog(institutionId, page, size),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 

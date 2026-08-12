@@ -15,6 +15,8 @@ export function useInstitutionMe() {
       setMe(data);
       return data;
     },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -22,6 +24,8 @@ export function useCredentials(page = 0, size = 20) {
   return useQuery({
     queryKey: ['institution-credentials', page, size],
     queryFn: () => institutionService.listCredentials(page, size),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
@@ -29,6 +33,8 @@ export function useDisputes() {
   return useQuery({
     queryKey: ['institution-disputes'],
     queryFn: () => institutionService.listDisputes(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 

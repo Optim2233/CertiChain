@@ -19,6 +19,8 @@ export function useMe() {
     },
     enabled: !isAuthenticated,
     retry: false,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
