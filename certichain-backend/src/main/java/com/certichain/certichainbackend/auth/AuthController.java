@@ -1,52 +1,84 @@
 package com.certichain.certichainbackend.auth;
 
-import com.certichain.certichainbackend.common.entity.User;
-import com.certichain.certichainbackend.common.exception.ValidationException;
-import com.certichain.certichainbackend.common.repository.UserRepository;
+import com.certichain.certichainbackend.common.enums.Role;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
-/**
- * Login for all three authenticated roles. Verifier needs no account at all, so there is
- * deliberately no verifier branch here.
- *
- * ponytail: no service interface - one implementation, and the whole thing is a lookup plus
- * a hash comparison. Split it out if login ever grows real logic (lockout, MFA, refresh).
- */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final AuthService authService;
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        String password = body.get("password");
-        if (email == null || email.isBlank() || password == null || password.isBlank()) {
-            throw new ValidationException("email and password are required");
-        }
-
-        // Same error for "no such user" and "wrong password" - never reveal which.
-        User user = userRepository.findByEmail(email)
-                .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()))
-                .orElseThrow(() -> new ValidationException("Invalid email or password"));
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", jwtService.issue(
-                user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId()));
-        response.put("role", user.getRole().name());
-        response.put("institutionId", user.getInstitutionId());
-        return response;
+    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+        var result = authService.authenticate(request.email(), request.password());
+        
+        String token = jwtService.issue(result.userId(), result.email(), result.role(), result.institutionId());
+        
+        // Set JWT in HTTP-only cookie
+        var cookie = new jakarta.servlet.http.Cookie("jwt", token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // Set to true in production with HTTPS
+        cookie.setPath("/");
+        cookie.setMaxAge(12 * 60 * 60); // 12 hours
+        response.addCookie(cookie);
+        
+        return ResponseEntity.ok(Map.of("message", "Login successful"));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        // Clear the JWT cookie
+        var cookie = new jakarta.servlet.http.Cookie("jwt", "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // Expire immediately
+        response.addCookie(cookie);
+        
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<?> signup(@RequestBody SignupRequest request, HttpServletResponse response) {
+        var result = authService.signup(request.email(), request.password(), request.role(), request.institutionId());
+        
+        // Auto-login: set JWT cookie
+        String token = jwtService.issue(result.userId(), result.email(), result.role(), result.institutionId());
+        
+        var cookie = new jakarta.servlet.http.Cookie("jwt", token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false);
+        cookie.setPath("/");
+        cookie.setMaxAge(12 * 60 * 60); // 12 hours
+        response.addCookie(cookie);
+        
+        return ResponseEntity.ok(Map.of("message", "Signup successful", "userId", result.userId()));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthService.UserResponse> me() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID userId = UUID.fromString(auth.getName());
+        return ResponseEntity.ok(authService.findByUserId(userId));
+    }
+
+    public record LoginRequest(String email, String password) {}
+    
+    public record SignupRequest(String email, String password, Role role, UUID institutionId) {}
 }
