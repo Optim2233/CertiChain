@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="CertichainBackendApplication" type="Application" factoryName="Application">
+    <option name="ALTERNATIVE_JRE_PATH" value="26" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <option name="MAIN_CLASS_NAME" value="com.certichain.certichainbackend.CertichainBackendApplication" />
+    <module name="certichain-backend" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/certichain-backend" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

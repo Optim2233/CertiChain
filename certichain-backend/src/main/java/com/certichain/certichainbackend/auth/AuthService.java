@@ -3,6 +3,7 @@ package com.certichain.certichainbackend.auth;
 import com.certichain.certichainbackend.common.entity.User;
 import com.certichain.certichainbackend.common.enums.Role;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
+import com.certichain.certichainbackend.common.exception.ValidationException;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,13 +20,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     public AuthResult authenticate(String email, String password) {
+        // Same error for "no such user" and "wrong password" - never reveal which.
         var user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new RuntimeException("Invalid password");
-        }
-        
+                .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()))
+                .orElseThrow(() -> new ValidationException("Invalid email or password"));
+
         return new AuthResult(user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId());
     }
 

@@ -37,8 +37,9 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(12 * 60 * 60); // 12 hours
         response.addCookie(cookie);
-        
-        return ResponseEntity.ok(Map.of("message", "Login successful"));
+
+        return ResponseEntity.ok(new AuthService.UserResponse(
+                result.userId(), result.email(), result.role(), result.institutionId()));
     }
 
     @PostMapping("/logout")
@@ -67,8 +68,9 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(12 * 60 * 60); // 12 hours
         response.addCookie(cookie);
-        
-        return ResponseEntity.ok(Map.of("message", "Signup successful", "userId", result.userId()));
+
+        return ResponseEntity.ok(new AuthService.UserResponse(
+                result.userId(), result.email(), result.role(), result.institutionId()));
     }
 
     @GetMapping("/me")

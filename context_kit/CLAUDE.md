@@ -233,3 +233,309 @@ for.
   approved/rejected, suspended-institution blocked state, revocation
   confirmation with required reason, audit log table, graduate wallet with
   share creation, verifier result states including invalid/not-found).
+
+# Global rules
+
+- Do Not Add Co-Authored Message.
+
+## Git Commit Rules
+
+Prefix commit messages with one of:
+1. **feat** - for new features added
+2. **fix** - for fixing or editing existing files
+3. **refactor** - for refactoring the codebase such as folder structure
+4. **docs** - for documentation changes (README.md and swagger docs)
+5. **test** - for adding or editing test cases
+6. **chore** - for other changes that don't modify src or test files (dependencies, build scripts, etc.)
+7. **style** - for changing and fixing the layout css
+
+List the features/fixes included in the commit message body as `-` bullet points, e.g.:
+
+```
+feat: add terms and CEO pages
+
+- add /terms page
+- correct footer link
+```
+
+## Coding Rules
+
+- Write Human Style with clean code and nice format. 
+- TypeScript/JavaScript strict — no `any` unless truly unavoidable
+- No comments unless the user explicitly asks
+- No emojis in code or output
+- No new dependencies unless the user explicitly approves
+- Follow existing patterns — check neighboring files before writing new code
+- Concise output — short answers, no preamble, no "Here is..." prefixes
+- Security first — never log or commit secrets, API keys, or tokens
+- Verify before push — run lint/typecheck if available
+- Search first — use grep/glob to understand existing code before writing
+- Read before edit — always read the file before editing
+- Edit existing files — never create new files unless required
+- Match style — mimic the codebase's conventions, imports, and patterns
+
+## Folder Structure
+
+Adapt to the project's actual conventions. Common patterns by project type:
+
+### Flat Structure (by type)
+
+```
+project/
+├── src/
+│   ├── components/        # All UI components
+│   ├── hooks/             # All custom hooks
+│   ├── services/          # All API/service calls
+│   ├── store/             # All state management
+│   ├── types/             # All type definitions
+│   ├── utils/             # All utility functions
+│   ├── lib/               # Shared libraries
+│   ├── config/            # App configuration, env
+│   ├── pages/             # Route-level components
+│   ├── styles/            # Global styles
+│   └── index.ts
+├── public/
+├── prisma/
+├── scripts/
+├── .env.example
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+**Backend (flat):**
+
+```
+server/
+├── src/
+│   ├── controllers/       # All route handlers
+│   ├── services/          # All business logic
+│   ├── routes/            # All route definitions
+│   ├── middlewares/       # Auth, rate limit, errors
+│   ├── models/            # DB models/schemas
+│   ├── utils/             # Utilities
+│   ├── lib/               # DB, Redis, LLM clients
+│   ├── types/             # Shared types
+│   ├── tools/             # External tool integrations
+│   └── index.ts
+├── prisma/schema/
+└── docker-compose.yml
+```
+
+### React.js (Feature-based)
+
+```
+src/
+├── features/                    # All feature modules live here
+│   └── feature-name/            # Each feature is a self-contained domain
+│       ├── components/          # UI components specific to this feature (navbar, footer, etc.)
+│       ├── hooks/                # Custom hooks specific to this feature for tanstack
+│       ├── store/                # Zustand state management for this feature
+│       ├── api/                  # API calls and external integrations
+│       ├── types/                # TypeScript types/interfaces for this feature
+│       └── index.ts              # Barrel export - public API of the feature
+│
+├── shared/                      # Code shared across multiple features
+│   ├── components/
+│   │   ├── ui/                  # Reusable UI primitives (buttons, inputs, dialogs)
+│   │   └── layout/               # Layout wrappers (sidebar, header, main layout)
+│   ├── hooks/                    # Shared custom hooks (useMobile, useDebounce)
+│   ├── lib/                      # Utility functions, helpers, API configurations
+│   ├── types/                    # Global TypeScript types used across features
+│   └── config/                   # App-wide config (services, providers, env)
+│
+├── pages/                       # Route-level components (thin wrappers only)
+├── App.tsx                      # Root component, route definitions
+├── main.tsx                     # Entry point, mounts React app
+└── index.css                    # Global styles, Tailwind imports
+```
+
+### Next.js (App Router — Feature-based)
+
+```
+project/
+├── app/                              # Next.js App Router
+│   ├── (routes)/                     # Route groups (optional)
+│   │   └── feature-name/
+│   │       ├── page.tsx              # Page component (renders UI)
+│   │       ├── layout.tsx            # Layout wrapper (shared UI for route)
+│   │       ├── loading.tsx           # Loading UI (suspense fallback)
+│   │       ├── error.tsx             # Error boundary (error UI)
+│   │       └── not-found.tsx         # 404 page
+│   ├── api/                          # API routes (ask before writing backend in Next.js)
+│   │   └── feature-name/
+│   │       └── route.ts              # GET, POST, PUT, DELETE handlers
+│   ├── layout.tsx                    # Root layout (html, body, providers)
+│   ├── page.tsx                      # Home page (/)
+│   ├── globals.css                   # Global styles, Tailwind imports
+│   └── not-found.tsx                 # Global 404 page
+│
+├── src/
+│   ├── features/                     # Feature modules
+│   │   └── feature-name/
+│   │       ├── components/           # Feature UI components
+│   │       ├── hooks/                # Feature custom hooks for tanstack
+│   │       ├── services/             # Data fetching, API calls
+│   │       ├── store/                # Client state (Zustand)
+│   │       ├── types/                # Feature TypeScript types
+│   │       ├── utils/                # Feature helper functions
+│   │       └── index.ts              # Barrel export
+│   │
+│   ├── shared/                       # Cross-feature shared
+│   │   ├── components/               # Shared UI (shadcn, etc.)
+│   │   ├── hooks/                    # Shared hooks
+│   │   ├── lib/                      # Utilities, helpers
+│   │   ├── types/                    # Shared types
+│   │   └── config/                   # App config
+│   │
+│   └── middleware.ts                 # Auth, redirects, request middleware
+│
+├── public/                           # Static assets (images, icons)
+├── prisma/                           # Database schema (ask before writing backend in Next.js)
+├── next.config.ts                    # Next.js config
+├── tailwind.config.ts                # Tailwind config
+├── tsconfig.json                     # TypeScript config
+├── .env.example                      # Environment variables template
+└── package.json                      # Dependencies, scripts
+```
+
+### Next.js Rules
+
+- Server Components by default — add `'use client'` only when needed (interactivity, hooks, browser APIs)
+- Server Actions for mutations — put in `actions/` within the feature
+- Data fetching in Server Components — use `fetch` or server-side libs directly
+- API Routes for external-facing endpoints — prefer Server Actions for internal mutations
+- Route Groups `(name)` for layout organization — no URL impact
+- Loading/error states — use `loading.tsx` and `error.tsx` per route segment
+- Middleware for auth/redirects — runs on every request, keep fast
+- Colocation — keep files related to a route in the same folder (page, layout, loading, error)
+
+### Node.js + Express Backend (API Server — Feature-based)
+
+```
+server/
+├── src/
+│   ├── modules/                   # Feature modules
+│   │   └── feature-name/
+│   │       ├── feature.controller.ts
+│   │       ├── feature.service.ts
+│   │       ├── feature.route.ts
+│   │       ├── feature.validation.ts
+│   │       ├── feature.types.ts
+│   │       └── feature.test.ts
+│   ├── shared/                    # Cross-cutting concerns
+│   │   ├── middlewares/           # Auth, rate limit, errors
+│   │   ├── lib/                   # DB, Redis, LLM clients
+│   │   ├── types/                 # Shared types
+│   │   └── utils/                 # Utilities
+│   ├── tools/                     # External tool integrations
+│   ├── uploads/                   # File handling
+│   └── index.ts
+├── prisma/
+│   └── schema/                    # Split by domain
+└── docker-compose.yml
+```
+
+### Desktop App (Electron + React — Feature-based)
+
+```
+app/
+├── src/
+│   ├── features/                  # Feature modules
+│   │   └── feature-name/
+│   │       ├── components/
+│   │       ├── hooks/
+│   │       ├── services/
+│   │       ├── store/
+│   │       └── types/
+│   ├── shared/                    # Shared across features
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   └── config/
+│   ├── pages/                     # Route components (thin wrappers)
+│   └── index.ts
+├── electron/
+│   ├── Agent/                     # Agent orchestration
+│   ├── Ipc/                       # IPC handlers
+│   ├── tools/                     # Tool implementations
+│   ├── preload.ts
+│   └── main.ts
+└── vite.config.ts
+```
+
+### Feature Rules
+
+- Each feature is self-contained — no importing from other features' internals
+- Public API via index.ts — only expose what other features need
+- Shared = truly shared — used by 2+ features, not just one
+- Pages are thin — just layout + feature composition, no business logic
+- Types live with their feature — unless used across multiple features
+
+### Naming Conventions
+
+| Type | Convention | Example |
+|------|-----------|---------|
+| Feature folder | kebab-case | `user-profile/` |
+| Components | PascalCase | `UserCard.tsx` |
+| Hooks | `use` prefix | `useAuth.ts` |
+| Stores | `*store.ts` | `authstore.ts` |
+| Services | `*service.ts` | `serviceauth.ts` |
+| Utils | camelCase | `formatDate.ts` |
+| Types | PascalCase interfaces | `UserProfile` |
+| Barrel export | `index.ts` | `export { useAuth } from "./hooks/useAuth"` |
+
+### PHP (Backend/Frontend split)
+
+```
+project/
+├── backend/                 # Isolated backend logic
+│   ├── config/               # DB connections
+│   ├── controllers/          # Request handling
+│   ├── models/               # Database models
+│   └── index.php             # API entry point (e.g. localhost/<foldername>/backend/)
+└── frontend/                 # Isolated frontend UI
+    ├── css/
+    ├── js/                    # Calls the backend via Fetch/Axios
+    └── index.html             # Pure HTML file (no PHP allowed here)
+```
+
+- `backend/` and `frontend/` are fully isolated — frontend never `require`s PHP directly, only calls `backend/` over HTTP (Fetch/Axios)
+- `backend/controllers/` handle requests and return JSON; `backend/models/` own all DB queries
+- `backend/config/` holds DB connection + app config (git-ignored or template)
+- `frontend/index.html` and other frontend files are pure HTML/CSS/JS — no PHP allowed in `frontend/`
+- Never commit `backend/config/` credentials — git-ignore them
+
+### PHP (Feature-based)
+
+```
+my-php-app/
+├── config/                  # Global settings
+│   └── db.php               # Database connection
+├── public/                  # Web server root
+│   ├── assets/               # Global static files
+│   │   ├── css/               # Global styles (reset, variables)
+│   │   └── js/                # Global scripts (api client, utilities)
+│   └── index.php             # App entry point / router
+├── src/                     # Core application logic grouped by feature
+│   └── <FeatureName>/        # One folder per feature — name and set of features are project-specific
+│       ├── <Feature>Controller.php
+│       ├── <Feature>Model.php
+│       ├── <feature>-template.php
+│       └── <feature>.css     # Feature-specific style (optional)
+└── templates/                # Global layout pieces
+    ├── header.php
+    └── footer.php
+```
+
+- Features under `src/` are whatever the project actually needs (auth, products, cart, bookings, etc.) — this is not a fixed list, each feature is self-contained: controller + model + templates + feature-specific styles live together
+- `public/` is the only web-server-exposed folder; `public/index.php` routes into `src/`
+- `config/` holds DB connection and global settings, never exposed publicly
+- `templates/` holds only truly global layout pieces (header/footer), not feature-specific markup
+- Never commit `config/db.php` credentials — git-ignore them
+
+## When Stuck
+
+- Check the project README or docs
+- Search for similar patterns in the codebase
+- Ask the user for clarification rather than guessing

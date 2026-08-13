@@ -68,10 +68,10 @@ public class VerifierServiceImpl implements VerifierService {
         try {
             JsonNode root = new ObjectMapper().readTree(file.getBytes());
             JsonNode idNode = root.path("credentialId");
-            if (idNode.isMissingNode() || idNode.asText().isBlank()) {
+            if (idNode.isMissingNode() || idNode.asString().isBlank()) {
                 return notFound();
             }
-            return verifyById(UUID.fromString(idNode.asText()));
+            return verifyById(UUID.fromString(idNode.asString()));
         } catch (Exception ex) {
             return notFound();
         }

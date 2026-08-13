@@ -5,10 +5,18 @@ import { apiClient } from '@/shared/config/axioconfig';
 import type { BatchIssueResult, CredentialFieldInput } from '../types/types';
 
 export const institutionService = {
-  async applyInstitution(name: string, ministry: string, documents: File[]) {
+  async applyInstitution(
+    name: string,
+    ministry: string,
+    email: string,
+    password: string,
+    documents: File[]
+  ) {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('ministry', ministry);
+    formData.append('email', email);
+    formData.append('password', password);
     documents.forEach((doc) => formData.append('documents', doc));
     return apiClient.postMultipart<Institution>('/api/institution/apply', formData);
   },

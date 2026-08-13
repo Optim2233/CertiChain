@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PROTECTED_PATHS = ['/dashboard', '/aa', '/institution', '/graduate'];
+const PROTECTED_PATHS = ['/authority', '/institution', '/graduate'];
 
-const AUTH_PATHS = ['/login', '/signup'];
+const AUTH_PATHS = ['/login', '/register'];
 
 function matches(pathname: string, prefixes: string[]) {
   return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -20,7 +20,9 @@ export function proxy(request: NextRequest) {
   }
 
   if (matches(pathname, AUTH_PATHS) && hasJwtCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    // Role-specific home is decided client-side (useMe); '/' is a safe
+    // redirect target that doesn't require decoding the httpOnly cookie here.
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();

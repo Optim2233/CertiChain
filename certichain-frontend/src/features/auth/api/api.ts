@@ -3,7 +3,7 @@ import type { AuthMessage, LoginInput, SignupInput, UserResponse } from '../type
 
 export const authService = {
   async login(input: LoginInput) {
-    return apiClient.post<AuthMessage>('/api/auth/login', input);
+    return apiClient.post<UserResponse>('/api/auth/login', input);
   },
 
   async logout() {
@@ -11,7 +11,7 @@ export const authService = {
   },
 
   async signup(input: SignupInput) {
-    return apiClient.post<AuthMessage>('/api/auth/signup', input);
+    return apiClient.post<UserResponse>('/api/auth/signup', input);
   },
 
   async getMe() {

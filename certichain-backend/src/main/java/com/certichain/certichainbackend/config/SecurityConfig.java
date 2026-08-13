@@ -48,12 +48,14 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ponytail: configurable CORS origins for dev and production
+    // ponytail: any localhost/127.0.0.1 port is allowed so a stray process
+    // squatting on 3000 doesn't silently break CORS - tighten to a fixed
+    // port (or an env-driven allowlist) before deploying past local dev.
     private UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
+        config.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
             "https://certichain-frontend.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

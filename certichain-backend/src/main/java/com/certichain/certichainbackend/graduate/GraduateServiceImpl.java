@@ -41,6 +41,8 @@ public class GraduateServiceImpl implements GraduateService {
     private final ShareRepository shareRepository;
     private final ShareFieldSelectionRepository shareFieldSelectionRepository;
     private final DisputeFlagRepository disputeFlagRepository;
+    // ponytail: unused for now - wire this in once graduate actions (flag
+    // filed, share created/revoked) need an audit trail. Kept, not dead code.
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;

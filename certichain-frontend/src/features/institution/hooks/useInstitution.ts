@@ -40,8 +40,19 @@ export function useDisputes() {
 
 export function useApplyInstitution() {
   return useMutation({
-    mutationFn: ({ name, ministry, documents }: { name: string; ministry: string; documents: File[] }) =>
-      institutionService.applyInstitution(name, ministry, documents),
+    mutationFn: ({
+      name,
+      ministry,
+      email,
+      password,
+      documents,
+    }: {
+      name: string;
+      ministry: string;
+      email: string;
+      password: string;
+      documents: File[];
+    }) => institutionService.applyInstitution(name, ministry, email, password, documents),
   });
 }
 
