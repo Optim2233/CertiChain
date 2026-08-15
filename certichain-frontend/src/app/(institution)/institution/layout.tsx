@@ -1,4 +1,5 @@
 import { PortalSidebar } from "@/shared/components/layout/portal-sidebar"
+import { RequireAuth } from "@/shared/hooks/useRequireAuth"
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/institution" },
@@ -11,7 +12,9 @@ export default function InstitutionLayout({ children }: { children: React.ReactN
   return (
     <div className="flex flex-1">
       <PortalSidebar title="Institution" items={NAV_ITEMS} />
-      <div className="flex-1">{children}</div>
+      <div className="flex-1">
+        <RequireAuth>{children}</RequireAuth>
+      </div>
     </div>
   )
 }

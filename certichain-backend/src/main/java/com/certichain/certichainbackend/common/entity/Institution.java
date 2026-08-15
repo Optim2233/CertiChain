@@ -1,6 +1,7 @@
 package com.certichain.certichainbackend.common.entity;
 
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -43,7 +44,14 @@ public class Institution {
     @Column(name = "public_key", columnDefinition = "text")
     private String publicKey;
 
-    /** Encrypted private key — never stored or returned as raw PKCS#8. */
+    /**
+     * Encrypted private key — never stored as raw PKCS#8, and never
+     * serialized out over HTTP either: every endpoint that returns
+     * Institution directly (including the unauthenticated
+     * /api/verify/institutions directory) would otherwise leak this to
+     * whoever called it. Backend-internal use only (signing service).
+     */
+    @JsonIgnore
     @Column(name = "private_key_enc", columnDefinition = "text")
     private String privateKeyEnc;
 

@@ -22,9 +22,9 @@ export function PortalSidebar({
   const logout = useLogout()
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col justify-between border-r px-3 py-4">
+    <aside className="bg-sidebar text-sidebar-foreground flex w-64 shrink-0 flex-col justify-between px-3 py-4">
       <div>
-        <div className="px-2 pb-4 text-sm font-semibold">{title}</div>
+        <div className="px-2 pb-4 font-heading text-sm font-bold">{title}</div>
         <nav className="flex flex-col gap-1">
           {items.map((item) => {
             const active = pathname === item.href
@@ -33,10 +33,10 @@ export function PortalSidebar({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md px-2 py-1.5 text-sm transition-colors",
+                  "rounded px-2 py-1.5 text-sm transition-colors border-l-2",
                   active
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-sidebar-accent border-sidebar-primary text-white"
+                    : "border-transparent text-white/70 hover:bg-sidebar-accent hover:text-white"
                 )}
               >
                 {item.label}
@@ -48,10 +48,11 @@ export function PortalSidebar({
       <Button
         variant="ghost"
         size="sm"
-        className="justify-start"
+        className="mb-2 justify-start gap-1.5 text-white/70 hover:bg-sidebar-accent hover:text-white"
         onClick={() => logout.mutate()}
         disabled={logout.isPending}
       >
+        <span className="material-symbols-outlined text-base leading-none">logout</span>
         Log out
       </Button>
     </aside>

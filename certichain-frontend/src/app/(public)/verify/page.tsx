@@ -18,15 +18,18 @@ export default function VerifyLandingPage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-1 flex-col justify-center gap-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Verify a credential</h1>
-        <p className="text-muted-foreground text-sm">
+      <div className="text-center">
+        <h1 className="font-heading text-2xl font-bold">Verify a credential</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
           No account required. Enter a certificate ID, upload a file, or open
           a graduate&apos;s shared link.
         </p>
       </div>
 
-      <form onSubmit={handleLookup} className="flex flex-col gap-1.5">
+      <form
+        onSubmit={handleLookup}
+        className="border-border bg-card flex flex-col gap-1.5 rounded-lg border p-6 shadow-[0_8px_30px_rgba(42,77,215,0.06)]"
+      >
         <Label htmlFor="certificate-id">Certificate ID</Label>
         <div className="flex gap-2">
           <Input
@@ -40,7 +43,7 @@ export default function VerifyLandingPage() {
 
       {/* TODO: file-upload verification (POST /api/verify/file) */}
 
-      <Link href="/institutions" className="text-primary text-sm underline underline-offset-4">
+      <Link href="/institutions" className="text-primary text-center text-sm underline underline-offset-4">
         Browse accredited institutions →
       </Link>
     </div>

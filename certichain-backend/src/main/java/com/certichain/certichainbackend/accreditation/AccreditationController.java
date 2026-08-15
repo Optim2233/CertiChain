@@ -1,6 +1,5 @@
 package com.certichain.certichainbackend.accreditation;
 
-import com.certichain.certichainbackend.common.entity.AuditLogEntry;
 import com.certichain.certichainbackend.common.entity.Institution;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -62,7 +61,7 @@ public class AccreditationController {
     }
 
     @GetMapping("/audit-log")
-    public Page<AuditLogEntry> auditLog(
+    public Page<AuditLogEntryResponse> auditLog(
             @RequestParam(required = false) UUID institutionId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {

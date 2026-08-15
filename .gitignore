@@ -3,3 +3,5 @@ graphify-out/
 
 # Claude Code session state
 .claude/
+.audit/
+certichain-frontend/Designs/

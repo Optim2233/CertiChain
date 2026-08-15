@@ -1,4 +1,5 @@
 import { PortalSidebar } from "@/shared/components/layout/portal-sidebar"
+import { RequireAuth } from "@/shared/hooks/useRequireAuth"
 
 const NAV_ITEMS = [
   { label: "Registry", href: "/authority" },
@@ -10,7 +11,9 @@ export default function AuthorityLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex flex-1">
       <PortalSidebar title="Accreditation Authority" items={NAV_ITEMS} />
-      <div className="flex-1">{children}</div>
+      <div className="flex-1">
+        <RequireAuth>{children}</RequireAuth>
+      </div>
     </div>
   )
 }

@@ -18,7 +18,7 @@ export interface Institution {
 export interface AuditLogEntry {
   id: string;
   event: string;
-  actorUserId: string | null;
+  actorEmail: string | null;
   institutionId: string | null;
   credentialId: string | null;
   occurredAt: string;

@@ -2,8 +2,11 @@
 
 import { use } from "react"
 import { useQuery } from "@tanstack/react-query"
+import Link from "next/link"
 import { verifierService } from "@/features/verifier"
 import { StatusBadge } from "@/shared/components/status-badge"
+import { Button } from "@/shared/components/ui/button"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function VerifyResultPage({
   params,
@@ -33,46 +36,87 @@ export default function VerifyResultPage({
       })),
   })
 
-  if (isLoading || !response) return <div className="mx-auto max-w-lg p-6 text-sm">Loading…</div>
+  if (isLoading || !response) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-1 flex-col justify-center gap-4 p-6">
+        <div className="flex flex-col items-center gap-2">
+          <Skeleton className="size-12 rounded-full" />
+          <Skeleton className="h-5 w-40" />
+        </div>
+        <div className="border-border bg-card flex flex-col gap-2 rounded-lg border p-4">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      </div>
+    )
+  }
 
   const data = response.data
 
   if (data.result === "INVALID_NOT_FOUND") {
     return (
-      <div className="mx-auto max-w-lg p-6">
-        <StatusBadge status="invalid" />
-        <h1 className="mt-2 text-lg font-semibold">Invalid / Not Found</h1>
+      <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+        <span className="material-symbols-outlined text-6xl text-destructive">cancel</span>
+        <h1 className="font-heading text-xl font-bold">Invalid / Not Found</h1>
         <p className="text-muted-foreground text-sm">
           No matching certificate, or content doesn&apos;t match its
           signature.
         </p>
+        <Button render={<Link href="/verify">Back to Verification</Link>} />
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-lg p-6">
-      <StatusBadge status={data.result} />
-      <h1 className="mt-2 text-lg font-semibold">{data.credentialTitle}</h1>
-      <p className="text-muted-foreground text-sm">Issued to: {data.issuedTo}</p>
-
-      {data.result === "REVOKED" && (
-        <p className="mt-4 text-sm">
-          This credential was revoked by the issuing institution. Signature
-          was valid; status overrides it.
-        </p>
+    <div className="mx-auto flex max-w-lg flex-1 flex-col justify-center gap-4 p-6">
+      {data.result === "VERIFIED" && (
+        <div className="flex flex-col items-center gap-2 text-center">
+          <span className="material-symbols-outlined text-6xl text-emerald-600">check_circle</span>
+          <h1 className="font-heading text-xl font-bold">Certificate Verified</h1>
+          <p className="text-muted-foreground text-sm">
+            This credential&apos;s signature is valid and its issuer is currently accredited.
+          </p>
+        </div>
       )}
 
-      <div className="mt-4 rounded-lg border p-4 text-sm">
-        <p>Issuer: {data.institutionName}</p>
-        <p>
-          Accreditation status: <StatusBadge status={data.institutionStatus ?? "unknown"} />
-        </p>
-        {data.issuedAt && <p>Issued: {new Date(data.issuedAt).toLocaleDateString()}</p>}
+      {data.result === "REVOKED" && (
+        <div className="flex flex-col items-center gap-2 text-center">
+          <StatusBadge status={data.result} />
+          <h1 className="font-heading text-xl font-bold">{data.credentialTitle}</h1>
+          <p className="text-sm">
+            This credential was revoked by the issuing institution. Signature
+            was valid; status overrides it.
+          </p>
+        </div>
+      )}
+
+      <div className="border-border bg-card rounded-lg border p-4 text-sm shadow-[0_8px_30px_rgba(42,77,215,0.06)]">
+        <dl className="flex flex-col gap-2">
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted-foreground shrink-0">Certificate Holder</dt>
+            <dd>{data.issuedTo ?? "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted-foreground shrink-0">Degree</dt>
+            <dd>{data.credentialTitle ?? "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted-foreground shrink-0">Issue Date</dt>
+            <dd>{data.issuedAt ? new Date(data.issuedAt).toLocaleDateString() : "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted-foreground shrink-0">Issuing Authority</dt>
+            <dd className="flex items-center gap-1.5">
+              {data.institutionName ?? "—"}
+              <StatusBadge status={data.institutionStatus ?? "unknown"} />
+            </dd>
+          </div>
+        </dl>
       </div>
 
       {data.disclosedFields.length > 0 && (
-        <div className="mt-4 text-sm">
+        <div className="text-sm">
           <p className="text-muted-foreground mb-1">
             Only fields the graduate chose to share are shown.
           </p>
