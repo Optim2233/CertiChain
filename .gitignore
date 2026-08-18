@@ -5,3 +5,7 @@ graphify-out/
 .claude/
 .audit/
 certichain-frontend/Designs/
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log

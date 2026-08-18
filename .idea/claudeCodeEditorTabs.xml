@@ -1,23 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="55d5df05-9d9d-4f66-a8ff-14e4ffb474e5" />
+    <option name="activeSessionId" value="325cf7ab-eab6-4c7c-a9f7-2e5bebc57a77" />
     <option name="openSessionIds">
       <list>
         <option value="325cf7ab-eab6-4c7c-a9f7-2e5bebc57a77" />
-        <option value="55d5df05-9d9d-4f66-a8ff-14e4ffb474e5" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
         <entry key="325cf7ab-eab6-4c7c-a9f7-2e5bebc57a77" value="/sessions/86b12508-94eb-4e76-a4ec-585f23bfb096" />
-        <entry key="55d5df05-9d9d-4f66-a8ff-14e4ffb474e5" value="/sessions/new" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
         <entry key="325cf7ab-eab6-4c7c-a9f7-2e5bebc57a77" value="there should be a new branch committed by narihito" />
-        <entry key="55d5df05-9d9d-4f66-a8ff-14e4ffb474e5" value="Claude Code" />
       </map>
     </option>
   </component>
