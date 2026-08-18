@@ -2,7 +2,9 @@ export { accreditationService } from './api/api';
 export {
   useApproveInstitution,
   useAuditLog,
+  useDisputedInstitutionIds,
   useInstitution,
+  useInstitutionDocuments,
   useInstitutions,
   useReinstateInstitution,
   useRejectInstitution,
@@ -15,6 +17,7 @@ export type {
   AccreditationState,
   AuditLogEntry,
   Institution,
+  InstitutionDocument,
   InstitutionStatus,
   InstitutionStatusFilter,
 } from './types/types';

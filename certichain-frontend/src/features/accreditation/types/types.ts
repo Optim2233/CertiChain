@@ -15,6 +15,13 @@ export interface Institution {
   decidedAt: string | null;
 }
 
+export interface InstitutionDocument {
+  id: string;
+  fileName: string;
+  verified: boolean;
+  uploadedAt: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   event: string;

@@ -1,9 +1,13 @@
 export { institutionService } from './api/api';
 export {
   useApplyInstitution,
+  useCredential,
+  useCredentialFields,
   useCredentials,
+  useCredentialSummary,
   useDisputes,
   useDismissDispute,
+  useEditCredential,
   useInstitutionMe,
   useIssueActivityRecord,
   useIssueBatch,
@@ -18,6 +22,7 @@ export type {
   CredentialField,
   CredentialFieldInput,
   CredentialStatus,
+  CredentialSummary,
   CredentialType,
   DisputeFlag,
   DisputeStatus,

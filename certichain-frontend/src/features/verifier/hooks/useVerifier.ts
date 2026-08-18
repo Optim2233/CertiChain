@@ -31,10 +31,25 @@ export function useVerifyShare() {
   });
 }
 
+export function useVerifyBulk() {
+  return useMutation({
+    mutationFn: (file: File) => verifierService.verifyBulk(file),
+  });
+}
+
 export function usePublicInstitutions() {
   return useQuery({
     queryKey: ['verify-institutions'],
     queryFn: () => verifierService.getPublicInstitutions(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+export function useTrustStats() {
+  return useQuery({
+    queryKey: ['verify-trust-stats'],
+    queryFn: () => verifierService.getTrustStats(),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

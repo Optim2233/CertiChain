@@ -20,10 +20,19 @@ export function useInstitutionMe() {
   });
 }
 
-export function useCredentials(page = 0, size = 20) {
+export function useCredentials(status: string | null = null, page = 0, size = 20) {
   return useQuery({
-    queryKey: ['institution-credentials', page, size],
-    queryFn: () => institutionService.listCredentials(page, size),
+    queryKey: ['institution-credentials', status, page, size],
+    queryFn: () => institutionService.listCredentials(status, page, size),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCredentialSummary() {
+  return useQuery({
+    queryKey: ['institution-credential-summary'],
+    queryFn: () => institutionService.getCredentialSummary(),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -45,14 +54,18 @@ export function useApplyInstitution() {
       ministry,
       email,
       password,
+      phone,
+      website,
       documents,
     }: {
       name: string;
       ministry: string;
       email: string;
       password: string;
+      phone: string;
+      website: string;
       documents: File[];
-    }) => institutionService.applyInstitution(name, ministry, email, password, documents),
+    }) => institutionService.applyInstitution(name, ministry, email, password, phone, website, documents),
   });
 }
 
@@ -102,8 +115,44 @@ export function useRevokeCredential() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       institutionService.revokeCredential(id, reason),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential', id] });
+    },
+  });
+}
+
+export function useCredentialFields(id: string) {
+  return useQuery({
+    queryKey: ['institution-credential-fields', id],
+    queryFn: () => institutionService.getCredentialFields(id),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCredential(id: string) {
+  return useQuery({
+    queryKey: ['institution-credential', id],
+    queryFn: () => institutionService.getCredential(id),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useEditCredential() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, fields }: { id: string; fields: CredentialFieldInput[] }) =>
+      institutionService.editCredential(id, fields),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['institution-credential', id] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential-fields', id] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+    },
   });
 }
 
@@ -114,11 +163,13 @@ export function useUpholdDispute() {
       id,
       resolutionNote,
       action,
+      fields,
     }: {
       id: string;
       resolutionNote: string;
       action: string;
-    }) => institutionService.upholdDispute(id, resolutionNote, action),
+      fields?: CredentialFieldInput[];
+    }) => institutionService.upholdDispute(id, resolutionNote, action, fields),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-disputes'] }),
   });

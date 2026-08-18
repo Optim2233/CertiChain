@@ -56,6 +56,13 @@ export function useLogout() {
   });
 }
 
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      authService.changePassword(currentPassword, newPassword),
+  });
+}
+
 export function useSignup() {
   const setSession = useAuthStore((state) => state.setSession);
   const router = useRouter();
