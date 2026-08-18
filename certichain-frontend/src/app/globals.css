@@ -1,160 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@material-symbols/font-400/outlined.css";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-body);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-heading);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-:root {
-  /* Institution & Accreditation Authority palette (shared) — design_handoff_certichain_portals */
-  --background: #f7f9fb;
-  --foreground: #191c1e;
-  --card: #ffffff;
-  --card-foreground: #191c1e;
-  --popover: #ffffff;
-  --popover-foreground: #191c1e;
-  --primary: #0462ba;
-  --primary-foreground: #ffffff;
-  --secondary: #d5e3ff;
-  --secondary-foreground: #02275a;
-  --muted: #f7f9fb;
-  --muted-foreground: #75777f;
-  --accent: #d5e3ff;
-  --accent-foreground: #02275a;
-  --destructive: #c0392b;
-  --border: #c5c6cf;
-  --input: #c5c6cf;
-  --ring: rgba(9, 135, 234, 0.25);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.25rem;
-  --sidebar: #02275a;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #61a1fd;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #34466c;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #34466c;
-  --sidebar-ring: #61a1fd;
-}
-
-/* Verifier Portal — own accent, same neutrals/type. Apply `.portal-verifier`
-   on a route-group layout to scope these overrides (see (public)/verify). */
-.portal-verifier {
-  --background: #f8f9ff;
-  --foreground: #0b1c30;
-  --card: #ffffff;
-  --card-foreground: #0b1c30;
-  --primary: #2a4dd7;
-  --primary-foreground: #ffffff;
-  --secondary: #eef0ff;
-  --secondary-foreground: #2a4dd7;
-  --muted: #f8f9ff;
-  --muted-foreground: #9099b0;
-  --accent: #eef0ff;
-  --accent-foreground: #2a4dd7;
-  --destructive: #ba1a1a;
-  --border: #c4c5d7;
-  --input: #c4c5d7;
-  --ring: rgba(42, 77, 215, 0.2);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@theme {
+  --color-background: #f7f9fb;
+  --color-foreground: #191c1e;
+  --color-card: #ffffff;
+  --color-border: #c5c6cf;
+  --color-muted-foreground: #75777f;
+  --color-primary: #0462ba;
+  --color-primary-foreground: #ffffff;
+  --color-accent: #d5e3ff;
+  --color-accent-foreground: #02275a;
+  --color-destructive: #c0392b;
+  --color-sidebar: #02275a;
+  --color-sidebar-accent: #34466c;
+  --color-sidebar-primary: #61a1fd;
+  --color-parchment: #fbf8f2;
+  --color-seal: #8b2635;
+  --color-card-ink: #0b1220;
+  --color-foil: #c9a85c;
+  --font-heading: "Manrope", sans-serif;
+  --font-sans: "IBM Plex Sans", sans-serif;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
   body {
-    @apply bg-background text-foreground;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
   }
-  html {
-    @apply font-sans;
+
+  a {
+    color: var(--color-primary);
   }
-  h1, h2, h3 {
-    @apply font-heading;
+  a:hover {
+    filter: brightness(0.85);
   }
 }
 
-/* .material-symbols-outlined itself now comes from the self-hosted
-   @material-symbols/font-400 package (imported above) - default size 24px,
-   pages set their own text-size utility to override per context. */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
