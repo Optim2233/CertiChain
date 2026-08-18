@@ -1,6 +1,12 @@
 import type { Page } from '@/shared/types/types';
-import type { AuditLogEntry, Institution } from '@/features/accreditation';
+import type { AuditLogEntry, Institution, InstitutionDocument } from '@/features/accreditation';
 import { apiClient } from '@/shared/config/axioconfig';
+import {
+  rejectInstitutionSchema,
+  requestInfoSchema,
+  revokeInstitutionSchema,
+  suspendInstitutionSchema,
+} from './schemas';
 
 export const accreditationService = {
   async listInstitutions(
@@ -19,6 +25,10 @@ export const accreditationService = {
     return apiClient.get<Institution>(`/api/aa/institutions/${id}`, headers);
   },
 
+  async getDisputedInstitutionIds(headers?: Record<string, string>) {
+    return apiClient.get<string[]>('/api/aa/institutions/disputed-ids', headers);
+  },
+
   async approveInstitution(id: string, headers?: Record<string, string>) {
     return apiClient.post<void>(`/api/aa/institutions/${id}/approve`, {}, headers);
   },
@@ -26,17 +36,25 @@ export const accreditationService = {
   async requestInfo(id: string, note: string, headers?: Record<string, string>) {
     return apiClient.post<void>(
       `/api/aa/institutions/${id}/request-info`,
-      { note },
+      requestInfoSchema.parse({ note }),
       headers
     );
   },
 
   async rejectInstitution(id: string, reason: string, headers?: Record<string, string>) {
-    return apiClient.post<void>(`/api/aa/institutions/${id}/reject`, { reason }, headers);
+    return apiClient.post<void>(
+      `/api/aa/institutions/${id}/reject`,
+      rejectInstitutionSchema.parse({ reason }),
+      headers
+    );
   },
 
   async suspendInstitution(id: string, reason: string, headers?: Record<string, string>) {
-    return apiClient.post<void>(`/api/aa/institutions/${id}/suspend`, { reason }, headers);
+    return apiClient.post<void>(
+      `/api/aa/institutions/${id}/suspend`,
+      suspendInstitutionSchema.parse({ reason }),
+      headers
+    );
   },
 
   async reinstateInstitution(id: string, headers?: Record<string, string>) {
@@ -44,7 +62,15 @@ export const accreditationService = {
   },
 
   async revokeInstitution(id: string, reason: string, headers?: Record<string, string>) {
-    return apiClient.post<void>(`/api/aa/institutions/${id}/revoke`, { reason }, headers);
+    return apiClient.post<void>(
+      `/api/aa/institutions/${id}/revoke`,
+      revokeInstitutionSchema.parse({ reason }),
+      headers
+    );
+  },
+
+  async listDocuments(id: string, headers?: Record<string, string>) {
+    return apiClient.get<InstitutionDocument[]>(`/api/aa/institutions/${id}/documents`, headers);
   },
 
   async getAuditLog(

@@ -77,4 +77,28 @@ public class GraduateController {
     public List<DisputeFlag> credentialFlags(@PathVariable UUID id) {
         return graduateService.getCredentialFlags(id);
     }
+
+    @GetMapping("/disputes/count")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public Map<String, Integer> pendingDisputeCount() {
+        return Map.of("pendingDisputeCount", graduateService.countOpenDisputes());
+    }
+
+    @GetMapping("/disputes")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public List<DisputeFlag> openDisputes() {
+        return graduateService.listOpenDisputes();
+    }
+
+    @GetMapping("/disputes/all")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public List<DisputeFlag> allDisputes() {
+        return graduateService.listAllDisputes();
+    }
+
+    @GetMapping("/verifications/count")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public Map<String, Integer> verificationCount() {
+        return Map.of("totalVerifications", graduateService.countVerifications());
+    }
 }

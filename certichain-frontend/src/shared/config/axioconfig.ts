@@ -57,12 +57,24 @@ export class ApiClient {
     formData: FormData,
     headers?: Record<string, string>
   ): Promise<ApiResponse<T>> {
-    return this.request<T>({
+    // Deliberately bypasses axios here: the instance's default
+    // 'Content-Type: application/json' header survives axios's browser
+    // adapter even when overridden with `undefined`, so it never lets the
+    // browser attach its own multipart boundary - every multipart endpoint
+    // (institution apply, batch issuance) 403s. Native fetch has no such
+    // default and sets the boundary correctly for a FormData body.
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
-      url: endpoint,
+      credentials: 'include',
       headers,
-      data: formData,
+      body: formData,
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => undefined) as { message?: string } | undefined;
+      throw { message: data?.message || response.statusText, status: response.status } satisfies ApiError;
+    }
+    const data = (await response.json().catch(() => undefined)) as T;
+    return { data, status: response.status };
   }
 
   async put<T>(

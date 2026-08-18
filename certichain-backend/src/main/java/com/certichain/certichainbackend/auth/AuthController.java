@@ -80,7 +80,17 @@ public class AuthController {
         return ResponseEntity.ok(authService.findByUserId(userId));
     }
 
+    @PostMapping("/password")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UUID userId = UUID.fromString(auth.getName());
+        authService.changePassword(userId, request.currentPassword(), request.newPassword());
+        return ResponseEntity.ok(Map.of("message", "Password updated"));
+    }
+
     public record LoginRequest(String email, String password) {}
-    
+
     public record SignupRequest(String email, String password, Role role, UUID institutionId) {}
+
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
 }

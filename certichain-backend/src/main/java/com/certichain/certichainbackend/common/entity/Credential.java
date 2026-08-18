@@ -41,6 +41,9 @@ public class Credential {
     @Column(name = "revoke_reason")
     private String revokeReason;
 
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
     @Column(name = "merkle_root", columnDefinition = "text")
     private String merkleRoot;
 

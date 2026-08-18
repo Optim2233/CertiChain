@@ -14,12 +14,14 @@ import com.certichain.certichainbackend.common.enums.ShareScope;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
 import com.certichain.certichainbackend.common.repository.CredentialFieldRepository;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.DisputeFlagRepository;
 import com.certichain.certichainbackend.common.repository.ShareFieldSelectionRepository;
 import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
+import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,6 +43,7 @@ public class GraduateServiceImpl implements GraduateService {
     private final ShareRepository shareRepository;
     private final ShareFieldSelectionRepository shareFieldSelectionRepository;
     private final DisputeFlagRepository disputeFlagRepository;
+    private final AuditLogEntryRepository auditLogEntryRepository;
     // ponytail: unused for now - wire this in once graduate actions (flag
     // filed, share created/revoked) need an audit trail. Kept, not dead code.
     private final AuditLogService auditLogService;
@@ -174,6 +177,49 @@ public class GraduateServiceImpl implements GraduateService {
     public List<DisputeFlag> getCredentialFlags(UUID credentialId) {
         ownCredential(credentialId);
         return disputeFlagRepository.findByCredentialId(credentialId);
+    }
+
+    @Override
+    public int countOpenDisputes() {
+        List<UUID> credentialIds = myCredentialIds();
+        if (credentialIds.isEmpty()) {
+            return 0; // an empty IN () is a SQL error on some drivers
+        }
+        return disputeFlagRepository.countByCredentialIdInAndStatus(credentialIds, DisputeStatus.OPEN);
+    }
+
+    @Override
+    public List<DisputeFlag> listOpenDisputes() {
+        List<UUID> credentialIds = myCredentialIds();
+        if (credentialIds.isEmpty()) {
+            return List.of();
+        }
+        return disputeFlagRepository.findByCredentialIdInAndStatus(credentialIds, DisputeStatus.OPEN);
+    }
+
+    @Override
+    public List<DisputeFlag> listAllDisputes() {
+        List<UUID> credentialIds = myCredentialIds();
+        if (credentialIds.isEmpty()) {
+            return List.of();
+        }
+        return disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds);
+    }
+
+    private List<UUID> myCredentialIds() {
+        return credentialRepository
+                .findByGraduateUserIdOrderByIssuedAtDesc(currentUser.id()).stream()
+                .map(Credential::getId)
+                .toList();
+    }
+
+    @Override
+    public int countVerifications() {
+        List<UUID> credentialIds = myCredentialIds();
+        if (credentialIds.isEmpty()) {
+            return 0;
+        }
+        return auditLogEntryRepository.countByEventAndCredentialIdIn(AuditEvents.VERIFY_EVENT, credentialIds);
     }
 
     /** Without this check any graduate could read or flag any other graduate's credential. */

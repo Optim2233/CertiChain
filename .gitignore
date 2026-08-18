@@ -3,3 +3,9 @@ graphify-out/
 
 # Claude Code session state
 .claude/
+.audit/
+certichain-frontend/Designs/
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log

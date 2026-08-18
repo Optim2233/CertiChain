@@ -15,10 +15,17 @@ export interface Institution {
   decidedAt: string | null;
 }
 
+export interface InstitutionDocument {
+  id: string;
+  fileName: string;
+  verified: boolean;
+  uploadedAt: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   event: string;
-  actorUserId: string | null;
+  actorEmail: string | null;
   institutionId: string | null;
   credentialId: string | null;
   occurredAt: string;

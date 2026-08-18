@@ -3,12 +3,17 @@ package com.certichain.certichainbackend.accreditation;
 import com.certichain.certichainbackend.auth.CurrentUser;
 import com.certichain.certichainbackend.common.entity.AuditLogEntry;
 import com.certichain.certichainbackend.common.entity.Institution;
+import com.certichain.certichainbackend.common.entity.InstitutionDocument;
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.entity.User;
 import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
+import com.certichain.certichainbackend.common.repository.CredentialRepository;
+import com.certichain.certichainbackend.common.repository.InstitutionDocumentRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
+import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,7 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * The trust registry. Every mutation writes an audit row inside the same transaction as the
@@ -33,6 +41,9 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final InstitutionRepository institutionRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final AuditLogService auditLogService;
+    private final UserRepository userRepository;
+    private final InstitutionDocumentRepository institutionDocumentRepository;
+    private final CredentialRepository credentialRepository;
     private final CurrentUser currentUser;
 
     @Override
@@ -42,6 +53,11 @@ public class AccreditationServiceImpl implements AccreditationService {
             return institutionRepository.findAll(pageRequest);
         }
         return institutionRepository.findByStatus(parseStatus(status), pageRequest);
+    }
+
+    @Override
+    public List<UUID> institutionsWithOpenDisputes() {
+        return credentialRepository.findInstitutionIdsWithOpenDisputes();
     }
 
     @Override
@@ -109,12 +125,50 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
-    public Page<AuditLogEntry> auditLog(UUID institutionId, int page, int size) {
+    public Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("occurredAt").descending());
-        if (institutionId == null) {
-            return auditLogEntryRepository.findAll(pageRequest);
+        Page<AuditLogEntry> entries = institutionId == null
+                ? auditLogEntryRepository.findAll(pageRequest)
+                : auditLogEntryRepository.findByInstitutionId(institutionId, pageRequest);
+
+        // A raw UUID in "actor" means nothing to whoever reads the log - batch-resolve
+        // to email in one query rather than N+1 per row.
+        var actorIds = entries.getContent().stream()
+                .map(AuditLogEntry::getActorUserId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<UUID, String> emailsById = userRepository.findAllById(actorIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getEmail));
+
+        return entries.map(entry -> new AuditLogEntryResponse(
+                entry.getId(),
+                entry.getEvent(),
+                emailsById.get(entry.getActorUserId()),
+                entry.getInstitutionId(),
+                entry.getCredentialId(),
+                entry.getOccurredAt()
+        ));
+    }
+
+    @Override
+    public List<InstitutionDocumentResponse> listDocuments(UUID institutionId) {
+        return institutionDocumentRepository.findByInstitutionId(institutionId).stream()
+                .map(d -> new InstitutionDocumentResponse(
+                        d.getId(), d.getFileName(), d.isVerified(), d.getUploadedAt()))
+                .toList();
+    }
+
+    @Override
+    public InstitutionDocument getDocument(UUID institutionId, UUID documentId) {
+        InstitutionDocument document = institutionDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+        // Without this check, any document id would be downloadable regardless of which
+        // institution's review page it was requested from.
+        if (!document.getInstitutionId().equals(institutionId)) {
+            throw new ResourceNotFoundException("Document not found");
         }
-        return auditLogEntryRepository.findByInstitutionId(institutionId, pageRequest);
+        return document;
     }
 
     /**

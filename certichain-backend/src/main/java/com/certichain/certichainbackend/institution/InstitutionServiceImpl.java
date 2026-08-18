@@ -114,9 +114,30 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
-    public Page<Credential> listCredentials(int page, int size) {
-        return credentialRepository.findByInstitutionId(currentUser.institutionId(),
-                PageRequest.of(page, size, Sort.by("issuedAt").descending()));
+    public Page<Credential> listCredentials(String status, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("issuedAt").descending());
+        if (status == null || status.isBlank()) {
+            return credentialRepository.findByInstitutionId(currentUser.institutionId(), pageRequest);
+        }
+        return credentialRepository.findByInstitutionIdAndStatus(
+                currentUser.institutionId(), parseCredentialStatus(status), pageRequest);
+    }
+
+    @Override
+    public CredentialSummary getCredentialSummary() {
+        UUID institutionId = currentUser.institutionId();
+        return new CredentialSummary(
+                credentialRepository.countByInstitutionId(institutionId),
+                credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.REVOKED),
+                credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.PENDING_CLAIM));
+    }
+
+    private CredentialStatus parseCredentialStatus(String status) {
+        try {
+            return CredentialStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException("Unknown status: " + status);
+        }
     }
 
     @Override
@@ -189,8 +210,42 @@ public class InstitutionServiceImpl implements InstitutionService {
         Credential credential = ownCredential(credentialId);
         credential.setStatus(CredentialStatus.REVOKED);
         credential.setRevokeReason(reason);
+        credential.setRevokedAt(Instant.now());
         auditLogService.log("Certificate revoked", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
+    }
+
+    @Override
+    public List<CredentialField> getCredentialFields(UUID credentialId) {
+        ownCredential(credentialId); // authorization check only
+        return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+    }
+
+    @Override
+    public Credential getCredential(UUID credentialId) {
+        return ownCredential(credentialId);
+    }
+
+    @Override
+    @Transactional
+    public Credential editCredential(UUID credentialId, List<Map<String, String>> fields) {
+        Credential credential = ownCredential(credentialId);
+        if (credential.getStatus() == CredentialStatus.REVOKED) {
+            throw new ValidationException("Cannot edit a revoked credential");
+        }
+        if (fields == null || fields.isEmpty()) {
+            throw new ValidationException("At least one field is required");
+        }
+        List<Field> toSign = new ArrayList<>();
+        for (Map<String, String> field : fields) {
+            String fieldName = field.get("name");
+            requireText(fieldName, "field name");
+            toSign.add(new Field(fieldName, field.getOrDefault("value", "")));
+        }
+        resignFields(credential, toSign);
+        auditLogService.log("Certificate edited", currentUser.id(),
+                credential.getInstitutionId(), credential.getId());
+        return credential;
     }
 
     @Override
@@ -207,7 +262,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
-    public void upholdDispute(UUID disputeId, String resolutionNote, String action) {
+    public void upholdDispute(UUID disputeId, String resolutionNote, String action, List<Map<String, String>> fields) {
         requireText(resolutionNote, "resolution_note");
         DisputeFlag dispute = openDispute(disputeId);
         Credential credential = ownCredential(dispute.getCredentialId());
@@ -215,19 +270,27 @@ public class InstitutionServiceImpl implements InstitutionService {
         if ("REVOKE".equalsIgnoreCase(action)) {
             credential.setStatus(CredentialStatus.REVOKED);
             credential.setRevokeReason(resolutionNote);
+            credential.setRevokedAt(Instant.now());
             auditLogService.log("Certificate revoked", currentUser.id(),
                     credential.getInstitutionId(), credential.getId());
         } else if ("EDIT".equalsIgnoreCase(action)) {
-            // ponytail: re-signs the EXISTING field values, because upholdDispute carries no
-            // new values to write. That keeps merkle_root and signature consistent with the
-            // stored fields; add a fields parameter when the edit UI actually exists.
-            List<CredentialField> stored =
-                    credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
-            SignedCredential signed = signingService.signCredential(stored.stream()
-                    .map(f -> new Field(f.getFieldName(), f.getFieldValue()))
-                    .toList(), credential.getInstitutionId());
-            credential.setMerkleRoot(signed.merkleRoot());
-            credential.setSignature(signed.signature());
+            // Corrected values from the resolution UI take priority; falls back to re-signing
+            // the stored values unchanged if the caller sends no fields (keeps old callers working).
+            List<Field> toSign;
+            if (fields != null && !fields.isEmpty()) {
+                toSign = new ArrayList<>();
+                for (Map<String, String> field : fields) {
+                    String fieldName = field.get("name");
+                    requireText(fieldName, "field name");
+                    toSign.add(new Field(fieldName, field.getOrDefault("value", "")));
+                }
+            } else {
+                toSign = credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId()).stream()
+                        .map(f -> new Field(f.getFieldName(), f.getFieldValue()))
+                        .toList();
+            }
+
+            resignFields(credential, toSign);
         } else {
             throw new ValidationException("action must be EDIT or REVOKE");
         }
@@ -252,6 +315,23 @@ public class InstitutionServiceImpl implements InstitutionService {
         dispute.setResolvedAt(Instant.now());
         auditLogService.log("Dispute dismissed", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
+    }
+
+    /** Re-signs a credential's field set and replaces its stored fields with the signed result. */
+    private void resignFields(Credential credential, List<Field> toSign) {
+        SignedCredential signed = signingService.signCredential(toSign, credential.getInstitutionId());
+        credential.setMerkleRoot(signed.merkleRoot());
+        credential.setSignature(signed.signature());
+
+        credentialFieldRepository.deleteByCredentialId(credential.getId());
+        for (SignedCredential.FieldWithIndex field : signed.fields()) {
+            credentialFieldRepository.save(CredentialField.builder()
+                    .credentialId(credential.getId())
+                    .fieldName(field.name())
+                    .fieldValue(field.value())
+                    .merkleIndex(field.merkleIndex())
+                    .build());
+        }
     }
 
     /**

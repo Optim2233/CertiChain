@@ -30,6 +30,12 @@ export interface CredentialFieldInput {
   value: string;
 }
 
+export interface CredentialSummary {
+  total: number;
+  revoked: number;
+  unclaimed: number;
+}
+
 export interface BatchIssueResult {
   row?: number;
   status?: string;

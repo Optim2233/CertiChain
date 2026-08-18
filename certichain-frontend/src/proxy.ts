@@ -10,6 +10,13 @@ function matches(pathname: string, prefixes: string[]) {
 }
 
 export function proxy(request: NextRequest) {
+  // ponytail: route gating disabled in dev so portal pages are browsable
+  // without a real login while reviewing the UI - remove this bypass before
+  // deploying past local dev.
+  if (process.env.NODE_ENV !== 'production') {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
   const hasJwtCookie = request.cookies.has('jwt');
 

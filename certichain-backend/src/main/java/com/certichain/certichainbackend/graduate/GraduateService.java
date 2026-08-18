@@ -18,4 +18,8 @@ public interface GraduateService {
     void revokeShare(UUID shareId);
     DisputeFlag flagCredential(UUID credentialId, String reason);
     List<DisputeFlag> getCredentialFlags(UUID credentialId);
+    int countOpenDisputes();
+    List<DisputeFlag> listOpenDisputes();
+    List<DisputeFlag> listAllDisputes();
+    int countVerifications();
 }

@@ -25,6 +25,11 @@ public class VerifierController {
         return verifierService.verifyByFile(file);
     }
 
+    @PostMapping("/bulk")
+    public List<BulkVerifyRow> verifyBulk(@RequestParam("file") MultipartFile file) {
+        return verifierService.verifyBulk(file);
+    }
+
     @GetMapping("/share/{token}")
     public Object verifyShare(@PathVariable String token) {
         return verifierService.verifyByShareToken(token);
@@ -33,5 +38,10 @@ public class VerifierController {
     @GetMapping("/institutions")
     public List<Institution> institutions() {
         return verifierService.publicInstitutionDirectory();
+    }
+
+    @GetMapping("/stats")
+    public TrustStats stats() {
+        return verifierService.getTrustStats();
     }
 }

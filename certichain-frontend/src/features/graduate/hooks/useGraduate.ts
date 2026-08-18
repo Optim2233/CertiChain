@@ -22,8 +22,19 @@ export function useSignup() {
   );
 
   return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      graduateService.signup(email, password),
+    mutationFn: ({
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+    }: {
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+      phone: string;
+    }) => graduateService.signup(email, password, firstName, lastName, phone),
     onSuccess: () => clearPendingCredentialCount(),
   });
 }
@@ -83,8 +94,11 @@ export function useFlagCredential() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       graduateService.flagCredential(id, reason),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['graduate-credential-flags'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['graduate-credential-flags'] });
+      queryClient.invalidateQueries({ queryKey: ['graduate-open-disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['graduate-all-disputes'] });
+    },
   });
 }
 
@@ -93,6 +107,42 @@ export function useCredentialFlags(id: string) {
     queryKey: ['graduate-credential-flags', id],
     queryFn: () => graduateService.getCredentialFlags(id),
     enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function usePendingDisputeCount() {
+  return useQuery({
+    queryKey: ['graduate-pending-dispute-count'],
+    queryFn: () => graduateService.getPendingDisputeCount(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useOpenDisputes() {
+  return useQuery({
+    queryKey: ['graduate-open-disputes'],
+    queryFn: () => graduateService.getOpenDisputes(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAllDisputes() {
+  return useQuery({
+    queryKey: ['graduate-all-disputes'],
+    queryFn: () => graduateService.getAllDisputes(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useVerificationCount() {
+  return useQuery({
+    queryKey: ['graduate-verification-count'],
+    queryFn: () => graduateService.getVerificationCount(),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });

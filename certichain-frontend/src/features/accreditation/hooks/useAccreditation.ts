@@ -13,11 +13,30 @@ export function useInstitutions(status: InstitutionStatusFilter, page = 0, size 
   });
 }
 
+export function useDisputedInstitutionIds() {
+  return useQuery({
+    queryKey: ['institutions-disputed-ids'],
+    queryFn: () => accreditationService.getDisputedInstitutionIds(),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
 export function useInstitution(id: string) {
   return useQuery({
     queryKey: ['institution', id],
     queryFn: () => accreditationService.getInstitution(id),
     enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInstitutionDocuments(institutionId: string) {
+  return useQuery({
+    queryKey: ['institution-documents', institutionId],
+    queryFn: () => accreditationService.listDocuments(institutionId),
+    enabled: !!institutionId,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -63,7 +82,10 @@ export function useSuspendInstitution() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       accreditationService.suspendInstitution(id, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institutions'] }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
+      queryClient.invalidateQueries({ queryKey: ['institution', id] });
+    },
   });
 }
 
@@ -71,7 +93,10 @@ export function useReinstateInstitution() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => accreditationService.reinstateInstitution(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institutions'] }),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
+      queryClient.invalidateQueries({ queryKey: ['institution', id] });
+    },
   });
 }
 
@@ -80,6 +105,9 @@ export function useRevokeInstitution() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       accreditationService.revokeInstitution(id, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institutions'] }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
+      queryClient.invalidateQueries({ queryKey: ['institution', id] });
+    },
   });
 }

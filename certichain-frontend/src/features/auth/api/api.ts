@@ -1,9 +1,10 @@
 import { apiClient } from '@/shared/config/axioconfig';
 import type { AuthMessage, LoginInput, SignupInput, UserResponse } from '../types/types';
+import { changePasswordSchema, loginSchema, signupSchema } from './schemas';
 
 export const authService = {
   async login(input: LoginInput) {
-    return apiClient.post<UserResponse>('/api/auth/login', input);
+    return apiClient.post<UserResponse>('/api/auth/login', loginSchema.parse(input));
   },
 
   async logout() {
@@ -11,10 +12,17 @@ export const authService = {
   },
 
   async signup(input: SignupInput) {
-    return apiClient.post<UserResponse>('/api/auth/signup', input);
+    return apiClient.post<UserResponse>('/api/auth/signup', signupSchema.parse(input));
   },
 
   async getMe() {
     return apiClient.get<UserResponse>('/api/auth/me');
+  },
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return apiClient.post<{ message: string }>(
+      '/api/auth/password',
+      changePasswordSchema.parse({ currentPassword, newPassword })
+    );
   },
 };

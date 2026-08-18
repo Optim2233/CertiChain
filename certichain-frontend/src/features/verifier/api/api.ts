@@ -1,7 +1,9 @@
 import type { Institution } from '@/features/accreditation';
 import { apiClient } from '@/shared/config/axioconfig';
 import type {
+  BulkVerifyRow,
   ShareVerificationResponse,
+  TrustStats,
   VerificationResponse,
 } from '../types/types';
 
@@ -16,11 +18,21 @@ export const verifierService = {
     return apiClient.postMultipart<VerificationResponse>('/api/verify/file', formData);
   },
 
+  async verifyBulk(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.postMultipart<BulkVerifyRow[]>('/api/verify/bulk', formData);
+  },
+
   async verifyShare(token: string) {
     return apiClient.get<ShareVerificationResponse>(`/api/verify/share/${token}`);
   },
 
   async getPublicInstitutions() {
     return apiClient.get<Institution[]>('/api/verify/institutions');
+  },
+
+  async getTrustStats() {
+    return apiClient.get<TrustStats>('/api/verify/stats');
   },
 };

@@ -9,6 +9,7 @@ export interface Share {
   shareToken: string;
   revoked: boolean;
   createdAt: string;
+  viewCount: number;
 }
 
 export interface ShareInput {
