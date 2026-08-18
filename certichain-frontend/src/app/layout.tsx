@@ -1,43 +1,24 @@
-import type { Metadata } from "next";
-import { Geist_Mono, Manrope, IBM_Plex_Sans } from "next/font/google";
-import "./globals.css";
-import Providers from "./providers";
-
-const manrope = Manrope({
-  variable: "--font-heading",
-  weight: ["700", "800"],
-  subsets: ["latin"],
-});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  variable: "--font-body",
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import type { Metadata } from "next"
+import { Providers } from "./providers"
+import "./globals.css"
 
 export const metadata: Metadata = {
   title: "CertiChain",
-  description: "Academic credential verification, backed by a trust registry and selective disclosure.",
-};
+  description: "Blockchain-verified academic credentials",
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${manrope.variable} ${ibmPlexSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
+    <html lang="en">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+      </head>
+      <body className="flex min-h-screen flex-col antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
-  );
+  )
 }

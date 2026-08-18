@@ -1,105 +1,118 @@
 "use client"
 
 import { useState } from "react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table"
-import { Input } from "@/shared/components/ui/input"
-import { Button } from "@/shared/components/ui/button"
-import { TableSkeleton } from "@/shared/components/table-skeleton"
 import { useAuditLog } from "@/features/accreditation"
 
-const COLUMNS = ["When", "Event", "Actor"]
+const EVENT_COLOR: Record<string, string> = {
+  suspend: "#C0392B",
+  reject: "#C0392B",
+  revoke: "#C0392B",
+}
+
+function eventColor(event: string) {
+  const lower = event.toLowerCase()
+  for (const key in EVENT_COLOR) if (lower.includes(key)) return EVENT_COLOR[key]
+  return "#191c1e"
+}
 
 export default function AuditLogPage() {
-  const [page, setPage] = useState(0)
-  const { data, isLoading } = useAuditLog(null, page)
   const [search, setSearch] = useState("")
-
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <h1 className="mb-4 font-heading text-xl font-bold">Audit log</h1>
-        <TableSkeleton columns={COLUMNS} />
-      </div>
-    )
-  }
-
-  const pageData = data?.data
-  const entries = (pageData?.content ?? []).filter((entry) =>
-    entry.event.toLowerCase().includes(search.toLowerCase())
-  )
+  const [eventFilter, setEventFilter] = useState("")
+  const [filterOpen, setFilterOpen] = useState(false)
+  const { data, isLoading, isError } = useAuditLog(null)
+  const rows = data?.data.content ?? []
+  const eventTypes = Array.from(new Set(rows.map((r) => r.event))).sort()
+  const filtered = rows
+    .filter((r) => !search || r.event.toLowerCase().includes(search.toLowerCase()))
+    .filter((r) => !eventFilter || r.event === eventFilter)
 
   return (
-    <div className="p-6">
-      <h1 className="mb-4 font-heading text-xl font-bold">Audit log</h1>
-      <Input
-        placeholder="Search events…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-3 max-w-xs"
-      />
-      <div className="border-border bg-card overflow-hidden rounded-lg border shadow-[0_1px_2px_rgba(0,0,0,.04)]">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>When</TableHead>
-              <TableHead>Event</TableHead>
-              <TableHead>Actor</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell>{new Date(entry.occurredAt).toLocaleString()}</TableCell>
-                <TableCell>
-                  <div>{entry.event}</div>
-                  {(entry.institutionId || entry.credentialId) && (
-                    <div className="text-muted-foreground text-xs italic">
-                      {entry.institutionId ? `Institution #${entry.institutionId.slice(0, 8)}` : ""}
-                      {entry.institutionId && entry.credentialId ? " · " : ""}
-                      {entry.credentialId ? `Credential #${entry.credentialId.slice(0, 8)}` : ""}
-                    </div>
-                  )}
-                </TableCell>
-                {/* No verifier_id is ever captured - a null actor on a verify
-                    event means "anonymous verifier", not missing data. */}
-                <TableCell>{entry.actorEmail ?? "anonymous verifier"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      {pageData && pageData.totalPages > 1 && (
-        <div className="mt-3 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Page {pageData.number + 1} of {pageData.totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pageData.first}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pageData.last}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
+    <main className="w-full px-6 py-8">
+      <h2 className="font-heading m-0 mb-1 text-[32px] font-bold">Audit Log</h2>
+      <p className="m-0 mb-6 text-sm text-[#44474e]">Chronological record of systemic accreditation actions.</p>
+
+      <div className="mb-6 flex items-center gap-3">
+        <div className="relative flex-1">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#75777f]">search</span>
+          <input
+            type="search"
+            name="audit-log-search"
+            autoComplete="off"
+            placeholder="Search log entries..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded border border-[#c5c6cf] py-2.5 pl-10 pr-3.5 text-sm"
+          />
         </div>
-      )}
-    </div>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setFilterOpen((o) => !o)}
+            className="flex items-center gap-2 rounded border px-4 py-2.5 text-sm font-semibold"
+            style={{
+              borderColor: eventFilter ? "#02275A" : "#c5c6cf",
+              color: eventFilter ? "#02275A" : "#44474e",
+              background: eventFilter ? "#eef2ff" : "#fff",
+            }}
+          >
+            <span className="material-symbols-outlined text-[18px]">filter_list</span>
+            {eventFilter || "Filter"}
+          </button>
+          {filterOpen && (
+            <div className="absolute right-0 top-11 z-10 max-h-72 w-64 overflow-y-auto rounded border border-[#c5c6cf] bg-white shadow-lg">
+              <button
+                type="button"
+                onClick={() => { setEventFilter(""); setFilterOpen(false) }}
+                className="block w-full px-4 py-2.5 text-left text-[13px] hover:bg-[#f7f9fb]"
+                style={{ color: eventFilter ? "#191c1e" : "#02275A", fontWeight: eventFilter ? 400 : 700 }}
+              >
+                All events
+              </button>
+              {eventTypes.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => { setEventFilter(e); setFilterOpen(false) }}
+                  className="block w-full border-t border-[#eef0f3] px-4 py-2.5 text-left text-[13px] hover:bg-[#f7f9fb]"
+                  style={{ color: eventFilter === e ? "#02275A" : "#191c1e", fontWeight: eventFilter === e ? 700 : 400 }}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
+        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "1fr 4fr 2fr", background: "#f2f4f6", borderBottom: "1px solid #c5c6cf" }}>
+          <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">When</span>
+          <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Event</span>
+          <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Actor</span>
+        </div>
+        {isLoading ? (
+          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+        ) : isError ? (
+          <p className="p-6 text-sm text-[#C0392B]">
+            Couldn&apos;t load the audit log — you may be signed in with an account that doesn&apos;t have
+            accreditation-authority access.
+          </p>
+        ) : filtered.length === 0 ? (
+          <p className="p-6 text-sm text-[#75777f]">No log entries.</p>
+        ) : (
+          filtered.map((a) => (
+            <div key={a.id} className="grid items-start gap-4 border-b border-[#c5c6cf] px-6 py-4 last:border-0" style={{ gridTemplateColumns: "1fr 4fr 2fr" }}>
+              <div className="text-[13px]">
+                <span className="font-semibold">{new Date(a.occurredAt).toLocaleDateString()}</span>{" "}
+                <span className="text-[#75777f]">{new Date(a.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              <p className="m-0 text-sm font-bold" style={{ color: eventColor(a.event) }}>{a.event}</p>
+              <p className="m-0 text-[13px] text-[#44474e]">{a.actorEmail ?? a.institutionId ?? "System"}</p>
+            </div>
+          ))
+        )}
+        <div className="px-6 py-3.5 text-xs text-[#44474e]">Rows 1-{filtered.length} of {data?.data.totalElements ?? 0}</div>
+      </div>
+    </main>
   )
 }
