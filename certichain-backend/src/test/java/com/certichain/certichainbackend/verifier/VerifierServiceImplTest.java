@@ -41,7 +41,7 @@ class VerifierServiceImplTest {
 
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
-            null, null, merkleService, auditLogService);
+            null, null, merkleService, auditLogService, null);
 
     private final List<Field> fields = List.of(
             new Field("degree", "BSc Computer Science"),

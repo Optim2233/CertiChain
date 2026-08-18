@@ -30,7 +30,7 @@ class GraduateServiceImplTest {
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
 
     private final GraduateServiceImpl service = new GraduateServiceImpl(
-            userRepository, credentialRepository, null, null, null, null, null,
+            userRepository, credentialRepository, null, null, null, null, null, null,
             passwordEncoder, null);
 
     private Credential pendingCredential(String email) {

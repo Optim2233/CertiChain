@@ -1,13 +1,17 @@
 package com.certichain.certichainbackend.institution;
 
 import com.certichain.certichainbackend.common.entity.Credential;
+import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.Institution;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,9 +41,16 @@ public class InstitutionController {
     @GetMapping("/credentials")
     @PreAuthorize("hasRole('INSTITUTION')")
     public Page<Credential> listCredentials(
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return institutionService.listCredentials(page, size);
+        return institutionService.listCredentials(status, page, size);
+    }
+
+    @GetMapping("/credentials/summary")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public CredentialSummary getCredentialSummary() {
+        return institutionService.getCredentialSummary();
     }
 
     @PostMapping("/credentials")
@@ -56,6 +67,19 @@ public class InstitutionController {
         return institutionService.issueBatch(spreadsheet);
     }
 
+    // A static example, not generated from anything - the batch parser accepts arbitrary
+    // extra columns as credential fields, so there's no fixed schema to derive this from.
+    @GetMapping("/credentials/batch/template")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public ResponseEntity<byte[]> batchTemplate() {
+        String csv = "graduate_email,degree,graduationDate\n"
+                + "student@example.edu,BSc Computer Science,2026-06-01\n";
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"batch-template.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
     @PostMapping("/activity-records")
     @PreAuthorize("hasRole('INSTITUTION')")
     public Credential issueActivityRecord(@RequestBody Map<String, String> body) {
@@ -69,6 +93,26 @@ public class InstitutionController {
         institutionService.revokeCredential(id, body.get("reason"));
     }
 
+    @GetMapping("/credentials/{id}/fields")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public List<CredentialField> getCredentialFields(@PathVariable UUID id) {
+        return institutionService.getCredentialFields(id);
+    }
+
+    @GetMapping("/credentials/{id}")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public Credential getCredential(@PathVariable UUID id) {
+        return institutionService.getCredential(id);
+    }
+
+    @PutMapping("/credentials/{id}")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public Credential editCredential(@PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> fields = (List<Map<String, String>>) body.get("fields");
+        return institutionService.editCredential(id, fields);
+    }
+
     @GetMapping("/disputes")
     @PreAuthorize("hasRole('INSTITUTION')")
     public List<?> listDisputes() {
@@ -77,8 +121,10 @@ public class InstitutionController {
 
     @PostMapping("/disputes/{id}/uphold")
     @PreAuthorize("hasRole('INSTITUTION')")
-    public void upholdDispute(@PathVariable UUID id, @RequestBody Map<String, String> body) {
-        institutionService.upholdDispute(id, body.get("resolution_note"), body.get("action"));
+    public void upholdDispute(@PathVariable UUID id, @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> fields = (List<Map<String, String>>) body.get("fields");
+        institutionService.upholdDispute(id, (String) body.get("resolution_note"), (String) body.get("action"), fields);
     }
 
     @PostMapping("/disputes/{id}/dismiss")

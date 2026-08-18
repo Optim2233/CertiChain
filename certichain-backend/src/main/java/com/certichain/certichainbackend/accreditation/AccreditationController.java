@@ -1,11 +1,14 @@
 package com.certichain.certichainbackend.accreditation;
 
 import com.certichain.certichainbackend.common.entity.Institution;
+import com.certichain.certichainbackend.common.entity.InstitutionDocument;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -28,6 +31,11 @@ public class AccreditationController {
     @GetMapping("/institutions/{id}")
     public Institution getInstitution(@PathVariable UUID id) {
         return accreditationService.getInstitution(id);
+    }
+
+    @GetMapping("/institutions/disputed-ids")
+    public List<UUID> institutionsWithOpenDisputes() {
+        return accreditationService.institutionsWithOpenDisputes();
     }
 
     @PostMapping("/institutions/{id}/approve")
@@ -66,5 +74,18 @@ public class AccreditationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return accreditationService.auditLog(institutionId, page, size);
+    }
+
+    @GetMapping("/institutions/{id}/documents")
+    public List<InstitutionDocumentResponse> listDocuments(@PathVariable UUID id) {
+        return accreditationService.listDocuments(id);
+    }
+
+    @GetMapping("/institutions/{id}/documents/{documentId}")
+    public ResponseEntity<byte[]> downloadDocument(@PathVariable UUID id, @PathVariable UUID documentId) {
+        InstitutionDocument document = accreditationService.getDocument(id, documentId);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + document.getFileName() + "\"")
+                .body(document.getFileData());
     }
 }

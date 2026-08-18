@@ -40,6 +40,10 @@ public class Share {
     @Builder.Default
     private boolean revoked = false;
 
+    @Column(name = "view_count", nullable = false)
+    @Builder.Default
+    private int viewCount = 0;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }

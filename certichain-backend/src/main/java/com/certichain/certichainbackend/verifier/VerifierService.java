@@ -11,4 +11,6 @@ public interface VerifierService {
     VerificationResponse verifyByFile(MultipartFile file);
     Object verifyByShareToken(String token);
     List<Institution> publicInstitutionDirectory();
+    List<BulkVerifyRow> verifyBulk(MultipartFile csv);
+    TrustStats getTrustStats();
 }

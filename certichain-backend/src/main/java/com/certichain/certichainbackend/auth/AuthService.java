@@ -54,6 +54,19 @@ public class AuthService {
         return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId());
     }
 
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new ValidationException("newPassword is required");
+        }
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new ValidationException("Current password is incorrect");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
     public record AuthResult(UUID userId, String email, Role role, UUID institutionId) {}
 
     public record UserResponse(UUID userId, String email, Role role, UUID institutionId) {}

@@ -15,4 +15,6 @@ public interface InstitutionRepository extends JpaRepository<Institution, UUID> 
 
     /** Public directory: APPROVED + SUSPENDED only. */
     List<Institution> findByStatusInOrderByNameAsc(Collection<InstitutionStatus> statuses);
+
+    int countByStatus(InstitutionStatus status);
 }

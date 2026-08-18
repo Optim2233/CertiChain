@@ -9,11 +9,13 @@ import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
 import com.certichain.certichainbackend.common.enums.ShareScope;
 import com.certichain.certichainbackend.common.enums.VerificationResult;
+import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
 import com.certichain.certichainbackend.common.repository.CredentialFieldRepository;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.ShareFieldSelectionRepository;
 import com.certichain.certichainbackend.common.repository.ShareRepository;
+import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
@@ -38,9 +40,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class VerifierServiceImpl implements VerifierService {
 
-    private static final String VERIFY_EVENT =
-            "Certificate verified (view-only, no personal data shown)";
-
     private final CredentialRepository credentialRepository;
     private final CredentialFieldRepository credentialFieldRepository;
     private final InstitutionRepository institutionRepository;
@@ -48,6 +47,7 @@ public class VerifierServiceImpl implements VerifierService {
     private final ShareFieldSelectionRepository shareFieldSelectionRepository;
     private final MerkleService merkleService;
     private final AuditLogService auditLogService;
+    private final AuditLogEntryRepository auditLogEntryRepository;
 
     @Override
     @Transactional
@@ -94,6 +94,9 @@ public class VerifierServiceImpl implements VerifierService {
                     "message", "This share link is no longer active");
         }
 
+        share.setViewCount(share.getViewCount() + 1);
+        shareRepository.save(share);
+
         if (share.getScope() == ShareScope.SINGLE_CREDENTIAL) {
             List<UUID> visibleFieldIds = shareFieldSelectionRepository
                     .findByShareId(share.getId()).stream()
@@ -110,6 +113,39 @@ public class VerifierServiceImpl implements VerifierService {
                 .findByGraduateUserIdOrderByIssuedAtDesc(share.getGraduateUserId()).stream()
                 .map(credential -> evaluate(credential, null))
                 .toList();
+    }
+
+    @Override
+    public List<BulkVerifyRow> verifyBulk(MultipartFile csv) {
+        // ponytail: one certificate ID per non-blank line (optional "certificate_id" header,
+        // skipped if present). No quoting/multi-column support - widen if employers need it.
+        String content;
+        try {
+            content = new String(csv.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception ex) {
+            return List.of();
+        }
+        return content.lines()
+                .map(String::trim)
+                .filter(line -> !line.isBlank())
+                .filter(line -> !line.equalsIgnoreCase("certificate_id"))
+                .map(line -> {
+                    try {
+                        VerificationResponse response = verifyById(UUID.fromString(line));
+                        return new BulkVerifyRow(line, response.result(),
+                                response.credentialTitle(), response.issuedTo());
+                    } catch (IllegalArgumentException ex) {
+                        return new BulkVerifyRow(line, VerificationResult.INVALID_NOT_FOUND, null, null);
+                    }
+                })
+                .toList();
+    }
+
+    @Override
+    public TrustStats getTrustStats() {
+        return new TrustStats(
+                institutionRepository.countByStatus(InstitutionStatus.APPROVED),
+                auditLogEntryRepository.countByEvent(AuditEvents.VERIFY_EVENT));
     }
 
     @Override
@@ -167,7 +203,7 @@ public class VerifierServiceImpl implements VerifierService {
 
         // Every successful lookup is logged against the credential/institution only - there
         // is no verifier identity to record, by design.
-        auditLogService.log(VERIFY_EVENT, null, credential.getInstitutionId(), credential.getId());
+        auditLogService.log(AuditEvents.VERIFY_EVENT, null, credential.getInstitutionId(), credential.getId());
 
         return new VerificationResponse(
                 result,
@@ -176,9 +212,8 @@ public class VerifierServiceImpl implements VerifierService {
                 institutionName,
                 institutionStatus,
                 credential.getIssuedAt(),
-                // ponytail: no revoked_at column exists yet; add one in a migration if the
-                // frontend needs to show the revocation date.
-                null,
+                credential.getRevokedAt(),
+                credential.getRevokeReason(),
                 disclosed,
                 "merkleRoot=" + credential.getMerkleRoot() + "; signature=" + credential.getSignature());
     }
@@ -195,6 +230,6 @@ public class VerifierServiceImpl implements VerifierService {
 
     private static VerificationResponse notFound() {
         return new VerificationResponse(VerificationResult.INVALID_NOT_FOUND,
-                null, null, null, null, null, null, List.of(), null);
+                null, null, null, null, null, null, null, List.of(), null);
     }
 }

@@ -5,7 +5,9 @@ import com.certichain.certichainbackend.common.entity.Institution;
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.InstitutionDocumentRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
+import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import org.junit.jupiter.api.Test;
 
@@ -33,10 +35,12 @@ class AccreditationServiceImplTest {
 
     private final InstitutionRepository institutionRepository = mock(InstitutionRepository.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
+    private final UserRepository userRepository = mock(UserRepository.class);
+    private final InstitutionDocumentRepository institutionDocumentRepository = mock(InstitutionDocumentRepository.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
 
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
-            institutionRepository, null, auditLogService, currentUser);
+            institutionRepository, null, auditLogService, userRepository, institutionDocumentRepository, null, currentUser);
 
     private Institution institutionWith(InstitutionStatus status) {
         Institution institution = Institution.builder()

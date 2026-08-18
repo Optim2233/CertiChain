@@ -12,4 +12,8 @@ public interface DisputeFlagRepository extends JpaRepository<DisputeFlag, UUID> 
     List<DisputeFlag> findByCredentialId(UUID credentialId);
 
     List<DisputeFlag> findByCredentialIdInAndStatus(Collection<UUID> credentialIds, DisputeStatus status);
+
+    List<DisputeFlag> findByCredentialIdInOrderByCreatedAtDesc(Collection<UUID> credentialIds);
+
+    int countByCredentialIdInAndStatus(Collection<UUID> credentialIds, DisputeStatus status);
 }

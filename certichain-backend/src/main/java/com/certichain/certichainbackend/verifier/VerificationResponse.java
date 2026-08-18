@@ -13,6 +13,7 @@ public record VerificationResponse(
         String institutionStatus,
         Instant issuedAt,
         Instant revokedAt,
+        String revokeReason,
         List<DisclosedField> disclosedFields,
         String signatureDetails
 ) {
