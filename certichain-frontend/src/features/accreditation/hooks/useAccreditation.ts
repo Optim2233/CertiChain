@@ -55,7 +55,10 @@ export function useApproveInstitution() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => accreditationService.approveInstitution(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institutions'] }),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
+      queryClient.invalidateQueries({ queryKey: ['institution', id] });
+    },
   });
 }
 
@@ -64,7 +67,10 @@ export function useRequestInfo() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note: string }) =>
       accreditationService.requestInfo(id, note),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institutions'] }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
+      queryClient.invalidateQueries({ queryKey: ['institution', id] });
+    },
   });
 }
 
