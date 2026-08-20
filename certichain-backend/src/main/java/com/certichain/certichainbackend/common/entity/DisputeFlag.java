@@ -41,4 +41,17 @@ public class DisputeFlag {
 
     @Column(name = "resolved_at")
     private Instant resolvedAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private long version = 0;
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
 }

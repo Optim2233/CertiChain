@@ -6,7 +6,10 @@ import lombok.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "credential_field")
+@Table(name = "credential_field",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_credential_field_credential_id_field_name",
+                columnNames = {"credential_id", "field_name"}))
 @Getter
 @Setter
 @NoArgsConstructor
