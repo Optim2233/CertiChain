@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public interface AuditLogEntryRepository extends JpaRepository<AuditLogEntry, UUID> {
@@ -14,4 +15,6 @@ public interface AuditLogEntryRepository extends JpaRepository<AuditLogEntry, UU
     int countByEventAndCredentialIdIn(String event, Collection<UUID> credentialIds);
 
     int countByEvent(String event);
+
+    List<AuditLogEntry> findByShareIdOrderByOccurredAtDesc(UUID shareId);
 }

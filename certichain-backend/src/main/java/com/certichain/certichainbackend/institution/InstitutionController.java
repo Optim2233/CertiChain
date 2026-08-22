@@ -72,8 +72,8 @@ public class InstitutionController {
     @GetMapping("/credentials/batch/template")
     @PreAuthorize("hasRole('INSTITUTION')")
     public ResponseEntity<byte[]> batchTemplate() {
-        String csv = "graduate_email,degree,graduationDate\n"
-                + "student@example.edu,BSc Computer Science,2026-06-01\n";
+        String csv = "graduate_email,type,degree,graduationDate\n"
+                + "student@example.edu,certificate,BSc Computer Science,2026-06-01\n";
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=\"batch-template.csv\"")
                 .contentType(MediaType.parseMediaType("text/csv"))

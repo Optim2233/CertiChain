@@ -20,4 +20,5 @@ public interface AccreditationService {
     Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size);
     List<InstitutionDocumentResponse> listDocuments(UUID institutionId);
     InstitutionDocument getDocument(UUID institutionId, UUID documentId);
+    void verifyDocument(UUID institutionId, UUID documentId);
 }

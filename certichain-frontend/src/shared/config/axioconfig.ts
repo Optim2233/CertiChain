@@ -77,6 +77,24 @@ export class ApiClient {
     return { data, status: response.status };
   }
 
+  async getBlob(endpoint: string, headers?: Record<string, string>): Promise<{ blob: Blob; fileName: string | null }> {
+    // Native fetch, not axios: a plain <a href> to this endpoint hands the URL straight to
+    // the OS/browser's download pipeline, which download-manager tools (IDM etc.) intercept
+    // outright. Fetching the bytes in JS and saving via a Blob URL never exposes a navigable
+    // URL for them to grab.
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers,
+    });
+    if (!response.ok) {
+      throw { message: response.statusText, status: response.status } satisfies ApiError;
+    }
+    const disposition = response.headers.get('Content-Disposition');
+    const fileName = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? null;
+    return { blob: await response.blob(), fileName };
+  }
+
   async put<T>(
     endpoint: string,
     data?: unknown,

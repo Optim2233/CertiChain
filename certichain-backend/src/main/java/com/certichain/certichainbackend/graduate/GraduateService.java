@@ -5,6 +5,7 @@ import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.DisputeFlag;
 import com.certichain.certichainbackend.common.entity.Share;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ public interface GraduateService {
     Share createShare(String name, String scope, UUID credentialId, List<UUID> selectedFieldIds);
     List<Share> listShares();
     void revokeShare(UUID shareId);
+    List<Instant> getShareActivity(UUID shareId);
     DisputeFlag flagCredential(UUID credentialId, String reason);
     List<DisputeFlag> getCredentialFlags(UUID credentialId);
     int countOpenDisputes();

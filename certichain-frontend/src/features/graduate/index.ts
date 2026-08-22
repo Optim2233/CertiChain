@@ -8,6 +8,7 @@ export {
   useOpenDisputes,
   usePendingDisputeCount,
   useRevokeShare,
+  useShareActivity,
   useShares,
   useSignup,
   useSignupCheck,
@@ -18,6 +19,7 @@ export { useGraduateStore } from './store/graduateStore';
 export type {
   GraduateState,
   Share,
+  ShareActivityEntry,
   ShareInput,
   ShareScope,
   SignupCheckResult,

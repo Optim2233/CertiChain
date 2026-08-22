@@ -42,6 +42,17 @@ export function useInstitutionDocuments(institutionId: string) {
   });
 }
 
+export function useVerifyDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ institutionId, documentId }: { institutionId: string; documentId: string }) =>
+      accreditationService.verifyDocument(institutionId, documentId),
+    onSuccess: (_data, { institutionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['institution-documents', institutionId] });
+    },
+  });
+}
+
 export function useAuditLog(institutionId: string | null, page = 0, size = 20) {
   return useQuery({
     queryKey: ['audit-log', institutionId, page, size],

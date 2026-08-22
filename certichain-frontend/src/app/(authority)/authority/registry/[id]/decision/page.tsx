@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   useInstitution,
@@ -21,18 +21,26 @@ export default function ReviewDecisionPage() {
   const reject = useRejectInstitution()
   const requestInfo = useRequestInfo()
 
-  const [approved, setApproved] = useState(false)
   const [infoSent, setInfoSent] = useState(false)
   const [modalType, setModalType] = useState<ModalType>(null)
   const [reason, setReason] = useState("")
   const [touched, setTouched] = useState(false)
+  const [showApproved, setShowApproved] = useState(false)
 
   const reasonValid = reason.trim().length > 0
   const showError = touched && !reasonValid
 
   function doApprove() {
-    approve.mutate(id, { onSuccess: () => setApproved(true) })
+    approve.mutate(id, { onSuccess: () => setShowApproved(true) })
   }
+
+  // Auto-navigates after showing the confirmation - reviewer sees the modal, then lands
+  // back on the list without an extra click.
+  useEffect(() => {
+    if (!showApproved) return
+    const timeout = setTimeout(() => router.push("/authority/registry"), 1500)
+    return () => clearTimeout(timeout)
+  }, [showApproved, router])
 
   function submitModalAction() {
     setTouched(true)
@@ -81,12 +89,6 @@ export default function ReviewDecisionPage() {
         </div>
         <p className="mb-5 text-xs font-bold uppercase tracking-wide text-[#44474e]">Step 2 of 2 — Decision</p>
 
-        {approved && (
-          <div className="mb-5 flex items-center gap-2.5 rounded border border-[rgba(16,185,129,0.3)] bg-[rgba(16,185,129,0.1)] px-4 py-3.5">
-            <span className="material-symbols-outlined" style={{ color: "#0d9668" }}>check_circle</span>
-            <p className="m-0 text-sm font-semibold" style={{ color: "#0d9668" }}>Approved — institution notified and may now issue certificates.</p>
-          </div>
-        )}
         {infoSent && (
           <div className="mb-5 flex items-center gap-2.5 rounded border border-[rgba(4,98,186,0.3)] bg-[rgba(4,98,186,0.08)] px-4 py-3.5">
             <span className="material-symbols-outlined" style={{ color: "#02275A" }}>mail</span>
@@ -112,6 +114,26 @@ export default function ReviewDecisionPage() {
           Request More Information
         </button>
       </div>
+
+      {showApproved && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-[420px] rounded-lg bg-white p-8 text-center">
+            <span className="material-symbols-outlined mb-3 text-5xl" style={{ color: "#0d9668" }}>check_circle</span>
+            <h3 className="font-heading mb-2 text-xl font-bold" style={{ color: "#0d9668" }}>Approved</h3>
+            <p className="mb-6 text-sm text-[#44474e]">
+              {institution?.name ?? "This institution"} has been notified and may now issue certificates.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/authority/registry")}
+              className="w-full rounded px-5 py-2.5 text-sm font-bold text-white"
+              style={{ background: "#0d9668" }}
+            >
+              Back to Registry
+            </button>
+          </div>
+        </div>
+      )}
 
       {modalType && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-4">

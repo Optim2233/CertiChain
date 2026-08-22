@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,6 +65,12 @@ public class GraduateController {
     @PreAuthorize("hasRole('GRADUATE')")
     public void revokeShare(@PathVariable UUID id) {
         graduateService.revokeShare(id);
+    }
+
+    @GetMapping("/shares/{id}/activity")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public List<Instant> shareActivity(@PathVariable UUID id) {
+        return graduateService.getShareActivity(id);
     }
 
     @PostMapping("/credentials/{id}/flag")

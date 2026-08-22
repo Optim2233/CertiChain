@@ -1,6 +1,7 @@
 package com.certichain.certichainbackend.graduate;
 
 import com.certichain.certichainbackend.auth.CurrentUser;
+import com.certichain.certichainbackend.common.entity.AuditLogEntry;
 import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.DisputeFlag;
@@ -44,8 +45,6 @@ public class GraduateServiceImpl implements GraduateService {
     private final ShareFieldSelectionRepository shareFieldSelectionRepository;
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
-    // ponytail: unused for now - wire this in once graduate actions (flag
-    // filed, share created/revoked) need an audit trail. Kept, not dead code.
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
@@ -138,6 +137,7 @@ public class GraduateServiceImpl implements GraduateService {
                         .build());
             }
         }
+        auditLogService.log(AuditEvents.SHARE_CREATED_EVENT, currentUser.id(), null, credentialId, share.getId());
         return share;
     }
 
@@ -149,13 +149,30 @@ public class GraduateServiceImpl implements GraduateService {
     @Override
     @Transactional
     public void revokeShare(UUID shareId) {
+        Share share = ownShare(shareId);
+        // Kills this link only - the underlying credential is untouched.
+        share.setRevoked(true);
+        auditLogService.log(AuditEvents.SHARE_REVOKED_EVENT, currentUser.id(), null, null, shareId);
+    }
+
+    @Override
+    public List<Instant> getShareActivity(UUID shareId) {
+        ownShare(shareId);
+        // Timestamps only - no viewer identity is recorded, by design (see
+        // VerifierServiceImpl's class comment).
+        return auditLogEntryRepository.findByShareIdOrderByOccurredAtDesc(shareId).stream()
+                .map(AuditLogEntry::getOccurredAt)
+                .toList();
+    }
+
+    /** Without this check any graduate could read or revoke any other graduate's share. */
+    private Share ownShare(UUID shareId) {
         Share share = shareRepository.findById(shareId)
                 .orElseThrow(() -> new ResourceNotFoundException("Share not found"));
         if (!share.getGraduateUserId().equals(currentUser.id())) {
             throw new ForbiddenActionException("Share belongs to another graduate");
         }
-        // Kills this link only - the underlying credential is untouched.
-        share.setRevoked(true);
+        return share;
     }
 
     @Override

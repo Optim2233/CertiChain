@@ -140,6 +140,18 @@ public class InstitutionServiceImpl implements InstitutionService {
         }
     }
 
+    /** Blank/missing "type" column defaults to CERTIFICATE - every pre-existing batch CSV still works unchanged. */
+    private CredentialType parseBatchType(String type) {
+        if (type == null || type.isBlank()) {
+            return CredentialType.CERTIFICATE;
+        }
+        try {
+            return CredentialType.valueOf(type.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException("Unknown type: " + type + " (expected certificate or activity_record)");
+        }
+    }
+
     @Override
     @Transactional
     public Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields) {
@@ -184,14 +196,15 @@ public class InstitutionServiceImpl implements InstitutionService {
                 if (email == null || email.isBlank()) {
                     throw new ValidationException("missing graduate_email");
                 }
+                CredentialType type = parseBatchType(row.get("type"));
                 List<Field> fields = row.entrySet().stream()
-                        .filter(e -> !e.getKey().equals("graduate_email"))
+                        .filter(e -> !e.getKey().equals("graduate_email") && !e.getKey().equals("type"))
                         .map(e -> new Field(e.getKey(), e.getValue()))
                         .toList();
                 if (fields.isEmpty()) {
                     throw new ValidationException("no credential fields in row");
                 }
-                Credential credential = issue(email, fields, CredentialType.CERTIFICATE);
+                Credential credential = issue(email, fields, type);
                 result.put("status", "OK");
                 result.put("credentialId", credential.getId());
             } catch (RuntimeException ex) {

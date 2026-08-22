@@ -3,14 +3,35 @@
 import { useRef, useState } from "react"
 import { useIssueBatch } from "@/features/institution"
 import type { BatchIssueResult } from "@/features/institution"
-import { API_BASE_URL } from "@/shared/config/axioconfig"
+import { apiClient } from "@/shared/config/axioconfig"
+import { SpreadsheetPreview } from "@/shared/components/spreadsheet-preview"
 
 export default function BatchIssuancePage() {
   const issueBatch = useIssueBatch()
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [rowCount, setRowCount] = useState<number | null>(null)
   const [results, setResults] = useState<BatchIssueResult[] | null>(null)
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Fetches the template as a Blob and saves it via a throwaway object URL, instead of a
+  // plain <a href download> - a navigable download URL is exactly what download-manager
+  // tools (IDM etc.) hook into. A Blob URL created client-side from a fetch response isn't
+  // a network request they see.
+  async function downloadTemplate() {
+    setDownloadingTemplate(true)
+    try {
+      const { blob, fileName } = await apiClient.getBlob("/api/institution/credentials/batch/template")
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = fileName ?? "batch-template.csv"
+      link.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloadingTemplate(false)
+    }
+  }
 
   function pickFile(file: File) {
     setResults(null)
@@ -46,21 +67,98 @@ export default function BatchIssuancePage() {
       <div className="mb-2 flex items-center gap-2 text-sm text-[#44474e]">
         <span>Issue New</span><span>/</span><span className="font-bold text-[#191c1e]">Batch Issuance</span>
       </div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-heading m-0 mb-2 text-[32px] font-bold">Batch Issuance</h2>
-          <p className="m-0 text-lg text-[#44474e]">
-            Upload multiple credential records simultaneously using a standardized template.
-          </p>
+      <div className="mb-6">
+        <h2 className="font-heading m-0 mb-2 text-[32px] font-bold">Batch Issuance</h2>
+        <p className="m-0 text-lg text-[#44474e]">
+          Upload multiple credential records simultaneously using a standardized template.
+        </p>
+      </div>
+
+      <div className="mb-6 rounded-lg border-2 p-6" style={{ borderColor: "#0462BA", background: "#eef5fc" }}>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-heading m-0 mb-1 text-xl font-bold" style={{ color: "#02275A" }}>
+              Expected file format
+            </h3>
+            <p className="m-0 text-sm text-[#44474e]">
+              Each row issues one credential — a certificate or an activity record, set per row via an
+              optional <code className="rounded bg-white px-1 py-0.5 font-mono">type</code> column. The first
+              column must be <code className="rounded bg-white px-1 py-0.5 font-mono">graduate_email</code> —
+              every other column becomes a credential field, named exactly as its header.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            disabled={downloadingTemplate}
+            className="flex shrink-0 items-center gap-2 rounded px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: "#0462BA" }}
+          >
+            <span className="material-symbols-outlined text-lg">download</span>
+            {downloadingTemplate ? "Downloading…" : "Download Template"}
+          </button>
         </div>
-        <a
-          href={`${API_BASE_URL}/api/institution/credentials/batch/template`}
-          download
-          className="flex shrink-0 items-center gap-2 rounded border border-[#c5c6cf] bg-white px-4 py-2.5 text-sm font-semibold text-[#44474e]"
-        >
-          <span className="material-symbols-outlined text-lg">download</span>
-          Download Template
-        </a>
+
+        <ul className="mb-5 list-disc space-y-1 pl-5 text-sm text-[#44474e]">
+          <li><code className="rounded bg-white px-1 py-0.5 font-mono">graduate_email</code> is required in every row — one recipient per row.</li>
+          <li>
+            <code className="rounded bg-white px-1 py-0.5 font-mono">type</code> is optional —
+            {" "}<code className="rounded bg-white px-1 py-0.5 font-mono">certificate</code> or{" "}
+            <code className="rounded bg-white px-1 py-0.5 font-mono">activity_record</code>, per row. Leave it out
+            (or blank) and the row is issued as a certificate.
+          </li>
+          <li>Any other column header becomes a credential field; the header text is used as the field name exactly as typed (case-sensitive).</li>
+          <li>At least one field column besides <code className="rounded bg-white px-1 py-0.5 font-mono">graduate_email</code> and <code className="rounded bg-white px-1 py-0.5 font-mono">type</code> is required.</li>
+          <li>Column headers must be non-empty and unique — if a header repeats, only the last one is kept.</li>
+          <li>A cell can be left blank if that field doesn&apos;t apply to a particular row — it&apos;s issued as an empty value, the row isn&apos;t rejected.</li>
+          <li>Avoid commas inside cell values — quoted values aren&apos;t supported yet.</li>
+        </ul>
+
+        <div className="space-y-5">
+          <div>
+            <p className="m-0 mb-1.5 text-xs font-semibold text-[#44474e]">Example 1 — standard degree certificate</p>
+            <SpreadsheetPreview
+              columns={["graduate_email", "degree", "graduationDate"]}
+              rows={[
+                ["thura.htet@example.edu", "BSc Computer Science", "2026-06-01"],
+                ["mya.thin@example.edu", "BEng Civil Engineering", "2026-06-01"],
+              ]}
+            />
+          </div>
+          <div>
+            <p className="m-0 mb-1.5 text-xs font-semibold text-[#44474e]">
+              Example 2 — degree with an extra honors field (row 2&apos;s honors is left blank — that&apos;s fine)
+            </p>
+            <SpreadsheetPreview
+              columns={["graduate_email", "degree", "graduationDate", "honors"]}
+              rows={[
+                ["aung.htoo@example.edu", "BSc Data Science", "2026-06-01", "Summa Cum Laude"],
+                ["su.su@example.edu", "BSc Data Science", "2026-06-01", ""],
+              ]}
+            />
+          </div>
+          <div>
+            <p className="m-0 mb-1.5 text-xs font-semibold text-[#44474e]">Example 3 — professional certification (different field set)</p>
+            <SpreadsheetPreview
+              columns={["graduate_email", "certification_name", "issuedDate", "score"]}
+              rows={[
+                ["zin.ko@example.edu", "Certified Network Associate", "2026-05-15", "92"],
+              ]}
+            />
+          </div>
+          <div>
+            <p className="m-0 mb-1.5 text-xs font-semibold text-[#44474e]">
+              Example 4 — mixing certificates and activity records in one file via the type column
+            </p>
+            <SpreadsheetPreview
+              columns={["graduate_email", "type", "degree", "activity", "date"]}
+              rows={[
+                ["hla.hla@example.edu", "certificate", "BSc Mechanical Engineering", "", ""],
+                ["hla.hla@example.edu", "activity_record", "", "Dean's List — Fall 2026", "2026-12-15"],
+              ]}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="mb-6 rounded-lg border border-[#c5c6cf] bg-white p-8">

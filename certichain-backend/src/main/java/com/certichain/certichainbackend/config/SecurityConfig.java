@@ -1,6 +1,7 @@
 package com.certichain.certichainbackend.config;
 
 import com.certichain.certichainbackend.auth.JwtAuthenticationFilter;
+import com.certichain.certichainbackend.verifier.VerifyRateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final VerifyRateLimitFilter verifyRateLimitFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -44,18 +46,23 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
     // ponytail: any localhost/127.0.0.1 port is allowed so a stray process
     // squatting on 3000 doesn't silently break CORS - tighten to a fixed
     // port (or an env-driven allowlist) before deploying past local dev.
+    // The 192.168.*/10.*/172.16-31.* patterns are for same-LAN phone testing
+    // (QR/verify flows) only - remove once the real deploy URL replaces them.
     private UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
             "http://localhost:*",
             "http://127.0.0.1:*",
+            "http://192.168.*.*:*",
+            "http://10.*.*.*:*",
             "https://certichain-frontend.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

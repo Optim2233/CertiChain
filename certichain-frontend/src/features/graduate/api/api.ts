@@ -1,5 +1,5 @@
 import type { Credential, CredentialField, DisputeFlag } from '@/features/institution';
-import type { Share } from '@/features/graduate';
+import type { Share, ShareActivityEntry } from '@/features/graduate';
 import { apiClient } from '@/shared/config/axioconfig';
 import { createShareSchema, flagCredentialSchema, signupCheckSchema, signupSchema } from './schemas';
 
@@ -46,6 +46,10 @@ export const graduateService = {
 
   async revokeShare(id: string, headers?: Record<string, string>) {
     return apiClient.post<void>(`/api/graduate/shares/${id}/revoke`, {}, headers);
+  },
+
+  async getShareActivity(id: string, headers?: Record<string, string>) {
+    return apiClient.get<ShareActivityEntry[]>(`/api/graduate/shares/${id}/activity`, headers);
   },
 
   async flagCredential(id: string, reason: string, headers?: Record<string, string>) {

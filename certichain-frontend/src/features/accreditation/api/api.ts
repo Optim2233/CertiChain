@@ -73,6 +73,14 @@ export const accreditationService = {
     return apiClient.get<InstitutionDocument[]>(`/api/aa/institutions/${id}/documents`, headers);
   },
 
+  async verifyDocument(institutionId: string, documentId: string, headers?: Record<string, string>) {
+    return apiClient.post<void>(
+      `/api/aa/institutions/${institutionId}/documents/${documentId}/verify`,
+      {},
+      headers
+    );
+  },
+
   async getAuditLog(
     institutionId: string | null = null,
     page = 0,

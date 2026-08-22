@@ -96,6 +96,7 @@ public class VerifierServiceImpl implements VerifierService {
 
         share.setViewCount(share.getViewCount() + 1);
         shareRepository.save(share);
+        auditLogService.log(AuditEvents.SHARE_VIEWED_EVENT, null, null, null, share.getId());
 
         if (share.getScope() == ShareScope.SINGLE_CREDENTIAL) {
             List<UUID> visibleFieldIds = shareFieldSelectionRepository

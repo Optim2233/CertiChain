@@ -11,6 +11,7 @@ export {
   useRequestInfo,
   useRevokeInstitution,
   useSuspendInstitution,
+  useVerifyDocument,
 } from './hooks/useAccreditation';
 export { useAccreditationStore } from './store/accreditationStore';
 export type {

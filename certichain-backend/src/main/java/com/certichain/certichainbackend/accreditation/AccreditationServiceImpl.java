@@ -14,6 +14,7 @@ import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionDocumentRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
+import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -169,6 +170,19 @@ public class AccreditationServiceImpl implements AccreditationService {
             throw new ResourceNotFoundException("Document not found");
         }
         return document;
+    }
+
+    @Override
+    @Transactional
+    public void verifyDocument(UUID institutionId, UUID documentId) {
+        InstitutionDocument document = getDocument(institutionId, documentId);
+        // One-way action: verifying twice would silently no-op the second click, which
+        // would hide a stale-UI bug rather than surface it.
+        if (document.isVerified()) {
+            throw new ValidationException("Document is already verified");
+        }
+        document.setVerified(true);
+        auditLogService.log(AuditEvents.DOCUMENT_VERIFIED_EVENT, currentUser.id(), institutionId, null);
     }
 
     /**

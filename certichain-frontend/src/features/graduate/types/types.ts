@@ -12,6 +12,9 @@ export interface Share {
   viewCount: number;
 }
 
+// Backend returns a bare array of ISO timestamps (List<Instant>), not objects.
+export type ShareActivityEntry = string;
+
 export interface ShareInput {
   name: string;
   scope: ShareScope;

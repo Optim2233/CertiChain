@@ -89,6 +89,16 @@ export function useRevokeShare() {
   });
 }
 
+export function useShareActivity(id: string) {
+  return useQuery({
+    queryKey: ['graduate-share-activity', id],
+    queryFn: () => graduateService.getShareActivity(id),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
 export function useFlagCredential() {
   const queryClient = useQueryClient();
   return useMutation({

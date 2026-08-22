@@ -17,11 +17,17 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     public void log(String event, UUID actorUserId, UUID institutionId, UUID credentialId) {
+        log(event, actorUserId, institutionId, credentialId, null);
+    }
+
+    @Override
+    public void log(String event, UUID actorUserId, UUID institutionId, UUID credentialId, UUID shareId) {
         auditLogEntryRepository.save(AuditLogEntry.builder()
                 .event(event)
                 .actorUserId(actorUserId)
                 .institutionId(institutionId)
                 .credentialId(credentialId)
+                .shareId(shareId)
                 .occurredAt(Instant.now())
                 .build());
     }

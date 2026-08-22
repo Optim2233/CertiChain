@@ -1,8 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { useShares, useCreateShare, useRevokeShare, useTimeline, useCredentialFields } from "@/features/graduate"
-import type { ShareScope } from "@/features/graduate"
+import { useShares, useCreateShare, useRevokeShare, useTimeline, useCredentialFields, useShareActivity } from "@/features/graduate"
+import type { Share, ShareScope } from "@/features/graduate"
+import { ShareQr } from "@/shared/components/share-qr"
+
+function shareLink(token: string) {
+  return (typeof window !== "undefined" ? window.location.origin : "") + "/share/" + token
+}
 
 export default function GraduateSharesPage() {
   const { data, isLoading } = useShares()
@@ -18,6 +23,7 @@ export default function GraduateSharesPage() {
   const [credentialId, setCredentialId] = useState("")
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([])
   const [touched, setTouched] = useState(false)
+  const [viewedShare, setViewedShare] = useState<Share | null>(null)
 
   const { data: fieldsData } = useCredentialFields(scope === "SINGLE_CREDENTIAL" ? credentialId : "")
   const fields = fieldsData?.data ?? []
@@ -40,13 +46,14 @@ export default function GraduateSharesPage() {
         selectedFieldIds: scope === "SINGLE_CREDENTIAL" ? selectedFieldIds : [],
       },
       {
-        onSuccess: () => {
+        onSuccess: ({ data }) => {
           setOpen(false)
           setName("")
           setScope("FULL_TIMELINE")
           setCredentialId("")
           setSelectedFieldIds([])
           setTouched(false)
+          setViewedShare(data)
         },
       }
     )
@@ -148,6 +155,13 @@ export default function GraduateSharesPage() {
                 >
                   {s.revoked ? "Revoked" : "Active"}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setViewedShare(s)}
+                  className="text-xs font-semibold text-[#005eb3] underline underline-offset-4"
+                >
+                  View
+                </button>
                 {!s.revoked && (
                   <button
                     type="button"
@@ -163,10 +177,7 @@ export default function GraduateSharesPage() {
         )}
       </div>
 
-      <h3 className="font-heading mb-4 text-lg font-bold">Share Activity</h3>
-      <div className="rounded-lg border border-[#c5c6cf] bg-white px-6 py-2">
-        <p className="py-6 text-center text-sm text-[#75777f]">No viewer activity recorded yet.</p>
-      </div>
+      {viewedShare && <ShareDetailPanel share={viewedShare} onClose={() => setViewedShare(null)} />}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -253,5 +264,98 @@ export default function GraduateSharesPage() {
         </div>
       )}
     </main>
+  )
+}
+
+function ShareDetailPanel({ share, onClose }: { share: Share; onClose: () => void }) {
+  const link = shareLink(share.shareToken)
+  const [copied, setCopied] = useState<"code" | "link" | null>(null)
+  const { data: activityData, isLoading: activityLoading } = useShareActivity(share.id)
+  const activity = activityData?.data ?? []
+
+  function copy(text: string, which: "code" | "link") {
+    const done = () => {
+      setCopied(which)
+      setTimeout(() => setCopied(null), 1500)
+    }
+    function legacyCopy() {
+      const textarea = document.createElement("textarea")
+      textarea.value = text
+      textarea.style.position = "fixed"
+      textarea.style.opacity = "0"
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+      done()
+    }
+    // navigator.clipboard is missing outside a secure context (HTTPS/localhost), and some
+    // browser extensions shim it as an object without writeText - try/catch rather than
+    // feature-detect, and fall back to the legacy textarea+execCommand trick either way.
+    try {
+      navigator.clipboard.writeText(text).then(done, legacyCopy)
+    } catch {
+      legacyCopy()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="font-heading text-lg font-bold">{share.name}</h3>
+            <p className="text-xs text-[#75777f]">Share this code, link, or QR with anyone who needs to verify it.</p>
+          </div>
+          <button type="button" onClick={onClose} className="material-symbols-outlined text-[#75777f]">
+            close
+          </button>
+        </div>
+
+        <div className="mb-4 flex justify-center">
+          <ShareQr value={link} />
+        </div>
+
+        <label className="mb-1 block text-sm font-semibold">Code</label>
+        <div className="mb-3 flex gap-2">
+          <input readOnly value={share.shareToken} className="w-full rounded-md border border-[#c5c6cf] px-3 py-2 text-xs" />
+          <button
+            type="button"
+            onClick={() => copy(share.shareToken, "code")}
+            className="shrink-0 rounded-md border border-[#c5c6cf] px-3 py-2 text-xs font-semibold text-[#44474e]"
+          >
+            {copied === "code" ? "Copied" : "Copy"}
+          </button>
+        </div>
+
+        <label className="mb-1 block text-sm font-semibold">Link</label>
+        <div className="mb-5 flex gap-2">
+          <input readOnly value={link} className="w-full rounded-md border border-[#c5c6cf] px-3 py-2 text-xs" />
+          <button
+            type="button"
+            onClick={() => copy(link, "link")}
+            className="shrink-0 rounded-md border border-[#c5c6cf] px-3 py-2 text-xs font-semibold text-[#44474e]"
+          >
+            {copied === "link" ? "Copied" : "Copy"}
+          </button>
+        </div>
+
+        <label className="mb-1.5 block text-sm font-semibold">Share Activity</label>
+        <div className="max-h-40 overflow-y-auto rounded-md border border-[#c5c6cf]">
+          {activityLoading ? (
+            <p className="p-4 text-center text-xs text-[#75777f]">Loading…</p>
+          ) : activity.length === 0 ? (
+            <p className="p-4 text-center text-xs text-[#75777f]">No views yet.</p>
+          ) : (
+            activity.map((a, i) => (
+              <div key={i} className="flex items-center gap-2 border-b border-[#eef0f3] px-3 py-2 text-xs text-[#44474e] last:border-0">
+                <span className="material-symbols-outlined text-sm text-[#75777f]">visibility</span>
+                Viewed {new Date(a).toLocaleString()}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
