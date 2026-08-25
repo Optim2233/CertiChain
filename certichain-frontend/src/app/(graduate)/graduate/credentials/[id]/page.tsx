@@ -7,6 +7,7 @@ import { CertificateHero } from "@/shared/components/certificate-hero"
 import { StatusBadge } from "@/shared/components/status-badge"
 import { Button } from "@/shared/components/ui/button"
 import { useTimeline, useCredentialFields, useCredentialFlags, useFlagCredential } from "@/features/graduate"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function CredentialDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -44,7 +45,14 @@ export default function CredentialDetailPage() {
   }
 
   if (!credential) {
-    return <p className="text-muted-foreground p-6 text-sm">Loading credential…</p>
+    return (
+      <main className="mx-auto max-w-[820px] p-6" aria-busy="true">
+        <Skeleton className="mb-3 h-8 w-1/2" />
+        <Skeleton className="mb-8 h-4 w-1/4" />
+        <Skeleton className="mb-4 h-[200px] rounded-xl" />
+        <Skeleton className="h-[140px] rounded-xl" />
+      </main>
+    )
   }
 
   return (
@@ -72,7 +80,11 @@ export default function CredentialDetailPage() {
           <h3 className="font-heading mb-4 text-lg font-bold">Credential Details</h3>
           <div className="flex flex-col gap-3.5">
             {fieldsLoading ? (
-              <p className="text-muted-foreground text-sm">Loading fields…</p>
+              <div className="flex flex-col gap-2" aria-busy="true">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-4" />
+                ))}
+              </div>
             ) : fields.length === 0 ? (
               <p className="text-muted-foreground text-sm">No additional fields recorded.</p>
             ) : (

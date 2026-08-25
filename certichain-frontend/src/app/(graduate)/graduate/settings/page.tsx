@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useAuthStore, useChangePassword } from "@/features/auth"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 const DEFAULT_PREFS = [
   { key: "dispute", label: "Dispute updates", desc: "When an institution resolves a dispute you raised.", on: true },
@@ -45,7 +46,9 @@ export default function GraduateSettingsPage() {
           >
             <span className="font-heading text-[28px] font-bold">{initials}</span>
           </div>
-          <h3 className="font-heading m-0 text-lg font-bold">{user?.email ?? "—"}</h3>
+          <h3 className="font-heading m-0 text-lg font-bold">
+            {user ? user.email : <Skeleton className="h-5 w-48" />}
+          </h3>
           <p className="m-0 mb-4 mt-1 text-[13px] text-[#75777f]">Graduate account</p>
           {/* ponytail: no photo upload endpoint/field exists for graduates yet -
               button removed rather than linking nowhere. */}

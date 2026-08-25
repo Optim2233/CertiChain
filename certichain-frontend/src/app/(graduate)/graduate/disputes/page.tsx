@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useAllDisputes, useFlagCredential, useTimeline } from "@/features/graduate"
+import { TableSkeleton } from "@/shared/components/ui/skeletons"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   OPEN: { bg: "#fff3d6", color: "#a5730f", icon: "schedule", label: "Under Review" },
@@ -97,7 +98,7 @@ export default function GraduateDisputesPage() {
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">Status</span>
         </div>
         {isLoading ? (
-          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+          <TableSkeleton columns="2.5fr 2fr 1.3fr 1.3fr" />
         ) : disputes.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">You haven't raised any disputes.</p>
         ) : (

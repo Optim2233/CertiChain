@@ -3,8 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useCredentials, useCredentialSummary, useDisputes, useRevokeCredential } from "@/features/institution"
+import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { Pager } from "@/shared/components/ui/pager"
 import type { Credential } from "@/features/institution"
 
+const GRID_COLS = "2.5fr 2fr 1.5fr 1.3fr 0.6fr"
 const TYPE_ICON: Record<string, string> = { CERTIFICATE: "workspace_premium", ACTIVITY_RECORD: "diversity_3" }
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   ISSUED: { bg: "rgba(16,185,129,0.1)", color: "#0d9668", icon: "check_circle", label: "Issued" },
@@ -13,7 +16,8 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; la
 }
 
 export default function InstitutionDashboardPage() {
-  const { data, isLoading, isError } = useCredentials()
+  const [page, setPage] = useState(0)
+  const { data, isLoading, isError } = useCredentials(null, page)
   const rows = data?.data.content ?? []
   const { data: summaryData } = useCredentialSummary()
   const summary = summaryData?.data
@@ -127,7 +131,7 @@ export default function InstitutionDashboardPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white shadow-[0_1px_2px_rgba(0,0,0,.04)]">
-        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "2.5fr 2fr 1.5fr 1.3fr 0.6fr", background: "#02275A" }}>
+        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: GRID_COLS, background: "#02275A" }}>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">Graduate</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">Credential Type</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">Status</span>
@@ -135,7 +139,7 @@ export default function InstitutionDashboardPage() {
           <span className="text-right text-[12px] font-bold uppercase tracking-wide text-white">Actions</span>
         </div>
         {isLoading ? (
-          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+          <TableSkeleton columns={GRID_COLS} />
         ) : isError ? (
           <p className="p-6 text-sm text-[#C0392B]">
             Couldn&apos;t load credentials — you may be signed in with an account that doesn&apos;t have institution
@@ -147,7 +151,7 @@ export default function InstitutionDashboardPage() {
           rows.map((row) => {
             const style = STATUS_STYLE[row.status] ?? STATUS_STYLE.ISSUED
             return (
-              <div key={row.id} className="relative grid items-center gap-4 border-t border-[#c5c6cf] px-6 py-3.5" style={{ gridTemplateColumns: "2.5fr 2fr 1.5fr 1.3fr 0.6fr" }}>
+              <div key={row.id} className="relative grid items-center gap-4 border-t border-[#c5c6cf] px-6 py-3.5" style={{ gridTemplateColumns: GRID_COLS }}>
                 <div className="flex items-center gap-3">
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-full font-heading text-[13px] font-bold text-white" style={{ background: "#0462BA" }}>
                     {row.graduateEmail.slice(0, 2).toUpperCase()}
@@ -196,6 +200,7 @@ export default function InstitutionDashboardPage() {
             )
           })
         )}
+        <Pager page={data?.data} onPageChange={setPage} />
       </div>
 
       {revokeTarget && (

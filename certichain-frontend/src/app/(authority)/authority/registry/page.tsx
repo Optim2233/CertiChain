@@ -3,8 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useInstitutions } from "@/features/accreditation"
+import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { Pager } from "@/shared/components/ui/pager"
 import type { InstitutionStatus } from "@/features/accreditation"
 
+const GRID_COLS = "3fr 2fr 2fr 2fr 1fr"
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   PENDING: { bg: "#e0e3e5", color: "#44474e", icon: "schedule", label: "Pending" },
   APPROVED: { bg: "#d8e2ff", color: "#02275A", icon: "check_circle", label: "Approved" },
@@ -24,8 +27,13 @@ const FILTERS: { key: InstitutionStatus | "ALL"; label: string }[] = [
 export default function InstitutionRegistryPage() {
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<InstitutionStatus | "ALL">("ALL")
-  const { data, isLoading, isError } = useInstitutions(filter === "ALL" ? null : filter)
+  const [page, setPage] = useState(0)
+  const { data, isLoading, isError } = useInstitutions(filter === "ALL" ? null : filter, page)
   const rows = data?.data.content ?? []
+  // ponytail: search filters the loaded page only, not the whole registry -
+  // the list endpoint takes no search param. The input is labelled to say so
+  // and the footer counts loaded rows rather than implying a global match.
+  // Upgrade path: add ?q= to GET /institutions and filter server-side.
   const filtered = rows.filter((r) => !search || r.name.toLowerCase().includes(search.toLowerCase()))
   const { data: pendingData } = useInstitutions("PENDING")
   const pendingCount = pendingData?.data.totalElements ?? 0
@@ -63,7 +71,7 @@ export default function InstitutionRegistryPage() {
           <button
             key={f.key}
             type="button"
-            onClick={() => setFilter(f.key)}
+            onClick={() => { setFilter(f.key); setPage(0) }}
             className="rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
             style={filter === f.key ? { background: "#02275A", color: "#fff" } : { background: "#eef0f3", color: "#44474e" }}
           >
@@ -73,7 +81,7 @@ export default function InstitutionRegistryPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
-        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "3fr 2fr 2fr 2fr 1fr", background: "#f2f4f6", borderBottom: "1px solid #c5c6cf" }}>
+        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: GRID_COLS, background: "#f2f4f6", borderBottom: "1px solid #c5c6cf" }}>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Name</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Ministry</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Status</span>
@@ -81,7 +89,7 @@ export default function InstitutionRegistryPage() {
           <span className="text-right text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Action</span>
         </div>
         {isLoading ? (
-          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+          <TableSkeleton columns={GRID_COLS} />
         ) : isError ? (
           <p className="p-6 text-sm text-[#C0392B]">
             Couldn&apos;t load institutions — you may be signed in with an account that doesn&apos;t have
@@ -111,7 +119,11 @@ export default function InstitutionRegistryPage() {
             )
           })
         )}
-        <div className="px-6 py-3.5 text-xs text-[#44474e]">Showing {filtered.length} of {data?.data.totalElements ?? 0} institutions</div>
+        <div className="px-6 py-3.5 text-xs text-[#44474e]">
+          Showing {filtered.length} of {data?.data.totalElements ?? 0} institutions
+          {search && " (search matches this page only)"}
+        </div>
+        <Pager page={data?.data} onPageChange={setPage} />
       </div>
     </main>
   )

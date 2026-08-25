@@ -2,7 +2,10 @@
 
 import { useState } from "react"
 import { useAuditLog } from "@/features/accreditation"
+import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { Pager } from "@/shared/components/ui/pager"
 
+const GRID_COLS = "1fr 4fr 2fr"
 const EVENT_COLOR: Record<string, string> = {
   suspend: "#C0392B",
   reject: "#C0392B",
@@ -19,8 +22,14 @@ export default function AuditLogPage() {
   const [search, setSearch] = useState("")
   const [eventFilter, setEventFilter] = useState("")
   const [filterOpen, setFilterOpen] = useState(false)
-  const { data, isLoading, isError } = useAuditLog(null)
+  const [page, setPage] = useState(0)
+  const { data, isLoading, isError } = useAuditLog(null, page)
   const rows = data?.data.content ?? []
+  // ponytail: both the search box and the event dropdown work off the loaded
+  // page only - the audit-log endpoint takes neither a search nor an event
+  // param, so eventTypes lists just the events present on this page. Labelled
+  // in the footer rather than left to look global.
+  // Upgrade path: add ?q=/?event= to GET /audit-log and filter server-side.
   const eventTypes = Array.from(new Set(rows.map((r) => r.event))).sort()
   const filtered = rows
     .filter((r) => !search || r.event.toLowerCase().includes(search.toLowerCase()))
@@ -62,7 +71,7 @@ export default function AuditLogPage() {
             <div className="absolute right-0 top-11 z-10 max-h-72 w-64 overflow-y-auto rounded border border-[#c5c6cf] bg-white shadow-lg">
               <button
                 type="button"
-                onClick={() => { setEventFilter(""); setFilterOpen(false) }}
+                onClick={() => { setEventFilter(""); setFilterOpen(false); setPage(0) }}
                 className="block w-full px-4 py-2.5 text-left text-[13px] hover:bg-[#f7f9fb]"
                 style={{ color: eventFilter ? "#191c1e" : "#02275A", fontWeight: eventFilter ? 400 : 700 }}
               >
@@ -72,7 +81,7 @@ export default function AuditLogPage() {
                 <button
                   key={e}
                   type="button"
-                  onClick={() => { setEventFilter(e); setFilterOpen(false) }}
+                  onClick={() => { setEventFilter(e); setFilterOpen(false); setPage(0) }}
                   className="block w-full border-t border-[#eef0f3] px-4 py-2.5 text-left text-[13px] hover:bg-[#f7f9fb]"
                   style={{ color: eventFilter === e ? "#02275A" : "#191c1e", fontWeight: eventFilter === e ? 700 : 400 }}
                 >
@@ -85,13 +94,13 @@ export default function AuditLogPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
-        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "1fr 4fr 2fr", background: "#f2f4f6", borderBottom: "1px solid #c5c6cf" }}>
+        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: GRID_COLS, background: "#f2f4f6", borderBottom: "1px solid #c5c6cf" }}>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">When</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Event</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">Actor</span>
         </div>
         {isLoading ? (
-          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+          <TableSkeleton columns={GRID_COLS} />
         ) : isError ? (
           <p className="p-6 text-sm text-[#C0392B]">
             Couldn&apos;t load the audit log — you may be signed in with an account that doesn&apos;t have
@@ -101,7 +110,7 @@ export default function AuditLogPage() {
           <p className="p-6 text-sm text-[#75777f]">No log entries.</p>
         ) : (
           filtered.map((a) => (
-            <div key={a.id} className="grid items-start gap-4 border-b border-[#c5c6cf] px-6 py-4 last:border-0" style={{ gridTemplateColumns: "1fr 4fr 2fr" }}>
+            <div key={a.id} className="grid items-start gap-4 border-b border-[#c5c6cf] px-6 py-4 last:border-0" style={{ gridTemplateColumns: GRID_COLS }}>
               <div className="text-[13px]">
                 <span className="font-semibold">{new Date(a.occurredAt).toLocaleDateString()}</span>{" "}
                 <span className="text-[#75777f]">{new Date(a.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -111,7 +120,11 @@ export default function AuditLogPage() {
             </div>
           ))
         )}
-        <div className="px-6 py-3.5 text-xs text-[#44474e]">Rows 1-{filtered.length} of {data?.data.totalElements ?? 0}</div>
+        <div className="px-6 py-3.5 text-xs text-[#44474e]">
+          Showing {filtered.length} of {data?.data.totalElements ?? 0} entries
+          {(search || eventFilter) && " (filters apply to this page only)"}
+        </div>
+        <Pager page={data?.data} onPageChange={setPage} />
       </div>
     </main>
   )

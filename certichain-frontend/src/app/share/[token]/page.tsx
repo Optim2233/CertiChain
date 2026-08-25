@@ -4,6 +4,7 @@ import { useParams } from "next/navigation"
 import { useEffect } from "react"
 import { useVerifyShare } from "@/features/verifier"
 import type { VerificationResponse } from "@/features/verifier"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function ShareTimelinePage() {
   const { token } = useParams<{ token: string }>()
@@ -35,7 +36,12 @@ export default function ShareTimelinePage() {
   if (verifyShare.isPending) {
     return (
       <main className="mx-auto max-w-[900px] px-4 py-14 sm:px-6">
-        <p className="text-center text-sm text-[#75777f]">Loading shared credentials…</p>
+        <div aria-busy="true">
+          <Skeleton className="mx-auto mb-3 h-7 w-64" />
+          <Skeleton className="mx-auto mb-8 h-4 w-40" />
+          <Skeleton className="mb-4 h-[220px] rounded-xl" />
+          <Skeleton className="h-[220px] rounded-xl" />
+        </div>
       </main>
     )
   }

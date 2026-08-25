@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useDisputes, useDismissDispute } from "@/features/institution"
+import { TableSkeleton } from "@/shared/components/ui/skeletons"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   OPEN: { bg: "#fff3d6", color: "#a5730f", icon: "schedule", label: "Open" },
@@ -71,7 +72,7 @@ export default function InstitutionDisputesPage() {
           <span className="text-right text-[12px] font-bold uppercase tracking-wide text-white">Action</span>
         </div>
         {isLoading ? (
-          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+          <TableSkeleton columns="2.2fr 2fr 1.2fr 1.4fr 1.6fr" />
         ) : disputes.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">No disputes filed.</p>
         ) : (

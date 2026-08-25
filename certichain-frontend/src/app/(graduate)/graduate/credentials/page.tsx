@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { CredentialCard } from "@/shared/components/credential-card"
 import { useTimeline } from "@/features/graduate"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 const FILTERS = [
   { label: "All", value: "ALL" },
@@ -41,7 +42,11 @@ export default function GraduateCredentialsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[180px] rounded-xl" />
+          ))}
+        </div>
       ) : visible.length === 0 ? (
         <p className="text-muted-foreground text-sm">No credentials in this category.</p>
       ) : (

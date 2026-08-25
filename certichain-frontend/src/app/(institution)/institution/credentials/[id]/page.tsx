@@ -11,6 +11,7 @@ import {
   useUpholdDispute,
   useDisputes,
 } from "@/features/institution"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function CredentialDetailPage() {
   return (
@@ -47,7 +48,15 @@ function CredentialDetailContent() {
     }
   }, [editing, fields])
 
-  if (!credential) return <p className="p-6 text-sm text-[#75777f]">Loading credential…</p>
+  if (!credential)
+    return (
+      <main className="mx-auto max-w-[820px] p-6" aria-busy="true">
+        <Skeleton className="mb-3 h-8 w-1/2" />
+        <Skeleton className="mb-8 h-4 w-1/4" />
+        <Skeleton className="mb-4 h-[200px] rounded-xl" />
+        <Skeleton className="h-[140px] rounded-xl" />
+      </main>
+    )
 
   const requiredKeys = Object.keys(form)
   const allValid = requiredKeys.every((k) => form[k]?.trim())

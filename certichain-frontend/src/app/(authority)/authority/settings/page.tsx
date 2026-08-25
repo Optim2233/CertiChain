@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useAuthStore, useChangePassword } from "@/features/auth"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function AuthoritySettingsPage() {
   const user = useAuthStore((s) => s.user)
@@ -32,7 +33,9 @@ export default function AuthoritySettingsPage() {
           <div className="mx-auto mb-4 flex size-24 items-center justify-center rounded-lg" style={{ background: "#e0e3e5" }}>
             <span className="material-symbols-outlined text-4xl text-[#75777f]">admin_panel_settings</span>
           </div>
-          <h3 className="font-heading m-0 mb-1 text-lg font-bold">{user?.email ?? "Admin User"}</h3>
+          <h3 className="font-heading m-0 mb-1 text-lg font-bold">
+            {user ? user.email : <Skeleton className="h-5 w-48" />}
+          </h3>
           <p className="m-0 mb-5 text-[13px] text-[#44474e]">System Administrator</p>
           {/* ponytail: no photo upload endpoint/field exists for AA users yet -
               button removed rather than linking nowhere. */}

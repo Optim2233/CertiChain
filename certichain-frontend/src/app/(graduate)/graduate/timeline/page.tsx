@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useTimeline, useAllDisputes, useShares } from "@/features/graduate"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -95,7 +96,17 @@ export default function GraduateTimelinePage() {
 
       <div className="rounded-lg border border-[#c5c6cf] bg-white px-8 py-7">
         {isLoading ? (
-          <p className="text-sm text-[#75777f]">Loading…</p>
+          <div className="flex flex-col gap-6" aria-busy="true">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex gap-4">
+                <Skeleton className="size-9 shrink-0 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="mb-2 h-4 w-1/3" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : visible.length === 0 ? (
           <p className="text-sm text-[#75777f]">Nothing here yet.</p>
         ) : (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useInstitution, useInstitutionDocuments, useVerifyDocument } from "@/features/accreditation"
 import { apiClient } from "@/shared/config/axioconfig"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 function isPdf(fileName: string) {
   return fileName.toLowerCase().endsWith(".pdf")
@@ -112,7 +113,11 @@ export default function ReviewDocumentsPage() {
           <p className="mb-5 text-xs font-bold uppercase tracking-wide text-[#44474e]">Step 1 of 2 — Documents</p>
 
           {isLoading ? (
-            <p className="text-sm text-[#75777f]">Loading documents…</p>
+            <div className="flex flex-col gap-3" aria-busy="true">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 rounded-lg" />
+              ))}
+            </div>
           ) : isError ? (
             <p className="text-sm text-[#C0392B]">
               Couldn&apos;t load documents — you may be signed in with an account that doesn&apos;t have

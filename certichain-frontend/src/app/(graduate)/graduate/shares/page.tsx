@@ -3,7 +3,16 @@
 import { useState } from "react"
 import { useShares, useCreateShare, useRevokeShare, useTimeline, useCredentialFields, useShareActivity } from "@/features/graduate"
 import type { Share, ShareScope } from "@/features/graduate"
-import { ShareQr } from "@/shared/components/share-qr"
+import dynamic from "next/dynamic"
+import { Skeleton } from "@/shared/components/ui/skeleton"
+import { TableSkeleton } from "@/shared/components/ui/skeletons"
+
+// Pulls the qrcode lib out of the initial bundle - it's only needed once the
+// share modal is open. ssr:false because it renders to a canvas/data URL.
+const ShareQr = dynamic(() => import("@/shared/components/share-qr").then((m) => m.ShareQr), {
+  ssr: false,
+  loading: () => <Skeleton className="size-[180px] rounded-md" />,
+})
 
 function shareLink(token: string) {
   return (typeof window !== "undefined" ? window.location.origin : "") + "/share/" + token
@@ -118,7 +127,7 @@ export default function GraduateSharesPage() {
           <span className="text-right text-[12px] font-bold uppercase tracking-wide text-white">Status</span>
         </div>
         {isLoading ? (
-          <p className="p-6 text-sm text-[#75777f]">Loading…</p>
+          <TableSkeleton columns="2.5fr 2.5fr 1.5fr 1fr 1fr" />
         ) : shares.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">
             No shares yet. Create one to send your credentials to an employer or visa office.

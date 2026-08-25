@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { accreditationService } from '../api/api';
 import type { InstitutionStatusFilter } from '../types/types';
 
@@ -8,6 +8,8 @@ export function useInstitutions(status: InstitutionStatusFilter, page = 0, size 
   return useQuery({
     queryKey: ['institutions', status, page, size],
     queryFn: () => accreditationService.listInstitutions(status, page, size),
+    // Paging keeps the current rows visible instead of flashing a skeleton.
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -57,6 +59,8 @@ export function useAuditLog(institutionId: string | null, page = 0, size = 20) {
   return useQuery({
     queryKey: ['audit-log', institutionId, page, size],
     queryFn: () => accreditationService.getAuditLog(institutionId, page, size),
+    // Paging keeps the current rows visible instead of flashing a skeleton.
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });

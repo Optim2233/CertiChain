@@ -9,13 +9,12 @@ import type { UserRole } from '@/features/auth/types/types';
 export function RequireAuth({ children, role }: { children: React.ReactNode; role?: UserRole }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   // Same dev-only bypass as proxy.ts - portal pages must be browsable without
   // a real login while iterating on the UI. Remove both bypasses together
   // before deploying past local dev.
   const devBypass = process.env.NODE_ENV !== 'production';
-  const { isError, isSuccess } = useMe();
+  const { isError } = useMe();
   const wrongRole = !!role && !!user && user.role !== role;
 
   useEffect(() => {
@@ -34,16 +33,21 @@ export function RequireAuth({ children, role }: { children: React.ReactNode; rol
     );
   }
 
-  // devBypass skips the redirect-on-error above, but must still wait for
-  // useMe() to populate the store - otherwise children render with user:
-  // null on first paint (e.g. Settings pages showing a blank email).
-  if (devBypass) {
-    return isAuthenticated || isError ? children : null;
-  }
-
-  if (isError || (!isAuthenticated && !isSuccess)) {
-    return null;
-  }
-
+  // Children render immediately rather than waiting on useMe(). Blocking here
+  // cost every portal page a serial round-trip: children are what call
+  // useTimeline()/useCredentials()/etc, so no page data could even start
+  // loading until /me came back, and the user stared at a blank content area
+  // for that whole hop. Rendering straight through lets /me and the page
+  // queries fly in parallel.
+  //
+  // This is safe because RequireAuth was never the access control: the jwt
+  // cookie is httpOnly, the backend authorizes every request independently,
+  // and proxy.ts already redirects cookie-less users at the edge in
+  // production. This is a UX redirect for the expired/revoked-session case.
+  //
+  // The tradeoff: pages now mount for one paint with user === null, so
+  // anything reading off the auth store must render a skeleton rather than
+  // blank text while it fills in (this is why Settings pages skeleton their
+  // email field).
   return children;
 }

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useInstitution, useReinstateInstitution, useRevokeInstitution, useSuspendInstitution } from "@/features/accreditation"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   PENDING: { bg: "#e0e3e5", color: "#44474e", icon: "schedule", label: "Pending" },
@@ -34,7 +35,15 @@ export default function InstitutionDetailPage() {
     mutation.mutate({ id, reason }, { onSuccess: () => { setModalType(null); setReason(""); setTouched(false) } })
   }
 
-  if (isLoading || !institution) return <main className="p-10 text-sm text-[#75777f]">Loading…</main>
+  if (isLoading || !institution)
+    return (
+      <main className="mx-auto max-w-[700px] p-10" aria-busy="true">
+        <Skeleton className="mb-3 h-8 w-2/3" />
+        <Skeleton className="mb-8 h-4 w-1/3" />
+        <Skeleton className="mb-4 h-[160px] rounded-lg" />
+        <Skeleton className="h-[120px] rounded-lg" />
+      </main>
+    )
 
   const style = STATUS_STYLE[institution.status]
 

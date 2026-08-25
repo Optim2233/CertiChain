@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '../api/api';
 import { useInstitutionStore } from '../store/institutionStore';
 import type { CredentialFieldInput } from '../types/types';
@@ -24,6 +24,9 @@ export function useCredentials(status: string | null = null, page = 0, size = 20
   return useQuery({
     queryKey: ['institution-credentials', status, page, size],
     queryFn: () => institutionService.listCredentials(status, page, size),
+    // Keeps the previous page on screen while the next one loads, so paging
+    // doesn't flash the table back to a skeleton on every click.
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
