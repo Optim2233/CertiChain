@@ -63,6 +63,9 @@ public class SecurityConfig {
             "http://127.0.0.1:*",
             "http://192.168.*.*:*",
             "http://10.*.*.*:*",
+            "http://172.1[6-9].*.*:*",
+            "http://172.2*.*.*:*",
+            "http://172.3[0-1].*.*:*",
             "https://certichain-frontend.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
