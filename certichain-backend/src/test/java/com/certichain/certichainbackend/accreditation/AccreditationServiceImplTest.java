@@ -9,7 +9,10 @@ import com.certichain.certichainbackend.common.repository.InstitutionDocumentRep
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.NotificationService;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -35,12 +38,14 @@ class AccreditationServiceImplTest {
 
     private final InstitutionRepository institutionRepository = mock(InstitutionRepository.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final InstitutionDocumentRepository institutionDocumentRepository = mock(InstitutionDocumentRepository.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
 
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
-            institutionRepository, null, auditLogService, userRepository, institutionDocumentRepository, null, currentUser);
+            institutionRepository, null, auditLogService, notificationService, userRepository,
+            institutionDocumentRepository, null, currentUser);
 
     private Institution institutionWith(InstitutionStatus status) {
         Institution institution = Institution.builder()

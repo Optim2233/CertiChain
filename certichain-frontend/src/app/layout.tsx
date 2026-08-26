@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Manrope, IBM_Plex_Sans } from "next/font/google"
+import { Toaster } from "sonner"
 import { Providers } from "./providers"
 import "./globals.css"
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${manrope.variable} ${ibmPlexSans.variable}`}>
       <body className="flex min-h-screen flex-col antialiased">
         <Providers>{children}</Providers>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   )

@@ -16,6 +16,7 @@ import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -44,6 +45,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final InstitutionRepository institutionRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final InstitutionDocumentRepository institutionDocumentRepository;
     private final CredentialRepository credentialRepository;
@@ -248,5 +250,10 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     private void audit(String event, UUID institutionId) {
         auditLogService.log(event, currentUser.id(), institutionId, null);
+        // Every decision here is institution-facing - notify every account tied to it
+        // (usually just one, but nothing stops an institution having more than one login).
+        for (User user : userRepository.findByInstitutionId(institutionId)) {
+            notificationService.notify(user.getId(), event, event);
+        }
     }
 }
