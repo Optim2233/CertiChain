@@ -1,5 +1,6 @@
 package com.certichain.certichainbackend.config;
 
+import com.certichain.certichainbackend.auth.AuthRateLimitFilter;
 import com.certichain.certichainbackend.auth.JwtAuthenticationFilter;
 import com.certichain.certichainbackend.verifier.VerifyRateLimitFilter;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final VerifyRateLimitFilter verifyRateLimitFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -47,7 +49,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

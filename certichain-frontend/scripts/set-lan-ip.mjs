@@ -39,10 +39,10 @@ function setVar(content, name, value) {
 }
 
 let updated = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
-updated = setVar(updated, 'NEXT_PUBLIC_API_BASE_URL', `http://${ip}:8080`);
+updated = setVar(updated, 'NEXT_PUBLIC_API_BASE_URL', `http://${ip}:8081`);
 updated = setVar(updated, 'DEV_LAN_IP', ip);
 
 writeFileSync(envPath, updated);
-console.log(`Set NEXT_PUBLIC_API_BASE_URL=http://${ip}:8080`);
+console.log(`Set NEXT_PUBLIC_API_BASE_URL=http://${ip}:8081`);
 console.log(`On THIS machine and on your phone, open: http://${ip}:3000`);
 console.log(`(same host on both ends - do not use localhost or a VPN IP for either)`);
