@@ -26,6 +26,7 @@ public interface InstitutionService {
     Institution getOwnInstitution();
     Page<Credential> listCredentials(String status, int page, int size);
     CredentialSummary getCredentialSummary();
+    InstitutionAnalytics getAnalytics();
     Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields, Instant expiresAt);
     List<Map<String, Object>> issueBatch(MultipartFile spreadsheet);
     Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt);

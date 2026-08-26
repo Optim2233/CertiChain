@@ -37,6 +37,19 @@ export interface CredentialSummary {
   unclaimed: number;
 }
 
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+export interface InstitutionAnalytics {
+  totalIssued: number;
+  totalVerifications: number;
+  expiringSoon: number;
+  issuancesByDay: DailyCount[];
+  verificationsByDay: DailyCount[];
+}
+
 export interface BatchIssueResult {
   row?: number;
   status?: string;

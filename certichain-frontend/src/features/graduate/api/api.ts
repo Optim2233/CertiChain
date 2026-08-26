@@ -1,5 +1,5 @@
 import type { Credential, CredentialField, DisputeFlag } from '@/features/institution';
-import type { Share, ShareActivityEntry } from '@/features/graduate';
+import type { Share, ShareActivityEntry, VerificationTimestamp } from '@/features/graduate';
 import { apiClient } from '@/shared/config/axioconfig';
 import { createShareSchema, flagCredentialSchema, signupCheckSchema, signupSchema } from './schemas';
 
@@ -78,5 +78,9 @@ export const graduateService = {
 
   async getVerificationCount(headers?: Record<string, string>) {
     return apiClient.get<{ totalVerifications: number }>('/api/graduate/verifications/count', headers);
+  },
+
+  async getCredentialVerificationHistory(id: string, headers?: Record<string, string>) {
+    return apiClient.get<VerificationTimestamp[]>(`/api/graduate/credentials/${id}/verifications`, headers);
   },
 };

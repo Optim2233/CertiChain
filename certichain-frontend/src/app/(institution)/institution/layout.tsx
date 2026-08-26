@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Activity Records", href: "/institution/activity-records", icon: "history" },
   { label: "Batch Issuance", href: "/institution/batch", icon: "upload_file" },
   { label: "Disputes", href: "/institution/disputes", icon: "gavel" },
+  { label: "Analytics", href: "/institution/analytics", icon: "monitoring" },
   { label: "Settings", href: "/institution/settings", icon: "settings" },
 ]
 

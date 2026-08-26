@@ -50,6 +50,12 @@ public class InstitutionController {
         return institutionService.listCredentials(status, page, size);
     }
 
+    @GetMapping("/analytics")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public InstitutionAnalytics getAnalytics() {
+        return institutionService.getAnalytics();
+    }
+
     @GetMapping("/credentials/summary")
     @PreAuthorize("hasRole('INSTITUTION')")
     public CredentialSummary getCredentialSummary() {

@@ -4,6 +4,7 @@ export {
   useCreateShare,
   useCredentialFields,
   useCredentialFlags,
+  useCredentialVerificationHistory,
   useFlagCredential,
   useOpenDisputes,
   usePendingDisputeCount,
@@ -23,4 +24,5 @@ export type {
   ShareInput,
   ShareScope,
   SignupCheckResult,
+  VerificationTimestamp,
 } from './types/types';

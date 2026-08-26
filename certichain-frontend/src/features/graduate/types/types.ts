@@ -15,6 +15,9 @@ export interface Share {
 // Backend returns a bare array of ISO timestamps (List<Instant>), not objects.
 export type ShareActivityEntry = string;
 
+// Same bare-timestamp shape as ShareActivityEntry - timestamps only, no verifier identity.
+export type VerificationTimestamp = string;
+
 export interface ShareInput {
   name: string;
   scope: ShareScope;

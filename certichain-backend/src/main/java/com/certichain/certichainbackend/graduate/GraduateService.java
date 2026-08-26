@@ -24,4 +24,5 @@ public interface GraduateService {
     List<DisputeFlag> listOpenDisputes();
     List<DisputeFlag> listAllDisputes();
     int countVerifications();
+    List<Instant> getCredentialVerificationHistory(UUID credentialId);
 }

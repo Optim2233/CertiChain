@@ -41,6 +41,15 @@ export function useCredentialSummary() {
   });
 }
 
+export function useInstitutionAnalytics() {
+  return useQuery({
+    queryKey: ['institution-analytics'],
+    queryFn: () => institutionService.getAnalytics(),
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
 export function useDisputes() {
   return useQuery({
     queryKey: ['institution-disputes'],

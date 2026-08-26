@@ -6,7 +6,13 @@ import Link from "next/link"
 import { CertificateHero } from "@/shared/components/certificate-hero"
 import { StatusBadge } from "@/shared/components/status-badge"
 import { Button } from "@/shared/components/ui/button"
-import { useTimeline, useCredentialFields, useCredentialFlags, useFlagCredential } from "@/features/graduate"
+import {
+  useTimeline,
+  useCredentialFields,
+  useCredentialFlags,
+  useCredentialVerificationHistory,
+  useFlagCredential,
+} from "@/features/graduate"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function CredentialDetailPage() {
@@ -18,6 +24,8 @@ export default function CredentialDetailPage() {
   const { data: flagsData } = useCredentialFlags(id)
   const flags = flagsData?.data ?? []
   const flagCredential = useFlagCredential()
+  const { data: verificationHistoryData } = useCredentialVerificationHistory(id)
+  const verificationHistory = verificationHistoryData?.data ?? []
 
   const [sigOpen, setSigOpen] = useState(false)
   const [flagOpen, setFlagOpen] = useState(false)
@@ -131,10 +139,29 @@ export default function CredentialDetailPage() {
           </div>
         </div>
 
-        <div className="border-border bg-card rounded-lg border p-5">
-          <h3 className="font-heading mb-1 text-base font-bold">Fields Shared</h3>
-          <p className="text-muted-foreground mb-3.5 text-xs">Choose what's visible when you share this credential.</p>
-          <p className="text-muted-foreground text-xs">Field-level share controls apply per share link — configure them from My Shares.</p>
+        <div className="flex flex-col gap-6">
+          <div className="border-border bg-card rounded-lg border p-5">
+            <h3 className="font-heading mb-1 text-base font-bold">Fields Shared</h3>
+            <p className="text-muted-foreground mb-3.5 text-xs">Choose what's visible when you share this credential.</p>
+            <p className="text-muted-foreground text-xs">Field-level share controls apply per share link — configure them from My Shares.</p>
+          </div>
+
+          <div className="border-border bg-card rounded-lg border p-5">
+            <h3 className="font-heading mb-1 text-base font-bold">Verification History</h3>
+            <p className="text-muted-foreground mb-3.5 text-xs">
+              Verified {verificationHistory.length} time{verificationHistory.length === 1 ? "" : "s"} — no verifier
+              identity is ever recorded.
+            </p>
+            {verificationHistory.length === 0 ? (
+              <p className="text-muted-foreground text-xs">Not yet verified by anyone.</p>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-xs text-[#44474e]">
+                {verificationHistory.slice(0, 5).map((ts) => (
+                  <li key={ts}>{new Date(ts).toLocaleString()}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 

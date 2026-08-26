@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +27,9 @@ public interface CredentialRepository extends JpaRepository<Credential, UUID> {
     int countByInstitutionId(UUID institutionId);
 
     int countByInstitutionIdAndStatus(UUID institutionId, CredentialStatus status);
+
+    int countByInstitutionIdAndStatusAndExpiresAtBetween(
+            UUID institutionId, CredentialStatus status, Instant from, Instant to);
 
     // No JPA relation between Credential and DisputeFlag (plain UUID FKs) - joined via a
     // credential-id subquery instead of a mapped association.

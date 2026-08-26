@@ -99,6 +99,16 @@ export function useShareActivity(id: string) {
   });
 }
 
+export function useCredentialVerificationHistory(id: string) {
+  return useQuery({
+    queryKey: ['graduate-credential-verification-history', id],
+    queryFn: () => graduateService.getCredentialVerificationHistory(id),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
 export function useFlagCredential() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -8,6 +8,7 @@ export {
   useDisputes,
   useDismissDispute,
   useEditCredential,
+  useInstitutionAnalytics,
   useInstitutionMe,
   useIssueActivityRecord,
   useIssueBatch,
@@ -24,7 +25,9 @@ export type {
   CredentialStatus,
   CredentialSummary,
   CredentialType,
+  DailyCount,
   DisputeFlag,
   DisputeStatus,
+  InstitutionAnalytics,
   InstitutionState,
 } from './types/types';

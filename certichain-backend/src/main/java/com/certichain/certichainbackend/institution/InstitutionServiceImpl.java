@@ -15,12 +15,14 @@ import com.certichain.certichainbackend.common.enums.Role;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
 import com.certichain.certichainbackend.common.repository.CredentialFieldRepository;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.DisputeFlagRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionDocumentRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
+import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.NotificationService;
@@ -44,6 +46,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +65,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final CredentialRepository credentialRepository;
     private final CredentialFieldRepository credentialFieldRepository;
     private final DisputeFlagRepository disputeFlagRepository;
+    private final AuditLogEntryRepository auditLogEntryRepository;
     private final SigningService signingService;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
@@ -141,6 +145,38 @@ public class InstitutionServiceImpl implements InstitutionService {
                 credentialRepository.countByInstitutionId(institutionId),
                 credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.REVOKED),
                 credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.PENDING_CLAIM));
+    }
+
+    @Override
+    @Cacheable(cacheNames = "institution", key = "'analytics:' + @currentUser.institutionId()")
+    public InstitutionAnalytics getAnalytics() {
+        UUID institutionId = currentUser.institutionId();
+        Instant since = Instant.now().minus(30, ChronoUnit.DAYS);
+        Instant soon = Instant.now().plus(30, ChronoUnit.DAYS);
+
+        List<Credential> credentials = credentialRepository.findByInstitutionId(institutionId);
+        List<UUID> credentialIds = credentials.stream().map(Credential::getId).toList();
+        int totalVerifications = credentialIds.isEmpty() ? 0
+                : auditLogEntryRepository.countByEventAndCredentialIdIn(AuditEvents.VERIFY_EVENT, credentialIds);
+
+        return new InstitutionAnalytics(
+                credentials.size(),
+                totalVerifications,
+                credentialRepository.countByInstitutionIdAndStatusAndExpiresAtBetween(
+                        institutionId, CredentialStatus.ISSUED, Instant.now(), soon),
+                toDailyCounts(auditLogEntryRepository.dailyCountsByInstitutionAndEvent(
+                        institutionId, AuditEvents.CERTIFICATE_ISSUED_EVENT, since)),
+                toDailyCounts(auditLogEntryRepository.dailyCountsByInstitutionAndEvent(
+                        institutionId, AuditEvents.VERIFY_EVENT, since)));
+    }
+
+    /** Native query rows come back as [Timestamp, Long] - map to the response record's shape. */
+    private List<DailyCount> toDailyCounts(List<Object[]> rows) {
+        return rows.stream()
+                .map(row -> new DailyCount(
+                        ((java.sql.Timestamp) row[0]).toInstant().atZone(ZoneOffset.UTC).toLocalDate(),
+                        ((Number) row[1]).longValue()))
+                .toList();
     }
 
     private CredentialStatus parseCredentialStatus(String status) {
@@ -433,6 +469,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                     .merkleIndex(field.merkleIndex())
                     .build());
         }
+        auditLogService.log(AuditEvents.CERTIFICATE_ISSUED_EVENT, currentUser.id(), institutionId, credential.getId());
         // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null.
         notificationService.notify(credential.getGraduateUserId(), "Certificate issued",
                 "A new credential has been issued to you by an accredited institution.");

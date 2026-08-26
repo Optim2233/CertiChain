@@ -2,7 +2,7 @@ import type { Page } from '@/shared/types/types';
 import type { Institution } from '@/features/accreditation';
 import type { Credential, DisputeFlag } from '@/features/institution';
 import { apiClient } from '@/shared/config/axioconfig';
-import type { BatchIssueResult, CredentialField, CredentialFieldInput, CredentialSummary } from '../types/types';
+import type { BatchIssueResult, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
 import {
   applyInstitutionSchema,
   dismissDisputeSchema,
@@ -43,6 +43,10 @@ export const institutionService = {
 
   async getCredentialSummary(headers?: Record<string, string>) {
     return apiClient.get<CredentialSummary>('/api/institution/credentials/summary', headers);
+  },
+
+  async getAnalytics(headers?: Record<string, string>) {
+    return apiClient.get<InstitutionAnalytics>('/api/institution/analytics', headers);
   },
 
   async issueCertificate(

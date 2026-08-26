@@ -108,4 +108,10 @@ public class GraduateController {
     public Map<String, Integer> verificationCount() {
         return Map.of("totalVerifications", graduateService.countVerifications());
     }
+
+    @GetMapping("/credentials/{id}/verifications")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public List<Instant> credentialVerificationHistory(@PathVariable UUID id) {
+        return graduateService.getCredentialVerificationHistory(id);
+    }
 }

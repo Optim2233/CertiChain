@@ -253,6 +253,19 @@ public class GraduateServiceImpl implements GraduateService {
         return auditLogEntryRepository.countByEventAndCredentialIdIn(AuditEvents.VERIFY_EVENT, credentialIds);
     }
 
+    @Override
+    @Cacheable(cacheNames = "graduate", key = "'verificationHistory:' + @currentUser.id() + ':' + #credentialId")
+    public List<Instant> getCredentialVerificationHistory(UUID credentialId) {
+        ownCredential(credentialId);
+        // Timestamps only - no verifier identity is ever recorded (same reasoning as
+        // getShareActivity above).
+        return auditLogEntryRepository
+                .findByEventAndCredentialIdInOrderByOccurredAtDesc(AuditEvents.VERIFY_EVENT, List.of(credentialId))
+                .stream()
+                .map(AuditLogEntry::getOccurredAt)
+                .toList();
+    }
+
     /** Without this check any graduate could read or flag any other graduate's credential. */
     private Credential ownCredential(UUID credentialId) {
         Credential credential = credentialRepository.findById(credentialId)
