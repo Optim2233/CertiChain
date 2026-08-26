@@ -1,6 +1,7 @@
 // Detects this machine's current LAN IP and writes it into .env.local as
-// NEXT_PUBLIC_API_BASE_URL, so switching Wi-Fi networks (home/uni/etc.)
-// doesn't need a manual edit before `next dev`.
+// NEXT_PUBLIC_API_BASE_URL and DEV_LAN_IP, so switching Wi-Fi networks
+// (home/uni/etc.) doesn't need a manual edit before `next dev`. DEV_LAN_IP is
+// read by next.config.ts to populate allowedDevOrigins.
 import { networkInterfaces } from 'node:os';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -30,11 +31,16 @@ if (!ip) {
   process.exit(1);
 }
 
-const line = `NEXT_PUBLIC_API_BASE_URL=http://${ip}:8080\n`;
-const existing = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
-const updated = /^NEXT_PUBLIC_API_BASE_URL=.*$/m.test(existing)
-  ? existing.replace(/^NEXT_PUBLIC_API_BASE_URL=.*$/m, line.trim())
-  : existing + line;
+function setVar(content, name, value) {
+  const line = `${name}=${value}`;
+  return new RegExp(`^${name}=.*$`, 'm').test(content)
+    ? content.replace(new RegExp(`^${name}=.*$`, 'm'), line)
+    : content + line + '\n';
+}
+
+let updated = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
+updated = setVar(updated, 'NEXT_PUBLIC_API_BASE_URL', `http://${ip}:8080`);
+updated = setVar(updated, 'DEV_LAN_IP', ip);
 
 writeFileSync(envPath, updated);
 console.log(`Set NEXT_PUBLIC_API_BASE_URL=http://${ip}:8080`);
