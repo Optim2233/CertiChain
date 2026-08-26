@@ -20,6 +20,7 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -143,6 +144,7 @@ public class VerifierServiceImpl implements VerifierService {
     }
 
     @Override
+    @Cacheable(cacheNames = "verifier", key = "'trustStats'")
     public TrustStats getTrustStats() {
         return new TrustStats(
                 institutionRepository.countByStatus(InstitutionStatus.APPROVED),
@@ -150,6 +152,7 @@ public class VerifierServiceImpl implements VerifierService {
     }
 
     @Override
+    @Cacheable(cacheNames = "verifier", key = "'institutionDirectory'")
     public List<Institution> publicInstitutionDirectory() {
         // APPROVED + SUSPENDED only. Suspended is shown (dimmed on the frontend) rather than
         // hidden - confirmed decision, see context_kit/CLAUDE.md.

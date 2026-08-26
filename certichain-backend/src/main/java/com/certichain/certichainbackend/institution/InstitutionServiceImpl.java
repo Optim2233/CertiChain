@@ -26,6 +26,8 @@ import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -109,11 +111,14 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Cacheable(cacheNames = "institution", key = "'own:' + @currentUser.institutionId()")
     public Institution getOwnInstitution() {
         return load(currentUser.institutionId());
     }
 
     @Override
+    @Cacheable(cacheNames = "institution",
+            key = "'credentials:' + @currentUser.institutionId() + ':' + #status + ':' + #page + ':' + #size")
     public Page<Credential> listCredentials(String status, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("issuedAt").descending());
         if (status == null || status.isBlank()) {
@@ -124,6 +129,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Cacheable(cacheNames = "institution", key = "'summary:' + @currentUser.institutionId()")
     public CredentialSummary getCredentialSummary() {
         UUID institutionId = currentUser.institutionId();
         return new CredentialSummary(
@@ -154,6 +160,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields) {
         if (fields == null || fields.isEmpty()) {
             throw new ValidationException("At least one field is required");
@@ -169,6 +176,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public Credential issueActivityRecord(String graduateEmail, String activity, String date) {
         requireText(activity, "activity");
         requireText(date, "date");
@@ -178,6 +186,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public List<Map<String, Object>> issueBatch(MultipartFile spreadsheet) {
         // Synchronous with per-row results: one bad row is a row-level error, never a failed
         // request. Rows are fully validated before anything is written, so a rejected row
@@ -218,6 +227,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public void revokeCredential(UUID credentialId, String reason) {
         requireText(reason, "reason");
         Credential credential = ownCredential(credentialId);
@@ -229,18 +239,23 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Cacheable(cacheNames = "institution",
+            key = "'credentialFields:' + @currentUser.institutionId() + ':' + #credentialId")
     public List<CredentialField> getCredentialFields(UUID credentialId) {
         ownCredential(credentialId); // authorization check only
         return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
     }
 
     @Override
+    @Cacheable(cacheNames = "institution",
+            key = "'credential:' + @currentUser.institutionId() + ':' + #credentialId")
     public Credential getCredential(UUID credentialId) {
         return ownCredential(credentialId);
     }
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public Credential editCredential(UUID credentialId, List<Map<String, String>> fields) {
         Credential credential = ownCredential(credentialId);
         if (credential.getStatus() == CredentialStatus.REVOKED) {
@@ -262,6 +277,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Cacheable(cacheNames = "institution", key = "'disputes:' + @currentUser.institutionId()")
     public List<?> listDisputes() {
         List<UUID> credentialIds = credentialRepository
                 .findByInstitutionId(currentUser.institutionId()).stream()
@@ -275,6 +291,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public void upholdDispute(UUID disputeId, String resolutionNote, String action, List<Map<String, String>> fields) {
         requireText(resolutionNote, "resolution_note");
         DisputeFlag dispute = openDispute(disputeId);
@@ -317,6 +334,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
     public void dismissDispute(UUID disputeId, String resolutionNote) {
         requireText(resolutionNote, "resolution_note");
         DisputeFlag dispute = openDispute(disputeId);

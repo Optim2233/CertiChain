@@ -25,6 +25,8 @@ import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,11 +86,13 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'timeline:' + @currentUser.id()")
     public List<Credential> getTimeline() {
         return credentialRepository.findByGraduateUserIdOrderByIssuedAtDesc(currentUser.id());
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'credentialFields:' + @currentUser.id() + ':' + #credentialId")
     public List<CredentialField> getCredentialFields(UUID credentialId) {
         ownCredential(credentialId);
         return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
@@ -96,6 +100,7 @@ public class GraduateServiceImpl implements GraduateService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "graduate", allEntries = true)
     public Share createShare(String name, String scope, UUID credentialId, List<UUID> selectedFieldIds) {
         requireText(name, "name");
         ShareScope shareScope = parseScope(scope);
@@ -142,12 +147,14 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'shares:' + @currentUser.id()")
     public List<Share> listShares() {
         return shareRepository.findByGraduateUserIdOrderByCreatedAtDesc(currentUser.id());
     }
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "graduate", allEntries = true)
     public void revokeShare(UUID shareId) {
         Share share = ownShare(shareId);
         // Kills this link only - the underlying credential is untouched.
@@ -156,6 +163,7 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'shareActivity:' + @currentUser.id() + ':' + #shareId")
     public List<Instant> getShareActivity(UUID shareId) {
         ownShare(shareId);
         // Timestamps only - no viewer identity is recorded, by design (see
@@ -177,6 +185,7 @@ public class GraduateServiceImpl implements GraduateService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "graduate", allEntries = true)
     public DisputeFlag flagCredential(UUID credentialId, String reason) {
         requireText(reason, "reason");
         ownCredential(credentialId);
@@ -191,12 +200,14 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'flags:' + @currentUser.id() + ':' + #credentialId")
     public List<DisputeFlag> getCredentialFlags(UUID credentialId) {
         ownCredential(credentialId);
         return disputeFlagRepository.findByCredentialId(credentialId);
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'openDisputeCount:' + @currentUser.id()")
     public int countOpenDisputes() {
         List<UUID> credentialIds = myCredentialIds();
         if (credentialIds.isEmpty()) {
@@ -206,6 +217,7 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'openDisputes:' + @currentUser.id()")
     public List<DisputeFlag> listOpenDisputes() {
         List<UUID> credentialIds = myCredentialIds();
         if (credentialIds.isEmpty()) {
@@ -215,6 +227,7 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'allDisputes:' + @currentUser.id()")
     public List<DisputeFlag> listAllDisputes() {
         List<UUID> credentialIds = myCredentialIds();
         if (credentialIds.isEmpty()) {
@@ -231,6 +244,7 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Cacheable(cacheNames = "graduate", key = "'verificationCount:' + @currentUser.id()")
     public int countVerifications() {
         List<UUID> credentialIds = myCredentialIds();
         if (credentialIds.isEmpty()) {

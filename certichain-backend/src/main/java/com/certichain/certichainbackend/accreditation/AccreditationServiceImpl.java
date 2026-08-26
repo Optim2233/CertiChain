@@ -17,6 +17,8 @@ import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -48,6 +50,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final CurrentUser currentUser;
 
     @Override
+    @Cacheable(cacheNames = "accreditation", key = "'institutions:' + #status + ':' + #page + ':' + #size")
     public Page<Institution> listInstitutions(String status, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("appliedAt").descending());
         if (status == null || status.isBlank()) {
@@ -57,17 +60,20 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
+    @Cacheable(cacheNames = "accreditation", key = "'disputedInstitutionIds'")
     public List<UUID> institutionsWithOpenDisputes() {
         return credentialRepository.findInstitutionIdsWithOpenDisputes();
     }
 
     @Override
+    @Cacheable(cacheNames = "accreditation", key = "'institution:' + #id")
     public Institution getInstitution(UUID id) {
         return load(id);
     }
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void approve(UUID id) {
         Institution institution = transition(id, InstitutionStatus.APPROVED, null,
                 InstitutionStatus.PENDING);
@@ -77,6 +83,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void requestInfo(UUID id, String note) {
         requireReason(note, "note");
         // Deliberately NOT a status change: the application stays PENDING and the note is
@@ -92,6 +99,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void reject(UUID id, String reason) {
         requireReason(reason, "reason");
         transition(id, InstitutionStatus.REJECTED, reason, InstitutionStatus.PENDING);
@@ -100,6 +108,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void suspend(UUID id, String reason) {
         requireReason(reason, "reason");
         transition(id, InstitutionStatus.SUSPENDED, reason, InstitutionStatus.APPROVED);
@@ -108,6 +117,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void reinstate(UUID id) {
         // Positive action, no reason required - and it clears the suspension reason.
         Institution institution = transition(id, InstitutionStatus.APPROVED, null,
@@ -118,6 +128,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void revoke(UUID id, String reason) {
         requireReason(reason, "reason");
         transition(id, InstitutionStatus.REVOKED, reason,
@@ -126,6 +137,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
+    @Cacheable(cacheNames = "accreditation", key = "'auditLog:' + #institutionId + ':' + #page + ':' + #size")
     public Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("occurredAt").descending());
         Page<AuditLogEntry> entries = institutionId == null
@@ -153,6 +165,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
+    @Cacheable(cacheNames = "accreditation", key = "'documents:' + #institutionId")
     public List<InstitutionDocumentResponse> listDocuments(UUID institutionId) {
         return institutionDocumentRepository.findByInstitutionId(institutionId).stream()
                 .map(d -> new InstitutionDocumentResponse(
@@ -161,6 +174,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
+    @Cacheable(cacheNames = "accreditation", key = "'document:' + #institutionId + ':' + #documentId")
     public InstitutionDocument getDocument(UUID institutionId, UUID documentId) {
         InstitutionDocument document = institutionDocumentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
@@ -174,6 +188,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void verifyDocument(UUID institutionId, UUID documentId) {
         InstitutionDocument document = getDocument(institutionId, documentId);
         // One-way action: verifying twice would silently no-op the second click, which
