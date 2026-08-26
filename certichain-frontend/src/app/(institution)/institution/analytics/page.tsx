@@ -10,12 +10,24 @@ function Sparkline({ data, color }: { data: DailyCount[]; color: string }) {
     return <p className="m-0 text-sm text-[#75777f]">No activity in the last 30 days.</p>
   }
 
+  // A single active day can't draw a line - show it as a labeled bar instead of a lone dot.
+  if (data.length === 1) {
+    return (
+      <div className="flex h-20 flex-col justify-end gap-1">
+        <div className="h-10 w-10 rounded-sm" style={{ background: color }} />
+        <p className="m-0 text-xs text-[#75777f]">
+          {data[0].count} on {data[0].date}
+        </p>
+      </div>
+    )
+  }
+
   const width = 320
   const height = 80
   const max = Math.max(...data.map((d) => d.count), 1)
-  const stepX = data.length > 1 ? width / (data.length - 1) : 0
+  const stepX = width / (data.length - 1)
   const points = data.map((d, i) => {
-    const x = data.length > 1 ? i * stepX : width / 2
+    const x = i * stepX
     const y = height - (d.count / max) * (height - 8) - 4
     return `${x},${y}`
   })
@@ -24,7 +36,7 @@ function Sparkline({ data, color }: { data: DailyCount[]; color: string }) {
     <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full" preserveAspectRatio="none">
       <polyline points={points.join(" ")} fill="none" stroke={color} strokeWidth={2} />
       {data.map((d, i) => {
-        const x = data.length > 1 ? i * stepX : width / 2
+        const x = i * stepX
         const y = height - (d.count / max) * (height - 8) - 4
         return <circle key={d.date} cx={x} cy={y} r={2.5} fill={color} />
       })}

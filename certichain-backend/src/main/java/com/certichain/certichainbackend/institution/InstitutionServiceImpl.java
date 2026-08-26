@@ -170,13 +170,27 @@ public class InstitutionServiceImpl implements InstitutionService {
                         institutionId, AuditEvents.VERIFY_EVENT, since)));
     }
 
-    /** Native query rows come back as [Timestamp, Long] - map to the response record's shape. */
+    /**
+     * Native query rows come back as [day, count]. The driver/Hibernate version in use maps
+     * date_trunc()'s timestamptz result to java.sql.Timestamp OR java.time.Instant/OffsetDateTime
+     * depending on version - handle whatever actually shows up rather than betting on one.
+     */
     private List<DailyCount> toDailyCounts(List<Object[]> rows) {
         return rows.stream()
-                .map(row -> new DailyCount(
-                        ((java.sql.Timestamp) row[0]).toInstant().atZone(ZoneOffset.UTC).toLocalDate(),
-                        ((Number) row[1]).longValue()))
+                .map(row -> new DailyCount(toLocalDate(row[0]), ((Number) row[1]).longValue()))
                 .toList();
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        Instant instant = switch (value) {
+            case java.sql.Timestamp ts -> ts.toInstant();
+            case Instant i -> i;
+            case java.time.OffsetDateTime odt -> odt.toInstant();
+            case java.time.LocalDateTime ldt -> ldt.toInstant(ZoneOffset.UTC);
+            default -> throw new IllegalStateException(
+                    "Unexpected date_trunc() result type: " + value.getClass());
+        };
+        return instant.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     private CredentialStatus parseCredentialStatus(String status) {
