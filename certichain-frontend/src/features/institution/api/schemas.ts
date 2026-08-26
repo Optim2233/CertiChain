@@ -26,12 +26,15 @@ export const credentialFieldInputSchema = z.object({
 export const issueCertificateSchema = z.object({
   graduate_email: z.string().trim().email(),
   fields: z.array(credentialFieldInputSchema),
+  // Optional, institution's choice - omitted/blank means the credential never expires.
+  expires_at: z.string().trim().min(1).optional(),
 });
 
 export const issueActivityRecordSchema = z.object({
   graduate_email: z.string().trim().email(),
   activity: z.string().trim().min(1),
   date: z.string().trim().min(1), // ISO date string
+  expires_at: z.string().trim().min(1).optional(),
 });
 
 export const revokeCredentialSchema = z.object({

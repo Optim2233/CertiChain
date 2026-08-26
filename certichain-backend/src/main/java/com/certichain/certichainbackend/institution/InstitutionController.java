@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -58,7 +61,8 @@ public class InstitutionController {
     public Credential issueCertificate(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, String>> fields = (List<Map<String, String>>) body.get("fields");
-        return institutionService.issueCertificate((String) body.get("graduate_email"), fields);
+        return institutionService.issueCertificate(
+                (String) body.get("graduate_email"), fields, parseExpiresAt((String) body.get("expires_at")));
     }
 
     @PostMapping("/credentials/batch")
@@ -72,8 +76,8 @@ public class InstitutionController {
     @GetMapping("/credentials/batch/template")
     @PreAuthorize("hasRole('INSTITUTION')")
     public ResponseEntity<byte[]> batchTemplate() {
-        String csv = "graduate_email,type,degree,graduationDate\n"
-                + "student@example.edu,certificate,BSc Computer Science,2026-06-01\n";
+        String csv = "graduate_email,type,degree,graduationDate,expires_at\n"
+                + "student@example.edu,certificate,BSc Computer Science,2026-06-01,\n";
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=\"batch-template.csv\"")
                 .contentType(MediaType.parseMediaType("text/csv"))
@@ -84,7 +88,15 @@ public class InstitutionController {
     @PreAuthorize("hasRole('INSTITUTION')")
     public Credential issueActivityRecord(@RequestBody Map<String, String> body) {
         return institutionService.issueActivityRecord(
-                body.get("graduate_email"), body.get("activity"), body.get("date"));
+                body.get("graduate_email"), body.get("activity"), body.get("date"),
+                parseExpiresAt(body.get("expires_at")));
+    }
+
+    /** Optional, date-only (YYYY-MM-DD) from the frontend's date input; blank means never expires. */
+    private static Instant parseExpiresAt(String expiresAt) {
+        return expiresAt == null || expiresAt.isBlank()
+                ? null
+                : LocalDate.parse(expiresAt.trim()).atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 
     @PostMapping("/credentials/{id}/revoke")

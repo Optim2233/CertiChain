@@ -48,11 +48,12 @@ export const institutionService = {
   async issueCertificate(
     graduateEmail: string,
     fields: CredentialFieldInput[],
+    expiresAt?: string,
     headers?: Record<string, string>
   ) {
     return apiClient.post<Credential>(
       '/api/institution/credentials',
-      issueCertificateSchema.parse({ graduate_email: graduateEmail, fields }),
+      issueCertificateSchema.parse({ graduate_email: graduateEmail, fields, expires_at: expiresAt || undefined }),
       headers
     );
   },
@@ -71,11 +72,12 @@ export const institutionService = {
     graduateEmail: string,
     activity: string,
     date: string,
+    expiresAt?: string,
     headers?: Record<string, string>
   ) {
     return apiClient.post<Credential>(
       '/api/institution/activity-records',
-      issueActivityRecordSchema.parse({ graduate_email: graduateEmail, activity, date }),
+      issueActivityRecordSchema.parse({ graduate_email: graduateEmail, activity, date, expires_at: expiresAt || undefined }),
       headers
     );
   },

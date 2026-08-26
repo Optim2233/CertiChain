@@ -1,4 +1,4 @@
-export type VerificationResult = 'VERIFIED' | 'REVOKED' | 'INVALID_NOT_FOUND' | 'SHARE_REVOKED';
+export type VerificationResult = 'VERIFIED' | 'REVOKED' | 'EXPIRED' | 'INVALID_NOT_FOUND' | 'SHARE_REVOKED';
 
 export interface DisclosedField {
   name: string;
@@ -12,6 +12,7 @@ export interface VerificationResponse {
   institutionName: string | null;
   institutionStatus: string | null;
   issuedAt: string | null;
+  expiresAt: string | null;
   revokedAt: string | null;
   revokeReason: string | null;
   disclosedFields: DisclosedField[];

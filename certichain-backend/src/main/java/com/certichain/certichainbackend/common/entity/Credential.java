@@ -53,6 +53,10 @@ public class Credential {
     @Column(name = "issued_at", nullable = false)
     private Instant issuedAt;
 
+    /** Optional, institution's choice at issuance. Null means never expires. */
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 

@@ -31,7 +31,7 @@ export default function ShareTimelinePage() {
         : []
 
   const verifiedCount = list.filter((e) => e.result === "VERIFIED").length
-  const revokedCount = list.length - verifiedCount
+  const flaggedCount = list.length - verifiedCount
 
   if (verifyShare.isPending) {
     return (
@@ -103,32 +103,38 @@ export default function ShareTimelinePage() {
 
         <div className="mb-6 flex gap-2">
           <span className="rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "#eef0f3", color: "#44474e" }}>{verifiedCount} verified</span>
-          {revokedCount > 0 && <span className="rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "#eef0f3", color: "#44474e" }}>{revokedCount} revoked</span>}
+          {flaggedCount > 0 && <span className="rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "#eef0f3", color: "#44474e" }}>{flaggedCount} flagged</span>}
         </div>
 
         {list.map((e, i) => {
-          const revoked = e.result !== "VERIFIED"
+          const dimmed = e.result !== "VERIFIED"
+          const expired = e.result === "EXPIRED"
+          const badge = expired
+            ? { bg: "#fff3d6", color: "#a5730f", icon: "schedule", label: "Expired" }
+            : dimmed
+              ? { bg: "#ffdad6", color: "#C0392B", icon: "cancel", label: "Revoked" }
+              : { bg: "#d5e3ff", color: "#02275A", icon: "check_circle", label: "Verified" }
           return (
             <div key={i} className="flex gap-3 sm:gap-4">
               <div className="flex flex-col items-center">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full" style={{ background: revoked ? "#f1f2f7" : "#d5e3ff" }}>
-                  <span className="material-symbols-outlined text-lg" style={{ color: revoked ? "#9aa0aa" : "#02275A" }}>
-                    {revoked ? "cancel" : "school"}
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full" style={{ background: dimmed ? "#f1f2f7" : "#d5e3ff" }}>
+                  <span className="material-symbols-outlined text-lg" style={{ color: dimmed ? "#9aa0aa" : "#02275A" }}>
+                    {expired ? "schedule" : dimmed ? "cancel" : "school"}
                   </span>
                 </span>
                 {i !== list.length - 1 && <span className="mt-0.5 w-px flex-1" style={{ background: "#e0e3e5" }} />}
               </div>
               <div className="flex flex-1 flex-wrap items-start justify-between gap-3 pb-6 sm:gap-4">
                 <div>
-                  <h3 className="font-heading m-0 text-sm font-semibold sm:text-base" style={{ color: revoked ? "#75777f" : "#191c1e" }}>{e.credentialTitle}</h3>
-                  <p className="m-0 mt-1 text-xs sm:text-[13px]" style={{ color: revoked ? "#9aa0aa" : "#44474e" }}>{e.institutionName}</p>
+                  <h3 className="font-heading m-0 text-sm font-semibold sm:text-base" style={{ color: dimmed ? "#75777f" : "#191c1e" }}>{e.credentialTitle}</h3>
+                  <p className="m-0 mt-1 text-xs sm:text-[13px]" style={{ color: dimmed ? "#9aa0aa" : "#44474e" }}>{e.institutionName}</p>
                 </div>
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-3.5 sm:text-[13px]"
-                  style={revoked ? { background: "#ffdad6", color: "#C0392B" } : { background: "#d5e3ff", color: "#02275A" }}
+                  style={{ background: badge.bg, color: badge.color }}
                 >
-                  <span className="material-symbols-outlined text-base">{revoked ? "cancel" : "check_circle"}</span>
-                  {revoked ? "Revoked" : "Verified"}
+                  <span className="material-symbols-outlined text-base">{badge.icon}</span>
+                  {badge.label}
                 </span>
               </div>
             </div>

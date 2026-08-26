@@ -6,6 +6,7 @@ import com.certichain.certichainbackend.common.entity.Institution;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,9 +26,9 @@ public interface InstitutionService {
     Institution getOwnInstitution();
     Page<Credential> listCredentials(String status, int page, int size);
     CredentialSummary getCredentialSummary();
-    Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields);
+    Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields, Instant expiresAt);
     List<Map<String, Object>> issueBatch(MultipartFile spreadsheet);
-    Credential issueActivityRecord(String graduateEmail, String activity, String date);
+    Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt);
     void revokeCredential(UUID credentialId, String reason);
     Credential getCredential(UUID credentialId);
     Credential editCredential(UUID credentialId, List<Map<String, String>> fields);

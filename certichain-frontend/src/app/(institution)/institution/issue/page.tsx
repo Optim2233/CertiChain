@@ -10,6 +10,7 @@ export default function IssueCertificatePage() {
   const [email, setEmail] = useState("")
   const [title, setTitle] = useState("")
   const [gradDate, setGradDate] = useState("")
+  const [expiresAt, setExpiresAt] = useState("")
   const [touched, setTouched] = useState({ email: false, title: false, gradDate: false })
   const [extraFields, setExtraFields] = useState<{ name: string; value: string }[]>([])
   const [success, setSuccess] = useState(false)
@@ -30,6 +31,7 @@ export default function IssueCertificatePage() {
           { name: "graduationDate", value: gradDate },
           ...extraFields.filter((f) => f.name.trim()),
         ],
+        expiresAt: expiresAt || undefined,
       },
       {
         onSuccess: () => {
@@ -37,6 +39,7 @@ export default function IssueCertificatePage() {
           setEmail("")
           setTitle("")
           setGradDate("")
+          setExpiresAt("")
           setExtraFields([])
           setTouched({ email: false, title: false, gradDate: false })
         },
@@ -105,15 +108,12 @@ export default function IssueCertificatePage() {
             {touched.gradDate && !dateValid && <p className="mt-1 text-xs text-[#C0392B]">Graduation date is required.</p>}
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-bold">Credential ID</label>
-            {/* ponytail: backend always server-generates the credential ID (no field to
-                override it), so this stays disabled rather than accepting input that's
-                silently thrown away - remove the disabled state if that ever changes. */}
+            <label className="mb-1.5 block text-sm font-bold">Expires On (optional)</label>
             <input
-              type="text"
-              disabled
-              placeholder="Auto-generated"
-              className="w-full rounded border border-[#c5c6cf] bg-[#f7f9fb] px-3.5 py-2.5 text-sm text-[#75777f]"
+              type="date"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              className="w-full rounded border border-[#c5c6cf] px-3.5 py-2.5 text-sm"
             />
           </div>
         </div>

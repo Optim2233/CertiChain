@@ -23,6 +23,7 @@ import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,6 +64,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final DisputeFlagRepository disputeFlagRepository;
     private final SigningService signingService;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
 
@@ -158,10 +163,22 @@ public class InstitutionServiceImpl implements InstitutionService {
         }
     }
 
+    /** Optional column; blank/absent means the credential never expires. */
+    private Instant parseBatchExpiry(String expiresAt) {
+        if (expiresAt == null || expiresAt.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(expiresAt.trim()).atStartOfDay(ZoneOffset.UTC).toInstant();
+        } catch (DateTimeParseException ex) {
+            throw new ValidationException("Invalid expires_at (expected YYYY-MM-DD): " + expiresAt);
+        }
+    }
+
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields) {
+    public Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields, Instant expiresAt) {
         if (fields == null || fields.isEmpty()) {
             throw new ValidationException("At least one field is required");
         }
@@ -171,18 +188,18 @@ public class InstitutionServiceImpl implements InstitutionService {
             requireText(fieldName, "field name");
             parsed.add(new Field(fieldName, field.getOrDefault("value", "")));
         }
-        return issue(graduateEmail, parsed, CredentialType.CERTIFICATE);
+        return issue(graduateEmail, parsed, CredentialType.CERTIFICATE, expiresAt);
     }
 
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public Credential issueActivityRecord(String graduateEmail, String activity, String date) {
+    public Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt) {
         requireText(activity, "activity");
         requireText(date, "date");
         return issue(graduateEmail,
                 List.of(new Field("activity", activity), new Field("date", date)),
-                CredentialType.ACTIVITY_RECORD);
+                CredentialType.ACTIVITY_RECORD, expiresAt);
     }
 
     @Override
@@ -206,14 +223,16 @@ public class InstitutionServiceImpl implements InstitutionService {
                     throw new ValidationException("missing graduate_email");
                 }
                 CredentialType type = parseBatchType(row.get("type"));
+                Instant expiresAt = parseBatchExpiry(row.get("expires_at"));
                 List<Field> fields = row.entrySet().stream()
-                        .filter(e -> !e.getKey().equals("graduate_email") && !e.getKey().equals("type"))
+                        .filter(e -> !e.getKey().equals("graduate_email") && !e.getKey().equals("type")
+                                && !e.getKey().equals("expires_at"))
                         .map(e -> new Field(e.getKey(), e.getValue()))
                         .toList();
                 if (fields.isEmpty()) {
                     throw new ValidationException("no credential fields in row");
                 }
-                Credential credential = issue(email, fields, type);
+                Credential credential = issue(email, fields, type, expiresAt);
                 result.put("status", "OK");
                 result.put("credentialId", credential.getId());
             } catch (RuntimeException ex) {
@@ -236,6 +255,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         credential.setRevokedAt(Instant.now());
         auditLogService.log("Certificate revoked", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
+        notificationService.notify(credential.getGraduateUserId(), "Certificate revoked",
+                "A credential you hold was revoked. Reason: " + reason);
     }
 
     @Override
@@ -273,6 +294,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         resignFields(credential, toSign);
         auditLogService.log("Certificate edited", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
+        notificationService.notify(credential.getGraduateUserId(), "Certificate edited",
+                "A credential you hold was edited and re-signed by the issuing institution.");
         return credential;
     }
 
@@ -330,6 +353,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         dispute.setResolvedAt(Instant.now());
         auditLogService.log("Dispute upheld", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
+        notificationService.notify(dispute.getGraduateUserId(), "Dispute upheld",
+                "Your dispute was upheld. Resolution: " + resolutionNote);
     }
 
     @Override
@@ -346,6 +371,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         dispute.setResolvedAt(Instant.now());
         auditLogService.log("Dispute dismissed", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
+        notificationService.notify(dispute.getGraduateUserId(), "Dispute dismissed",
+                "Your dispute was dismissed. Resolution: " + resolutionNote);
     }
 
     /** Re-signs a credential's field set and replaces its stored fields with the signed result. */
@@ -369,7 +396,7 @@ public class InstitutionServiceImpl implements InstitutionService {
      * The single issuance path - single certificates, activity records and every batch row
      * funnel through here, so the APPROVED gate cannot be bypassed on one of them.
      */
-    private Credential issue(String graduateEmail, List<Field> fields, CredentialType type) {
+    private Credential issue(String graduateEmail, List<Field> fields, CredentialType type, Instant expiresAt) {
         requireText(graduateEmail, "graduate_email");
         UUID institutionId = currentUser.institutionId();
         Institution institution = load(institutionId);
@@ -393,6 +420,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .merkleRoot(signed.merkleRoot())
                 .signature(signed.signature())
                 .issuedAt(Instant.now())
+                .expiresAt(expiresAt)
                 .build());
 
         for (SignedCredential.FieldWithIndex field : signed.fields()) {
@@ -405,6 +433,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                     .merkleIndex(field.merkleIndex())
                     .build());
         }
+        // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null.
+        notificationService.notify(credential.getGraduateUserId(), "Certificate issued",
+                "A new credential has been issued to you by an accredited institution.");
         return credential;
     }
 

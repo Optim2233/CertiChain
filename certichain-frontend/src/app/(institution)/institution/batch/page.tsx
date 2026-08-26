@@ -109,6 +109,11 @@ export default function BatchIssuancePage() {
           </li>
           <li>Any other column header becomes a credential field; the header text is used as the field name exactly as typed (case-sensitive).</li>
           <li>At least one field column besides <code className="rounded bg-white px-1 py-0.5 font-mono">graduate_email</code> and <code className="rounded bg-white px-1 py-0.5 font-mono">type</code> is required.</li>
+          <li>
+            <code className="rounded bg-white px-1 py-0.5 font-mono">expires_at</code> is optional —
+            a date (<code className="rounded bg-white px-1 py-0.5 font-mono">YYYY-MM-DD</code>) after which the
+            credential is no longer valid. Leave it blank and the credential never expires.
+          </li>
           <li>Column headers must be non-empty and unique — if a header repeats, only the last one is kept.</li>
           <li>A cell can be left blank if that field doesn&apos;t apply to a particular row — it&apos;s issued as an empty value, the row isn&apos;t rejected.</li>
           <li>Avoid commas inside cell values — quoted values aren&apos;t supported yet.</li>
@@ -134,6 +139,17 @@ export default function BatchIssuancePage() {
               rows={[
                 ["aung.htoo@example.edu", "BSc Data Science", "2026-06-01", "Summa Cum Laude"],
                 ["su.su@example.edu", "BSc Data Science", "2026-06-01", ""],
+              ]}
+            />
+          </div>
+          <div>
+            <p className="m-0 mb-1.5 text-xs font-semibold text-[#44474e]">
+              Example 2b — activity record with an optional expiry (leadership role that lapses)
+            </p>
+            <SpreadsheetPreview
+              columns={["graduate_email", "type", "activity", "date", "expires_at"]}
+              rows={[
+                ["thiha.zaw@example.edu", "activity_record", "Student Council President", "2026-01-10", "2026-12-31"],
               ]}
             />
           </div>

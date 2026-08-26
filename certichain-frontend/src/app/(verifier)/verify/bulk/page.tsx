@@ -7,6 +7,7 @@ import type { BulkVerifyRow } from "@/features/verifier"
 const RESULT_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   VERIFIED: { bg: "rgba(16,185,129,0.1)", color: "#0d9668", icon: "check_circle", label: "Verified" },
   REVOKED: { bg: "#ffdad6", color: "#C0392B", icon: "cancel", label: "Revoked" },
+  EXPIRED: { bg: "#fff3d6", color: "#a5730f", icon: "schedule", label: "Expired" },
   INVALID_NOT_FOUND: { bg: "#ffdad6", color: "#C0392B", icon: "error", label: "Not Found" },
   SHARE_REVOKED: { bg: "#ffdad6", color: "#C0392B", icon: "cancel", label: "Share Revoked" },
 }

@@ -15,6 +15,7 @@ export interface Credential {
   merkleRoot: string | null;
   signature: string | null;
   issuedAt: string;
+  expiresAt: string | null;
 }
 
 export interface CredentialField {

@@ -27,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -183,6 +184,14 @@ public class VerifierServiceImpl implements VerifierService {
                     institutionName, institutionStatus);
         }
 
+        // Same reasoning as revocation: an expired credential's signature is still perfectly
+        // valid, so this has to be checked before the signature too. expiresAt is optional -
+        // null means the credential never expires (the common case for degrees).
+        if (credential.getExpiresAt() != null && credential.getExpiresAt().isBefore(Instant.now())) {
+            return respond(VerificationResult.EXPIRED, credential, allFields, visibleFieldIds,
+                    institutionName, institutionStatus);
+        }
+
         // Recompute the root from stored fields and compare against the signed root. This is
         // what catches tampering with a field value directly in the database.
         String recomputedRoot = merkleService.computeRoot(allFields.stream()
@@ -216,6 +225,7 @@ public class VerifierServiceImpl implements VerifierService {
                 institutionName,
                 institutionStatus,
                 credential.getIssuedAt(),
+                credential.getExpiresAt(),
                 credential.getRevokedAt(),
                 credential.getRevokeReason(),
                 disclosed,
@@ -234,6 +244,6 @@ public class VerifierServiceImpl implements VerifierService {
 
     private static VerificationResponse notFound() {
         return new VerificationResponse(VerificationResult.INVALID_NOT_FOUND,
-                null, null, null, null, null, null, null, List.of(), null);
+                null, null, null, null, null, null, null, null, List.of(), null);
     }
 }

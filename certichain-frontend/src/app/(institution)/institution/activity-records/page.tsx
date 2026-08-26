@@ -8,6 +8,7 @@ export default function ActivityRecordsPage() {
   const [email, setEmail] = useState("")
   const [date, setDate] = useState("")
   const [title, setTitle] = useState("")
+  const [expiresAt, setExpiresAt] = useState("")
   const [touched, setTouched] = useState({ email: false, date: false, title: false })
   const [success, setSuccess] = useState(false)
 
@@ -20,13 +21,14 @@ export default function ActivityRecordsPage() {
     setTouched({ email: true, date: true, title: true })
     if (!allValid) return
     issue.mutate(
-      { graduateEmail: email, activity: title, date },
+      { graduateEmail: email, activity: title, date, expiresAt: expiresAt || undefined },
       {
         onSuccess: () => {
           setSuccess(true)
           setEmail("")
           setDate("")
           setTitle("")
+          setExpiresAt("")
           setTouched({ email: false, date: false, title: false })
         },
       }
@@ -83,6 +85,15 @@ export default function ActivityRecordsPage() {
             style={{ borderColor: touched.title && !titleValid ? "#C0392B" : "#c5c6cf" }}
           />
           {touched.title && !titleValid && <p className="mb-3 text-xs text-[#C0392B]">Activity or role title is required.</p>}
+
+          <label className="mb-1.5 mt-4 block text-sm font-semibold">Expires On (optional)</label>
+          <input
+            type="date"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className="mb-1 w-full max-w-[240px] rounded border border-[#c5c6cf] px-3.5 py-2.5 text-sm"
+          />
+          <p className="mb-4 text-xs text-[#75777f]">For time-boxed roles (e.g. a one-year leadership term). Leave blank if it never expires.</p>
 
           <label className="mb-1.5 mt-4 block text-sm font-semibold">Description</label>
           {/* ponytail: useIssueActivityRecord only accepts graduateEmail/activity/date -

@@ -12,6 +12,7 @@ public record VerificationResponse(
         String institutionName,
         String institutionStatus,
         Instant issuedAt,
+        Instant expiresAt,
         Instant revokedAt,
         String revokeReason,
         List<DisclosedField> disclosedFields,

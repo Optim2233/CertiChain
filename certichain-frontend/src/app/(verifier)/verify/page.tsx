@@ -230,6 +230,12 @@ function VerifiedResult({ result, onBack }: { result: VerificationResponse; onBa
                 <p className="m-0 text-[13px] font-semibold">{new Date(result.issuedAt).toLocaleDateString()}</p>
               </div>
             )}
+            {result.expiresAt && (
+              <div>
+                <p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a9bcff" }}>Expires</p>
+                <p className="m-0 text-[13px] font-semibold">{new Date(result.expiresAt).toLocaleDateString()}</p>
+              </div>
+            )}
           </div>
           <div className="shrink-0 rounded-md bg-white p-1.5" style={{ width: 52, height: 52 }}>
             <svg viewBox="0 0 10 10" width="100%" height="100%">
@@ -271,15 +277,20 @@ function CheckRow({ label }: { label: string }) {
 
 function InvalidResult({ result, onBack }: { result: VerificationResponse; onBack: () => void }) {
   const isRevoked = result.result === "REVOKED"
+  const isExpired = result.result === "EXPIRED"
   return (
     <main className="mx-auto max-w-[600px] px-6 py-24 text-center">
-      <span className="material-symbols-outlined mb-5 inline-block text-[72px]" style={{ color: "#C0392B" }}>block</span>
+      <span className="material-symbols-outlined mb-5 inline-block text-[72px]" style={{ color: "#C0392B" }}>
+        {isExpired ? "schedule" : "block"}
+      </span>
       <h1 className="font-heading m-0 mb-3 text-[34px] font-extrabold" style={{ color: "#C0392B" }}>
-        {isRevoked ? "This Certificate Was Revoked" : "Certificate Not Found"}
+        {isRevoked ? "This Certificate Was Revoked" : isExpired ? "This Certificate Has Expired" : "Certificate Not Found"}
       </h1>
       <p className="m-0 mb-7 text-base text-[#44474e]">
         {isRevoked
           ? "The issuing institution revoked this credential" + (result.revokedAt ? " on " + new Date(result.revokedAt).toLocaleDateString() + "." : ".") + " It was valid and authentic before that date, but should no longer be relied upon."
+          : isExpired
+          ? "This credential was valid and authentic, but its validity period" + (result.expiresAt ? " ended on " + new Date(result.expiresAt).toLocaleDateString() + "." : " has ended.") + " Contact the issuing institution if you believe this is incorrect."
           : "We couldn't find a certificate matching that ID or link. Double-check it and try again."}
       </p>
 

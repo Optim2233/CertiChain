@@ -78,10 +78,12 @@ export function useIssueCertificate() {
     mutationFn: ({
       graduateEmail,
       fields,
+      expiresAt,
     }: {
       graduateEmail: string;
       fields: CredentialFieldInput[];
-    }) => institutionService.issueCertificate(graduateEmail, fields),
+      expiresAt?: string;
+    }) => institutionService.issueCertificate(graduateEmail, fields, expiresAt),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
   });
@@ -103,11 +105,13 @@ export function useIssueActivityRecord() {
       graduateEmail,
       activity,
       date,
+      expiresAt,
     }: {
       graduateEmail: string;
       activity: string;
       date: string;
-    }) => institutionService.issueActivityRecord(graduateEmail, activity, date),
+      expiresAt?: string;
+    }) => institutionService.issueActivityRecord(graduateEmail, activity, date, expiresAt),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
   });
