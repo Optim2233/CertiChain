@@ -28,6 +28,7 @@ import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
+import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -69,12 +70,14 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final SigningService signingService;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
+    private final SupabaseStorageService supabaseStorageService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
 
     @Override
     @Transactional
     public Institution apply(String name, String ministry, String email, String password,
+                              String phone, String website,
                               List<MultipartFile> documents) {
         requireText(name, "name");
         requireText(ministry, "ministry");
@@ -83,12 +86,20 @@ public class InstitutionServiceImpl implements InstitutionService {
         if (userRepository.existsByEmail(email)) {
             throw new ValidationException("Email already registered");
         }
+        if (phone != null && phone.length() > 50) {
+            throw new ValidationException("phone too long (max 50)");
+        }
+        if (website != null && website.length() > 255) {
+            throw new ValidationException("website too long (max 255)");
+        }
 
         // Institution first: the user row's FK and the chk_user_institution_role CHECK both
         // need the institution to exist already.
         Institution institution = institutionRepository.save(Institution.builder()
                 .name(name)
                 .ministry(ministry)
+                .phone(phone != null && !phone.isBlank() ? phone.trim() : null)
+                .website(website != null && !website.isBlank() ? website.trim() : null)
                 .status(InstitutionStatus.PENDING)
                 .appliedAt(Instant.now())
                 .build());
@@ -123,6 +134,75 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Cacheable(cacheNames = "institution", key = "'own:' + @currentUser.institutionId()")
     public Institution getOwnInstitution() {
         return load(currentUser.institutionId());
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public Institution updateOwnInstitution(String name, String phone, String website,
+                                            String profileImageUrl, MultipartFile profileImage) {
+        Institution institution = load(currentUser.institutionId());
+
+        boolean changed = false;
+
+        if (name != null && !name.isBlank()) {
+            requireText(name, "name");
+            if (!name.trim().equals(institution.getName())) {
+                institution.setName(name.trim());
+                changed = true;
+            }
+        }
+        if (phone != null) {
+            String trimmed = phone.isBlank() ? null : phone.trim();
+            if (trimmed != null && trimmed.length() > 50) {
+                throw new ValidationException("phone too long (max 50)");
+            }
+            if (!java.util.Objects.equals(trimmed, institution.getPhone())) {
+                institution.setPhone(trimmed);
+                changed = true;
+            }
+        }
+        if (website != null) {
+            String trimmed = website.isBlank() ? null : website.trim();
+            if (trimmed != null && trimmed.length() > 255) {
+                throw new ValidationException("website too long (max 255)");
+            }
+            if (!java.util.Objects.equals(trimmed, institution.getWebsite())) {
+                institution.setWebsite(trimmed);
+                changed = true;
+            }
+        }
+
+        String resolvedImageUrl = null;
+        if (profileImage != null && !profileImage.isEmpty()) {
+            resolvedImageUrl = supabaseStorageService.uploadProfileImage(institution.getId(), profileImage);
+        } else if (profileImageUrl != null) {
+            String trimmed = profileImageUrl.isBlank() ? null : profileImageUrl.trim();
+            if (trimmed != null && trimmed.length() > 2048) {
+                throw new ValidationException("profileImageUrl too long");
+            }
+            if (trimmed != null && !(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
+                throw new ValidationException("profileImageUrl must start with http:// or https://");
+            }
+            resolvedImageUrl = trimmed;
+        }
+
+        if (resolvedImageUrl != null || (profileImageUrl != null && profileImageUrl.isBlank() && institution.getProfileImageUrl() != null)) {
+            String toSet = resolvedImageUrl;
+            if (profileImageUrl != null && profileImageUrl.isBlank()) {
+                toSet = null;
+            }
+            if (!java.util.Objects.equals(toSet, institution.getProfileImageUrl())) {
+                institution.setProfileImageUrl(toSet);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            institution = institutionRepository.save(institution);
+            auditLogService.log("Institution profile updated", currentUser.id(), institution.getId(), null);
+        }
+        return institution;
     }
 
     @Override

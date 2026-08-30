@@ -13,6 +13,9 @@ export interface Institution {
   statusReason: string | null;
   appliedAt: string;
   decidedAt: string | null;
+  phone: string | null;
+  website: string | null;
+  profileImageUrl: string | null;
 }
 
 export interface InstitutionDocument {

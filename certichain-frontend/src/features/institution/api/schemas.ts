@@ -3,8 +3,6 @@ import { z } from 'zod';
 // Request-body contracts for /api/institution/*.
 // applyInstitution is multipart/form-data (fields below + documents[] files),
 // not JSON — schema still documents/validates the non-file fields.
-// NOTE: phone/website are sent by the frontend but InstitutionController
-// doesn't accept them yet — see FRONTEND-BACKEND-GAPS.md.
 
 export const applyInstitutionSchema = z.object({
   name: z.string().trim().min(1),
@@ -53,4 +51,11 @@ export const upholdDisputeSchema = z.object({
 
 export const dismissDisputeSchema = z.object({
   resolution_note: z.string().trim().min(1),
+});
+
+export const updateInstitutionSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  phone: z.string().trim().min(6).optional().or(z.literal("")),
+  website: z.string().trim().optional().or(z.literal("")),
+  profileImageUrl: z.string().trim().optional().or(z.literal("")),
 });

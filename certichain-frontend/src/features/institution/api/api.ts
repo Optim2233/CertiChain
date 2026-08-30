@@ -10,6 +10,7 @@ import {
   issueActivityRecordSchema,
   issueCertificateSchema,
   revokeCredentialSchema,
+  updateInstitutionSchema,
   upholdDisputeSchema,
 } from './schemas';
 
@@ -134,5 +135,44 @@ export const institutionService = {
       dismissDisputeSchema.parse({ resolution_note: resolutionNote }),
       headers
     );
+  },
+
+  async updateMe(data: {
+    name?: string;
+    phone?: string;
+    website?: string;
+    profileImageUrl?: string;
+    profileImage?: File | null;
+  }, headers?: Record<string, string>) {
+    const parsed = updateInstitutionSchema.parse({
+      name: data.name?.trim() || undefined,
+      phone: data.phone ?? "",
+      website: data.website ?? "",
+      profileImageUrl: data.profileImageUrl ?? "",
+    });
+    if (data.profileImage) {
+      const formData = new FormData();
+      if (parsed.name) formData.append("name", parsed.name);
+      if (parsed.phone) formData.append("phone", parsed.phone);
+      if (parsed.website) formData.append("website", parsed.website);
+      if (parsed.profileImageUrl) formData.append("profileImageUrl", parsed.profileImageUrl);
+      formData.append("profileImage", data.profileImage);
+      return apiClient.putMultipart<Institution>("/api/institution/me", formData, headers);
+    }
+    return apiClient.put<Institution>("/api/institution/me", {
+      name: parsed.name,
+      phone: parsed.phone || undefined,
+      website: parsed.website || undefined,
+      profileImageUrl: parsed.profileImageUrl || undefined,
+    }, headers);
+  },
+
+  async updateMeJson(data: {
+    name?: string;
+    phone?: string;
+    website?: string;
+    profileImageUrl?: string;
+  }, headers?: Record<string, string>) {
+    return apiClient.put<Institution>("/api/institution/me", updateInstitutionSchema.parse(data), headers);
   },
 };
