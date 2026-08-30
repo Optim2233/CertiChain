@@ -22,8 +22,11 @@ public interface InstitutionService {
      * institution_id. Confirmed with the team before changing this signature.
      */
     Institution apply(String name, String ministry, String email, String password,
+                      String phone, String website,
                       List<MultipartFile> documents);
     Institution getOwnInstitution();
+    Institution updateOwnInstitution(String name, String phone, String website,
+                                     String profileImageUrl, MultipartFile profileImage);
     Page<Credential> listCredentials(String status, int page, int size);
     CredentialSummary getCredentialSummary();
     InstitutionAnalytics getAnalytics();

@@ -77,6 +77,25 @@ export class ApiClient {
     return { data, status: response.status };
   }
 
+  async putMultipart<T>(
+    endpoint: string,
+    formData: FormData,
+    headers?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => undefined) as { message?: string } | undefined;
+      throw { message: data?.message || response.statusText, status: response.status } satisfies ApiError;
+    }
+    const data = (await response.json().catch(() => undefined)) as T;
+    return { data, status: response.status };
+  }
+
   async getBlob(endpoint: string, headers?: Record<string, string>): Promise<{ blob: Blob; fileName: string | null }> {
     // Native fetch, not axios: a plain <a href> to this endpoint hands the URL straight to
     // the OS/browser's download pipeline, which download-manager tools (IDM etc.) intercept

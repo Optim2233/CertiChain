@@ -14,6 +14,7 @@ export {
   useIssueBatch,
   useIssueCertificate,
   useRevokeCredential,
+  useUpdateInstitution,
   useUpholdDispute,
 } from './hooks/useInstitution';
 export { useInstitutionStore } from './store/institutionStore';

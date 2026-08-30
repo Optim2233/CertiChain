@@ -200,3 +200,21 @@ export function useDismissDispute() {
       queryClient.invalidateQueries({ queryKey: ['institution-disputes'] }),
   });
 }
+
+export function useUpdateInstitution() {
+  const queryClient = useQueryClient();
+  const setMe = useInstitutionStore((state) => state.setMe);
+  return useMutation({
+    mutationFn: (data: {
+      name?: string;
+      phone?: string;
+      website?: string;
+      profileImageUrl?: string;
+      profileImage?: File | null;
+    }) => institutionService.updateMe(data),
+    onSuccess: (res) => {
+      setMe(res.data);
+      queryClient.invalidateQueries({ queryKey: ['institution-me'] });
+    },
+  });
+}

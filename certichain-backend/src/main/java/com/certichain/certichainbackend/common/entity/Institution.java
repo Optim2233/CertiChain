@@ -61,6 +61,15 @@ public class Institution {
     @Column(name = "key_generated_at")
     private Instant keyGeneratedAt;
 
+    @Column(name = "phone", length = 50)
+    private String phone;
+
+    @Column(name = "website")
+    private String website;
+
+    @Column(name = "profile_image_url", columnDefinition = "text")
+    private String profileImageUrl;
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 

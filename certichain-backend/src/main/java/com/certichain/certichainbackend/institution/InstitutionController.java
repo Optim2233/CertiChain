@@ -31,14 +31,38 @@ public class InstitutionController {
                               @RequestParam String ministry,
                               @RequestParam String email,
                               @RequestParam String password,
-                              @RequestParam("documents") List<MultipartFile> documents) {
-        return institutionService.apply(name, ministry, email, password, documents);
+                              @RequestParam(required = false) String phone,
+                              @RequestParam(required = false) String website,
+                              @RequestParam(value = "documents", required = false) List<MultipartFile> documents) {
+        return institutionService.apply(name, ministry, email, password, phone, website, documents);
     }
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('INSTITUTION')")
     public Institution me() {
         return institutionService.getOwnInstitution();
+    }
+
+    @PutMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public Institution updateMe(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String website,
+            @RequestParam(required = false) String profileImageUrl,
+            @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
+        return institutionService.updateOwnInstitution(name, phone, website, profileImageUrl, profileImage);
+    }
+
+    @PutMapping(value = "/me", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public Institution updateMeJson(@RequestBody Map<String, String> body) {
+        return institutionService.updateOwnInstitution(
+                body.get("name"),
+                body.get("phone"),
+                body.get("website"),
+                body.get("profileImageUrl"),
+                null);
     }
 
     @GetMapping("/credentials")
