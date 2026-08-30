@@ -2,6 +2,39 @@
 
 const ICONS: Record<string, string> = { CERTIFICATE: "school", ACTIVITY_RECORD: "diversity_3" }
 
+const DAY_MS = 86_400_000
+
+/** Falls back to the credential type when a title is missing - pre-existing rows and
+ * anything issued outside the standard form may not carry one. */
+export function credentialTitle(item: { title?: string | null; type: string }) {
+  return item.title?.trim() || (item.type === "CERTIFICATE" ? "Certificate" : "Activity Record")
+}
+
+/** "Institution · 2026" - issuer first, since that is what a graduate recalls a
+ * credential by; the year only disambiguates repeats from the same issuer. */
+export function credentialSubtitle(item: { institutionName?: string | null; issuedAt: string }) {
+  const year = new Date(item.issuedAt).getFullYear()
+  return item.institutionName ? `${item.institutionName} · ${year}` : String(year)
+}
+
+/**
+ * Revoked outranks expiry, and expiry outranks "all good" - a graduate needs to see the
+ * one state that limits the credential, not the reassuring one. Expiry is derived here
+ * rather than persisted, matching how the verify path treats it.
+ */
+function chipState(status: string, expiresAt: string | null | undefined) {
+  if (status === "REVOKED") return { label: "Revoked", icon: "cancel", border: "rgba(163,38,56,0.5)", color: "#e8a5ad" }
+  if (expiresAt) {
+    const daysLeft = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / DAY_MS)
+    if (daysLeft <= 0) return { label: "Expired", icon: "event_busy", border: "rgba(163,38,56,0.5)", color: "#e8a5ad" }
+    if (daysLeft <= 30) {
+      const label = daysLeft === 1 ? "Expires tomorrow" : `Expires in ${daysLeft} days`
+      return { label, icon: "schedule", border: "rgba(201,168,92,0.55)", color: "#e5c987" }
+    }
+  }
+  return { label: "Verified", icon: "check_circle", border: "rgba(63,107,78,0.5)", color: "#9cc2ac" }
+}
+
 /**
  * Navy "certificate card" tile — same gradient, hatch watermark, and icon
  * chip language as CertificateHero, so the graduate portal reads as one
@@ -13,6 +46,7 @@ export function CredentialCard({
   title,
   subtitle,
   status,
+  expiresAt,
   onClick,
 }: {
   id: string
@@ -20,9 +54,10 @@ export function CredentialCard({
   title: string
   subtitle: string
   status: "ISSUED" | "REVOKED" | "PENDING_CLAIM"
+  expiresAt?: string | null
   onClick?: () => void
 }) {
-  const revoked = status === "REVOKED"
+  const chip = chipState(status, expiresAt)
 
   return (
     <div
@@ -57,28 +92,22 @@ export function CredentialCard({
             {ICONS[type]}
           </span>
         </span>
-        {revoked ? (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold"
-            style={{ borderColor: "rgba(163,38,56,0.5)", color: "#e8a5ad" }}
-          >
-            <span className="material-symbols-outlined text-sm">cancel</span>
-            Revoked
-          </span>
-        ) : (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold"
-            style={{ borderColor: "rgba(63,107,78,0.5)", color: "#9cc2ac" }}
-          >
-            <span className="material-symbols-outlined text-sm">check_circle</span>
-            Verified
-          </span>
-        )}
+        <span
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold"
+          style={{ borderColor: chip.border, color: chip.color }}
+        >
+          <span className="material-symbols-outlined text-sm">{chip.icon}</span>
+          {chip.label}
+        </span>
       </div>
 
       <div className="relative">
-        <p className="font-heading m-0 mb-1 text-lg font-extrabold leading-tight tracking-tight">{title}</p>
-        <p className="m-0 text-[13px]" style={{ color: "#D6E0EA" }}>
+        {/* Titles are institution-supplied free text - clamp so a long degree name
+            can't push the subtitle out of the card. */}
+        <p className="font-heading m-0 mb-1 line-clamp-2 text-lg font-extrabold leading-tight tracking-tight">
+          {title}
+        </p>
+        <p className="m-0 truncate text-[13px]" style={{ color: "#D6E0EA" }}>
           {subtitle}
         </p>
       </div>

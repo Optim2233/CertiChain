@@ -20,9 +20,13 @@ import java.time.Duration;
 @EnableCaching
 public class CacheConfig {
 
+    static GenericJacksonJsonRedisSerializer valueSerializer() {
+        return GenericJacksonJsonRedisSerializer.builder().build();
+    }
+
     @Bean
     RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        var serializer = GenericJacksonJsonRedisSerializer.builder().build();
+        var serializer = valueSerializer();
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(5))
                 .disableCachingNullValues()

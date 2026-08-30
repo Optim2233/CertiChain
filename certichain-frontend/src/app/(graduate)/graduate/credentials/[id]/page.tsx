@@ -4,6 +4,7 @@ import { useParams } from "next/navigation"
 import { useState } from "react"
 import Link from "next/link"
 import { CertificateHero } from "@/shared/components/certificate-hero"
+import { credentialTitle } from "@/shared/components/credential-card"
 import { StatusBadge } from "@/shared/components/status-badge"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -72,7 +73,8 @@ export default function CredentialDetailPage() {
 
       <div className="mb-8">
         <CertificateHero
-          title={credential.type === "CERTIFICATE" ? "Certificate" : "Activity Record"}
+          title={credentialTitle(credential)}
+          institutionName={credential.institutionName}
           issuedTo={credential.graduateEmail}
           issuedAt={credential.issuedAt}
           credentialId={credential.id}

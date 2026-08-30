@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CredentialCard } from "@/shared/components/credential-card"
+import { CredentialCard, credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
 import { useTimeline } from "@/features/graduate"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
@@ -56,9 +56,10 @@ export default function GraduateCredentialsPage() {
               <CredentialCard
                 id={c.id}
                 type={c.type}
-                title={c.type === "CERTIFICATE" ? "Certificate" : "Activity Record"}
-                subtitle={c.graduateEmail + " · " + new Date(c.issuedAt).toLocaleDateString()}
+                title={credentialTitle(c)}
+                subtitle={credentialSubtitle(c)}
                 status={c.status}
+                expiresAt={c.expiresAt}
               />
             </Link>
           ))}

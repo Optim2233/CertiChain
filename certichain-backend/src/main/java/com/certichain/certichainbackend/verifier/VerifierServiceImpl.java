@@ -144,8 +144,8 @@ public class VerifierServiceImpl implements VerifierService {
                 .toList();
     }
 
+    // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
     @Override
-    @Cacheable(cacheNames = "verifier", key = "'trustStats'")
     public TrustStats getTrustStats() {
         return new TrustStats(
                 institutionRepository.countByStatus(InstitutionStatus.APPROVED),

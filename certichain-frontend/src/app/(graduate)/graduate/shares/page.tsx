@@ -6,6 +6,7 @@ import type { Share, ShareScope } from "@/features/graduate"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
 
 // Pulls the qrcode lib out of the initial bundle - it's only needed once the
 // share modal is open. ssr:false because it renders to a canvas/data URL.
@@ -227,7 +228,7 @@ export default function GraduateSharesPage() {
                   <option value="">Select credential</option>
                   {credentials.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.type === "CERTIFICATE" ? "Certificate" : "Activity Record"} — {c.graduateEmail}
+                      {credentialTitle(c)} — {credentialSubtitle(c)}
                     </option>
                   ))}
                 </select>

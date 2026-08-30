@@ -12,7 +12,7 @@ import java.util.UUID;
 public interface GraduateService {
     int checkPendingCredentials(String email);
     void signup(String email, String password);
-    List<Credential> getTimeline();
+    List<CredentialListItem> getTimeline();
     List<CredentialField> getCredentialFields(UUID credentialId);
     Share createShare(String name, String scope, UUID credentialId, List<UUID> selectedFieldIds);
     List<Share> listShares();

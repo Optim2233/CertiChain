@@ -41,6 +41,7 @@ public class AuthService {
                 .role(role)
                 .institutionId(institutionId)
                 .createdAt(Instant.now())
+                .lastBriefedAt(Instant.now())
                 .build();
         
         var savedUser = userRepository.save(user);

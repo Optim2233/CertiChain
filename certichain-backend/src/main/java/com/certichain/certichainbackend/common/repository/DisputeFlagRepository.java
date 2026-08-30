@@ -4,6 +4,7 @@ import com.certichain.certichainbackend.common.entity.DisputeFlag;
 import com.certichain.certichainbackend.common.enums.DisputeStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -16,4 +17,6 @@ public interface DisputeFlagRepository extends JpaRepository<DisputeFlag, UUID> 
     List<DisputeFlag> findByCredentialIdInOrderByCreatedAtDesc(Collection<UUID> credentialIds);
 
     int countByCredentialIdInAndStatus(Collection<UUID> credentialIds, DisputeStatus status);
+
+    int countByCredentialIdInAndCreatedAtAfter(Collection<UUID> credentialIds, Instant createdAt);
 }

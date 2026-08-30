@@ -18,6 +18,22 @@ export interface Credential {
   expiresAt: string | null;
 }
 
+/** Timeline row for the graduate's credential cards - Credential plus the joined
+ * title and issuer name the cards need to be identifiable. */
+export interface CredentialListItem {
+  id: string;
+  type: CredentialType;
+  title: string | null;
+  institutionName: string | null;
+  graduateEmail: string;
+  status: CredentialStatus;
+  revokeReason: string | null;
+  merkleRoot: string | null;
+  signature: string | null;
+  issuedAt: string;
+  expiresAt: string | null;
+}
+
 export interface CredentialField {
   id: string;
   credentialId: string;

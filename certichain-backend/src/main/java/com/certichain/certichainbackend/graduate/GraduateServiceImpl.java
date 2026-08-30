@@ -72,6 +72,7 @@ public class GraduateServiceImpl implements GraduateService {
                 .passwordHash(passwordEncoder.encode(password))
                 .role(Role.GRADUATE)
                 .createdAt(Instant.now())
+                .lastBriefedAt(Instant.now()) // zero gap: no briefing card on first login
                 .build());
 
         // Claim everything already issued to this email. Same transaction as the account
@@ -85,10 +86,13 @@ public class GraduateServiceImpl implements GraduateService {
         credentialRepository.saveAll(pending);
     }
 
+    // Not cached: the Redis serializer drops the element type of a cached List of records
+    // (records are final, so its default typing skips them) and the list comes back as
+    // LinkedHashMaps, failing only on a cache hit. This is a single indexed query, so the
+    // cache bought little anyway. See CacheSerializationTest, which pins that behaviour.
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'timeline:' + @currentUser.id()")
-    public List<Credential> getTimeline() {
-        return credentialRepository.findByGraduateUserIdOrderByIssuedAtDesc(currentUser.id());
+    public List<CredentialListItem> getTimeline() {
+        return credentialRepository.findTimelineByGraduateUserId(currentUser.id());
     }
 
     @Override

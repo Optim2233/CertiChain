@@ -35,4 +35,9 @@ public class User {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    // Advances only when the user acknowledges a "while you were away" briefing,
+    // never on login. See V10 migration and BriefingServiceImpl.
+    @Column(name = "last_briefed_at", nullable = false)
+    private Instant lastBriefedAt;
 }

@@ -1,4 +1,4 @@
-import type { Credential, CredentialField, DisputeFlag } from '@/features/institution';
+import type { CredentialField, CredentialListItem, DisputeFlag } from '@/features/institution';
 import type { Share, ShareActivityEntry, VerificationTimestamp } from '@/features/graduate';
 import { apiClient } from '@/shared/config/axioconfig';
 import { createShareSchema, flagCredentialSchema, signupCheckSchema, signupSchema } from './schemas';
@@ -19,7 +19,7 @@ export const graduateService = {
   },
 
   async getTimeline(headers?: Record<string, string>) {
-    return apiClient.get<Credential[]>('/api/graduate/timeline', headers);
+    return apiClient.get<CredentialListItem[]>('/api/graduate/timeline', headers);
   },
 
   async getCredentialFields(id: string, headers?: Record<string, string>) {

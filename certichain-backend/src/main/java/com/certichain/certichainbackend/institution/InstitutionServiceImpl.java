@@ -110,6 +110,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .role(Role.INSTITUTION)
                 .institutionId(institution.getId())
                 .createdAt(Instant.now())
+                .lastBriefedAt(Instant.now()) // zero gap: no briefing card on first login
                 .build());
 
         if (documents != null) {
@@ -217,8 +218,8 @@ public class InstitutionServiceImpl implements InstitutionService {
                 currentUser.institutionId(), parseCredentialStatus(status), pageRequest);
     }
 
+    // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
     @Override
-    @Cacheable(cacheNames = "institution", key = "'summary:' + @currentUser.institutionId()")
     public CredentialSummary getCredentialSummary() {
         UUID institutionId = currentUser.institutionId();
         return new CredentialSummary(
@@ -227,8 +228,8 @@ public class InstitutionServiceImpl implements InstitutionService {
                 credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.PENDING_CLAIM));
     }
 
+    // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
     @Override
-    @Cacheable(cacheNames = "institution", key = "'analytics:' + @currentUser.institutionId()")
     public InstitutionAnalytics getAnalytics() {
         UUID institutionId = currentUser.institutionId();
         Instant since = Instant.now().minus(30, ChronoUnit.DAYS);

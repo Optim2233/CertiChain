@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useAllDisputes, useFlagCredential, useTimeline } from "@/features/graduate"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   OPEN: { bg: "#fff3d6", color: "#a5730f", icon: "schedule", label: "Under Review" },
@@ -171,7 +172,7 @@ export default function GraduateDisputesPage() {
                   <option value="">Select a credential</option>
                   {credentials.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.type === "CERTIFICATE" ? "Certificate" : "Activity Record"} — {c.graduateEmail}
+                      {credentialTitle(c)} — {credentialSubtitle(c)}
                     </option>
                   ))}
                 </select>

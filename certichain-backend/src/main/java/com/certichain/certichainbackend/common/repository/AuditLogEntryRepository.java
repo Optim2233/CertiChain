@@ -17,6 +17,12 @@ public interface AuditLogEntryRepository extends JpaRepository<AuditLogEntry, UU
 
     int countByEventAndCredentialIdIn(String event, Collection<UUID> credentialIds);
 
+    int countByEventAndCredentialIdInAndOccurredAtAfter(
+            String event, Collection<UUID> credentialIds, Instant occurredAt);
+
+    int countByEventAndShareIdInAndOccurredAtAfter(
+            String event, Collection<UUID> shareIds, Instant occurredAt);
+
     int countByEvent(String event);
 
     List<AuditLogEntry> findByShareIdOrderByOccurredAtDesc(UUID shareId);

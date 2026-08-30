@@ -23,6 +23,7 @@ export type {
   Credential,
   CredentialField,
   CredentialFieldInput,
+  CredentialListItem,
   CredentialStatus,
   CredentialSummary,
   CredentialType,

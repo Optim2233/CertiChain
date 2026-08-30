@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useTimeline, useAllDisputes, useShares } from "@/features/graduate"
 import { Skeleton } from "@/shared/components/ui/skeleton"
+import { credentialTitle } from "@/shared/components/credential-card"
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -35,8 +36,8 @@ export default function GraduateTimelinePage() {
     ...credentials.map((c) => ({
       key: "credentials",
       date: new Date(c.issuedAt).toLocaleDateString(),
-      title: (c.type === "CERTIFICATE" ? "Certificate" : "Activity record") + " issued",
-      sub: c.graduateEmail,
+      title: credentialTitle(c) + " issued",
+      sub: c.institutionName ?? "",
       icon: c.type === "CERTIFICATE" ? "school" : "diversity_3",
       dotBg: c.status === "REVOKED" ? "rgba(192,57,43,0.15)" : "rgba(16,185,129,0.15)",
       dotColor: c.status === "REVOKED" ? "#C0392B" : "#0d9668",

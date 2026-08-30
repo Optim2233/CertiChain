@@ -1,6 +1,5 @@
 package com.certichain.certichainbackend.graduate;
 
-import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.DisputeFlag;
 import com.certichain.certichainbackend.common.entity.Share;
@@ -32,7 +31,7 @@ public class GraduateController {
 
     @GetMapping("/timeline")
     @PreAuthorize("hasRole('GRADUATE')")
-    public List<Credential> timeline() {
+    public List<CredentialListItem> timeline() {
         return graduateService.getTimeline();
     }
 

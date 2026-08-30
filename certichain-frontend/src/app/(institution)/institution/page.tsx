@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useCredentials, useCredentialSummary, useDisputes, useRevokeCredential } from "@/features/institution"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { Pager } from "@/shared/components/ui/pager"
+import { BriefingCard } from "@/shared/components/briefing-card"
 import type { Credential } from "@/features/institution"
 
 const GRID_COLS = "2.5fr 2fr 1.5fr 1.3fr 0.6fr"
@@ -50,6 +51,11 @@ export default function InstitutionDashboardPage() {
 
   return (
     <main className="w-full px-6 py-8">
+      <BriefingCard
+        quietTitle="All clear"
+        quietDetail={(since) => `No disputes or accreditation changes since ${since}.`}
+      />
+
       <div className="mb-9 overflow-hidden rounded-xl border border-[#c5c6cf] bg-white shadow-[0_1px_2px_rgba(0,0,0,.04)]">
         <div className="flex justify-end gap-2 px-6 pt-4">
           <span className="inline-flex items-center gap-2 rounded-full py-1 pl-3 pr-1 text-xs font-bold" style={{ background: "#ffdad6", color: "#C0392B" }}>

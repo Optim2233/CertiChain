@@ -3,7 +3,8 @@
 import { Suspense } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { CredentialCard } from "@/shared/components/credential-card"
+import { CredentialCard, credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
+import { BriefingCard } from "@/shared/components/briefing-card"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { useAuthStore } from "@/features/auth"
 import { useTimeline, useOpenDisputes, useVerificationCount, useShares } from "@/features/graduate"
@@ -100,6 +101,11 @@ function GraduateOverviewContent() {
         </Link>
       </div>
 
+      <BriefingCard
+        quietTitle="Everything's in order"
+        quietDetail={(since) => `No changes to your credentials since ${since}. All records intact.`}
+      />
+
       <div className="mb-9 grid grid-cols-4 gap-7">
         {statCards.map((st) => (
           <div
@@ -147,9 +153,10 @@ function GraduateOverviewContent() {
               <CredentialCard
                 id={c.id}
                 type={c.type}
-                title={c.type === "CERTIFICATE" ? "Certificate" : "Activity Record"}
-                subtitle={c.graduateEmail + " · " + new Date(c.issuedAt).getFullYear()}
+                title={credentialTitle(c)}
+                subtitle={credentialSubtitle(c)}
                 status={c.status}
+                expiresAt={c.expiresAt}
               />
             </Link>
           ))}
