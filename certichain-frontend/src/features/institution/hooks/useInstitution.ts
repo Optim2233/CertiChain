@@ -211,6 +211,8 @@ export function useUpdateInstitution() {
       website?: string;
       profileImageUrl?: string;
       profileImage?: File | null;
+      brandColor?: string;
+      accentPattern?: "hatch" | "dots" | "none";
     }) => institutionService.updateMe(data),
     onSuccess: (res) => {
       setMe(res.data);

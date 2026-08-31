@@ -11,7 +11,6 @@ export default function VerifierLayout({ children }: { children: React.ReactNode
         <nav className="flex items-center gap-7">
           <Link href="/verify" className="text-sm font-bold text-[#44474e] hover:text-[#0462BA]">Verify a Certificate</Link>
           <Link href="/verify/bulk" className="text-sm font-bold text-[#44474e] hover:text-[#0462BA]">For Employers</Link>
-          <span className="cursor-pointer text-sm font-semibold text-[#44474e]">Contact</span>
         </nav>
       </header>
       <div className="flex-1">{children}</div>

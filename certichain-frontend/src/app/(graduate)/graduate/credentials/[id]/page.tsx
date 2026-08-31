@@ -82,6 +82,9 @@ export default function CredentialDetailPage() {
           registrarName="Registrar"
           revoked={credential.status === "REVOKED"}
           revokeReason={credential.revokeReason}
+          brandColor={credential.institutionBrandColor}
+          logoUrl={credential.institutionLogoUrl}
+          accentPattern={credential.institutionAccentPattern as "hatch" | "dots" | "none"}
         />
       </div>
 

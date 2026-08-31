@@ -2,7 +2,6 @@ package com.certichain.certichainbackend.graduate;
 
 import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.CredentialType;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,9 +13,6 @@ import java.util.UUID;
  * "Certificate" on every one of them. Both are joined in here so the list renders from a
  * single query instead of N per-credential field fetches.
  */
-// Records are final, so the Redis cache's default typing skips them and a cached list comes
-// back as LinkedHashMaps. Tagging the type here makes the cached value self-describing.
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
 public record CredentialListItem(
         UUID id,
         CredentialType type,
@@ -28,5 +24,8 @@ public record CredentialListItem(
         String merkleRoot,
         String signature,
         Instant issuedAt,
-        Instant expiresAt) {
+        Instant expiresAt,
+        String institutionBrandColor,
+        String institutionLogoUrl,
+        String institutionAccentPattern) {
 }

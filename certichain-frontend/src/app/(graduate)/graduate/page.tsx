@@ -157,6 +157,10 @@ function GraduateOverviewContent() {
                 subtitle={credentialSubtitle(c)}
                 status={c.status}
                 expiresAt={c.expiresAt}
+                institutionName={c.institutionName}
+                brandColor={c.institutionBrandColor}
+                logoUrl={c.institutionLogoUrl}
+                accentPattern={c.institutionAccentPattern as "hatch" | "dots" | "none"}
               />
             </Link>
           ))}

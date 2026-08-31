@@ -89,9 +89,25 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Password updated"));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request.email());
+        return ResponseEntity.ok(Map.of("message", "If that email exists, a reset link was sent"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+    }
+
     public record LoginRequest(String email, String password) {}
 
     public record SignupRequest(String email, String password, Role role, UUID institutionId) {}
 
     public record ChangePasswordRequest(String currentPassword, String newPassword) {}
+
+    public record ForgotPasswordRequest(String email) {}
+
+    public record ResetPasswordRequest(String token, String newPassword) {}
 }

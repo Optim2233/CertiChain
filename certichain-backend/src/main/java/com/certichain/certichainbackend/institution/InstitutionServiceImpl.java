@@ -141,7 +141,8 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
     public Institution updateOwnInstitution(String name, String phone, String website,
-                                            String profileImageUrl, MultipartFile profileImage) {
+                                            String profileImageUrl, MultipartFile profileImage,
+                                            String brandColor, String accentPattern) {
         Institution institution = load(currentUser.institutionId());
 
         boolean changed = false;
@@ -199,11 +200,53 @@ public class InstitutionServiceImpl implements InstitutionService {
             }
         }
 
+        if (brandColor != null) {
+            String trimmed = brandColor.isBlank() ? null : brandColor.trim();
+            if (trimmed != null) {
+                if (!trimmed.matches("^#[0-9a-fA-F]{6}$")) {
+                    throw new ValidationException("brand color must be a #RRGGBB hex value");
+                }
+                if (contrastRatioAgainstWhite(trimmed) < 4.5) {
+                    throw new ValidationException(
+                            "brand color is too light for white text - pick a deeper shade");
+                }
+            }
+            if (!java.util.Objects.equals(trimmed, institution.getBrandColor())) {
+                institution.setBrandColor(trimmed);
+                changed = true;
+            }
+        }
+        if (accentPattern != null && !accentPattern.isBlank()) {
+            String trimmed = accentPattern.trim().toLowerCase();
+            if (!trimmed.equals("hatch") && !trimmed.equals("dots") && !trimmed.equals("none")) {
+                throw new ValidationException("accent pattern must be one of: hatch, dots, none");
+            }
+            if (!trimmed.equals(institution.getAccentPattern())) {
+                institution.setAccentPattern(trimmed);
+                changed = true;
+            }
+        }
+
         if (changed) {
             institution = institutionRepository.save(institution);
             auditLogService.log("Institution profile updated", currentUser.id(), institution.getId(), null);
         }
         return institution;
+    }
+
+    /** WCAG contrast ratio of white (#FFFFFF) against the given #RRGGBB colour. */
+    private static double contrastRatioAgainstWhite(String hex) {
+        double r = channelLuminance(Integer.parseInt(hex.substring(1, 3), 16));
+        double g = channelLuminance(Integer.parseInt(hex.substring(3, 5), 16));
+        double b = channelLuminance(Integer.parseInt(hex.substring(5, 7), 16));
+        double luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        // white luminance is 1.0; lighter colour is the numerator
+        return 1.05 / (luminance + 0.05);
+    }
+
+    private static double channelLuminance(int value) {
+        double c = value / 255.0;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
     @Override

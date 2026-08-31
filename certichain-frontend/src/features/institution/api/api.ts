@@ -143,12 +143,17 @@ export const institutionService = {
     website?: string;
     profileImageUrl?: string;
     profileImage?: File | null;
+    brandColor?: string;
+    accentPattern?: "hatch" | "dots" | "none";
   }, headers?: Record<string, string>) {
     const parsed = updateInstitutionSchema.parse({
       name: data.name?.trim() || undefined,
       phone: data.phone ?? "",
       website: data.website ?? "",
       profileImageUrl: data.profileImageUrl ?? "",
+      // "" is a meaningful value here (clear the brand colour) - keep it distinct from undefined
+      brandColor: data.brandColor === undefined ? undefined : data.brandColor.trim(),
+      accentPattern: data.accentPattern,
     });
     if (data.profileImage) {
       const formData = new FormData();
@@ -156,6 +161,8 @@ export const institutionService = {
       if (parsed.phone) formData.append("phone", parsed.phone);
       if (parsed.website) formData.append("website", parsed.website);
       if (parsed.profileImageUrl) formData.append("profileImageUrl", parsed.profileImageUrl);
+      if (parsed.brandColor !== undefined) formData.append("brandColor", parsed.brandColor);
+      if (parsed.accentPattern) formData.append("accentPattern", parsed.accentPattern);
       formData.append("profileImage", data.profileImage);
       return apiClient.putMultipart<Institution>("/api/institution/me", formData, headers);
     }
@@ -164,6 +171,8 @@ export const institutionService = {
       phone: parsed.phone || undefined,
       website: parsed.website || undefined,
       profileImageUrl: parsed.profileImageUrl || undefined,
+      brandColor: parsed.brandColor,
+      accentPattern: parsed.accentPattern,
     }, headers);
   },
 

@@ -58,4 +58,6 @@ export const updateInstitutionSchema = z.object({
   phone: z.string().trim().min(6).optional().or(z.literal("")),
   website: z.string().trim().optional().or(z.literal("")),
   profileImageUrl: z.string().trim().optional().or(z.literal("")),
+  brandColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
+  accentPattern: z.enum(["hatch", "dots", "none"]).optional(),
 });

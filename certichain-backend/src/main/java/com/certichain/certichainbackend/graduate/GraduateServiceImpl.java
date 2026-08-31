@@ -86,10 +86,9 @@ public class GraduateServiceImpl implements GraduateService {
         credentialRepository.saveAll(pending);
     }
 
-    // Not cached: the Redis serializer drops the element type of a cached List of records
-    // (records are final, so its default typing skips them) and the list comes back as
-    // LinkedHashMaps, failing only on a cache hit. This is a single indexed query, so the
-    // cache bought little anyway. See CacheSerializationTest, which pins that behaviour.
+    // Not cached: a single indexed query, the cache bought little. (The Redis serializer
+    // now writes type tags so records would survive a round trip - see CacheSerializationTest -
+    // but there's no reason to add caching here.)
     @Override
     public List<CredentialListItem> getTimeline() {
         return credentialRepository.findTimelineByGraduateUserId(currentUser.id());

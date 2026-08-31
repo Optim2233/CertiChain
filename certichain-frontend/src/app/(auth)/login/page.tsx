@@ -135,7 +135,7 @@ function LoginForm() {
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="block text-sm font-semibold text-[#191c1e]">Password</label>
-                  <span className="cursor-pointer text-xs font-semibold text-[#005eb3] hover:underline underline-offset-4">Forgot password?</span>
+                  <Link href="/forgot-password" className="text-xs font-semibold text-[#005eb3] hover:underline underline-offset-4">Forgot password?</Link>
                 </div>
                 <PasswordField value={password} onChange={setPassword} onEnter={submit} placeholder="••••••••" />
                 {touched && !passwordValid && <p className="mt-1.5 text-xs font-medium text-[#C0392B]">Password is required.</p>}

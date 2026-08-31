@@ -16,6 +16,8 @@ export interface Institution {
   phone: string | null;
   website: string | null;
   profileImageUrl: string | null;
+  brandColor: string | null;
+  accentPattern: string;
 }
 
 export interface InstitutionDocument {

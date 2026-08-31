@@ -50,8 +50,11 @@ public class InstitutionController {
             @RequestParam(required = false) String phone,
             @RequestParam(required = false) String website,
             @RequestParam(required = false) String profileImageUrl,
-            @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
-        return institutionService.updateOwnInstitution(name, phone, website, profileImageUrl, profileImage);
+            @RequestParam(value = "profileImage", required = false) MultipartFile profileImage,
+            @RequestParam(required = false) String brandColor,
+            @RequestParam(required = false) String accentPattern) {
+        return institutionService.updateOwnInstitution(
+                name, phone, website, profileImageUrl, profileImage, brandColor, accentPattern);
     }
 
     @PutMapping(value = "/me", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -62,7 +65,9 @@ public class InstitutionController {
                 body.get("phone"),
                 body.get("website"),
                 body.get("profileImageUrl"),
-                null);
+                null,
+                body.get("brandColor"),
+                body.get("accentPattern"));
     }
 
     @GetMapping("/credentials")

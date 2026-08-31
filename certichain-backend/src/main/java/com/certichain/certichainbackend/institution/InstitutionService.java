@@ -26,7 +26,8 @@ public interface InstitutionService {
                       List<MultipartFile> documents);
     Institution getOwnInstitution();
     Institution updateOwnInstitution(String name, String phone, String website,
-                                     String profileImageUrl, MultipartFile profileImage);
+                                     String profileImageUrl, MultipartFile profileImage,
+                                     String brandColor, String accentPattern);
     Page<Credential> listCredentials(String status, int page, int size);
     CredentialSummary getCredentialSummary();
     InstitutionAnalytics getAnalytics();

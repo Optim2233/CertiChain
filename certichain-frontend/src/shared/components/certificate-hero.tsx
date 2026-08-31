@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
+import { institutionAccent, type AccentPattern } from "./credential-card"
 
 function copyToClipboard(label: string, value: string) {
   navigator.clipboard.writeText(value)
@@ -27,6 +28,9 @@ export function CertificateHero({
   registrarTitle,
   revoked,
   revokeReason,
+  brandColor,
+  logoUrl,
+  accentPattern = "hatch",
 }: {
   title: string
   institutionName?: string | null
@@ -38,23 +42,47 @@ export function CertificateHero({
   registrarTitle?: string | null
   revoked?: boolean
   revokeReason?: string | null
+  brandColor?: string | null
+  logoUrl?: string | null
+  accentPattern?: AccentPattern
 }) {
   const [copyLabel, setCopyLabel] = useState("Copy Hash")
   const signOffLabel = (registrarTitle || "Registrar") + (institutionName ? ", " + institutionName : "")
+  const accent = brandColor || institutionAccent(institutionName)
+  const initials = (institutionName || "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("")
 
   return (
     <div
       className="relative overflow-hidden rounded-2xl p-9 text-white shadow-[0_12px_32px_rgba(2,39,90,0.3)] sm:p-10"
-      style={{ background: "linear-gradient(135deg,#02275A,#0462BA)" }}
+      style={{ background: `linear-gradient(135deg,#02275A,${accent})` }}
     >
-      <svg width="100%" height="100%" className="pointer-events-none absolute inset-0" style={{ opacity: 0.12 }}>
-        <defs>
-          <pattern id="heroLines" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-            <line x1="0" y1="0" x2="0" y2="6" stroke="#ffffff" strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#heroLines)" />
-      </svg>
+      {accentPattern !== "none" && (
+        <svg width="100%" height="100%" className="pointer-events-none absolute inset-0" style={{ opacity: 0.12 }}>
+          <defs>
+            {accentPattern === "dots" ? (
+              <pattern id="heroAccent" width="10" height="10" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1.4" fill="#ffffff" />
+              </pattern>
+            ) : (
+              <pattern
+                id="heroAccent"
+                width="6"
+                height="6"
+                patternUnits="userSpaceOnUse"
+                patternTransform="rotate(35)"
+              >
+                <line x1="0" y1="0" x2="0" y2="6" stroke="#ffffff" strokeWidth="1" />
+              </pattern>
+            )}
+          </defs>
+          <rect width="100%" height="100%" fill="url(#heroAccent)" />
+        </svg>
+      )}
       <span
         className="material-symbols-outlined absolute right-5 top-1/2 -translate-y-1/2"
         style={{ fontSize: 180, opacity: 0.08 }}
@@ -65,13 +93,20 @@ export function CertificateHero({
       <div className="relative mb-7 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-full"
+            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
             style={{
               background: "radial-gradient(circle at 32% 28%, #c9a85c, #8b6914 75%)",
               boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.35)",
             }}
           >
-            <span className="material-symbols-outlined" style={{ color: "#0B1E3D" }}>account_balance</span>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" className="size-full object-cover" />
+            ) : initials ? (
+              <span className="text-xs font-extrabold" style={{ color: "#0B1E3D" }}>{initials}</span>
+            ) : (
+              <span className="material-symbols-outlined" style={{ color: "#0B1E3D" }}>account_balance</span>
+            )}
           </div>
           <div>
             <p className="font-heading m-0 text-[15px] font-bold">{institutionName || "Issuing institution"}</p>

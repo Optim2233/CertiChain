@@ -8,6 +8,7 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 import java.time.Duration;
 
@@ -21,7 +22,17 @@ import java.time.Duration;
 public class CacheConfig {
 
     static GenericJacksonJsonRedisSerializer valueSerializer() {
-        return GenericJacksonJsonRedisSerializer.builder().build();
+        // Spring Data Redis 4.x builder() defaults to NO default typing: without it,
+        // every cached value round-trips through Redis as a LinkedHashMap and the
+        // @Cacheable proxy blows up casting it back to the entity type. Re-enable
+        // typing (writes an @class hint) so entities deserialize correctly.
+        return GenericJacksonJsonRedisSerializer.builder()
+                .enableDefaultTyping(BasicPolymorphicTypeValidator.builder()
+                        .allowIfBaseType(Object.class)
+                        .allowIfSubType((ctx, clazz) -> true)
+                        .build())
+                .enableSpringCacheNullValueSupport()
+                .build();
     }
 
     @Bean

@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef } from "react"
 import { useInstitutionMe, useUpdateInstitution } from "@/features/institution"
 import { useChangePassword } from "@/features/auth"
+import { CredentialCard } from "@/shared/components/credential-card"
 import { toast } from "sonner"
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+type AccentPattern = "hatch" | "dots" | "none"
 
 export default function InstitutionSettingsPage() {
   const { data: institutionData, isLoading } = useInstitutionMe()
@@ -20,6 +24,8 @@ export default function InstitutionSettingsPage() {
   const [phone, setPhone] = useState("")
   const [website, setWebsite] = useState("")
   const [profileImageUrlInput, setProfileImageUrlInput] = useState("")
+  const [brandColor, setBrandColor] = useState("")
+  const [accentPattern, setAccentPattern] = useState<AccentPattern>("hatch")
   const [profileFile, setProfileFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -31,6 +37,8 @@ export default function InstitutionSettingsPage() {
       setPhone(institution.phone ?? "")
       setWebsite(institution.website ?? "")
       setProfileImageUrlInput(institution.profileImageUrl ?? "")
+      setBrandColor(institution.brandColor ?? "")
+      setAccentPattern((institution.accentPattern as AccentPattern) ?? "hatch")
     }
   }, [institution])
 
@@ -83,13 +91,14 @@ export default function InstitutionSettingsPage() {
 
   const nameValid = name.trim().length > 0
   const phoneValid = phone.trim().length === 0 || phone.trim().length >= 6
-  const websiteValid = true
+  const brandColorValid = brandColor.trim().length === 0 || HEX_RE.test(brandColor.trim())
 
   function saveProfile() {
     setProfileTouched(true)
     if (!nameValid) { toast.error("Institution name is required"); return }
     if (!phoneValid) { toast.error("Phone must be at least 6 characters"); return }
-    const payload: { name?: string; phone?: string; website?: string; profileImageUrl?: string; profileImage?: File | null } = {}
+    if (!brandColorValid) { toast.error("Brand color must be a #RRGGBB hex value"); return }
+    const payload: { name?: string; phone?: string; website?: string; profileImageUrl?: string; profileImage?: File | null; brandColor?: string; accentPattern?: AccentPattern } = {}
     if (name.trim() !== (institution?.name ?? "")) payload.name = name.trim()
     if (phone.trim() !== (institution?.phone ?? "")) payload.phone = phone.trim()
     if (website.trim() !== (institution?.website ?? "")) payload.website = website.trim()
@@ -98,6 +107,8 @@ export default function InstitutionSettingsPage() {
     } else if (profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "")) {
       payload.profileImageUrl = profileImageUrlInput.trim()
     }
+    if (brandColor.trim() !== (institution?.brandColor ?? "")) payload.brandColor = brandColor.trim()
+    if (accentPattern !== ((institution?.accentPattern as AccentPattern) ?? "hatch")) payload.accentPattern = accentPattern
     if (Object.keys(payload).length === 0 && !profileFile) {
       toast.info("No changes to save")
       return
@@ -113,7 +124,7 @@ export default function InstitutionSettingsPage() {
     })
   }
 
-  const hasProfileChanges = name.trim() !== (institution?.name ?? "") || phone.trim() !== (institution?.phone ?? "") || website.trim() !== (institution?.website ?? "") || !!profileFile || profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "")
+  const hasProfileChanges = name.trim() !== (institution?.name ?? "") || phone.trim() !== (institution?.phone ?? "") || website.trim() !== (institution?.website ?? "") || !!profileFile || profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "") || brandColor.trim() !== (institution?.brandColor ?? "") || accentPattern !== ((institution?.accentPattern as AccentPattern) ?? "hatch")
 
   return (
     <main className="w-full px-6 py-8">
@@ -125,7 +136,7 @@ export default function InstitutionSettingsPage() {
           <div className="relative mx-auto mb-4 size-20 overflow-hidden rounded-full" style={{ background: "#02275A" }}>
             {displayImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={displayImage} alt="Profile" className="h-full w-full object-cover" />
+              <img src={displayImage} alt="Institution logo" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-white">
                 <span className="material-symbols-outlined text-[36px]">account_balance</span>
@@ -135,7 +146,7 @@ export default function InstitutionSettingsPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100"
-              aria-label="Change profile image"
+              aria-label="Change institution logo"
             >
               <span className="material-symbols-outlined text-white">photo_camera</span>
             </button>
@@ -149,14 +160,14 @@ export default function InstitutionSettingsPage() {
           {institution?.website && <p className="m-0 text-xs text-[#005eb3] underline">{institution.website}</p>}
           <div className="mt-4 flex flex-col gap-2">
             <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded border border-[#c5c6cf] bg-white px-4 py-2 text-xs font-semibold text-[#44474e] hover:bg-[#f7f9fb]">
-              {displayImage ? "Change photo" : "Upload photo"}
+              {displayImage ? "Change logo" : "Upload logo"}
             </button>
             {displayImage && (
               <button type="button" onClick={handleRemoveImage} className="text-xs text-[#C0392B] underline">
                 Remove
               </button>
             )}
-            <p className="m-0 text-[11px] leading-tight text-[#75777f]">JPEG, PNG, WebP, GIF • max 5MB<br />Stored in Supabase Storage</p>
+            <p className="m-0 text-[11px] leading-tight text-[#75777f]">Your institution&apos;s logo — shown on issued certificates.<br />JPEG, PNG, WebP, GIF • max 5MB</p>
           </div>
           {profileFile && <p className="m-0 mt-2 text-xs font-semibold text-[#0d9668]">New image selected: {profileFile.name}</p>}
         </div>
@@ -188,9 +199,69 @@ export default function InstitutionSettingsPage() {
                     <input type="text" placeholder="https://example.edu" value={website} onChange={(e) => setWebsite(e.target.value)} className="w-full rounded border px-3.5 py-2.5 text-sm" style={{ borderColor: "#c5c6cf" }} />
                   </div>
                   <div className="col-span-2">
-                    <label className="mb-1.5 block text-[13px] font-semibold">Profile image URL <span className="font-normal text-[#75777f]">(fallback if Supabase not configured)</span></label>
+                    <label className="mb-1.5 block text-[13px] font-semibold">Logo URL <span className="font-normal text-[#75777f]">(fallback if upload is unavailable)</span></label>
                     <input type="text" placeholder="https://..." value={profileImageUrlInput} onChange={(e) => setProfileImageUrlInput(e.target.value)} disabled={!!profileFile} className="w-full rounded border px-3.5 py-2.5 text-sm disabled:bg-[#f7f9fb] disabled:text-[#75777f]" style={{ borderColor: "#c5c6cf" }} />
                     {profileFile && <p className="mt-1 text-xs text-[#75777f]">Using uploaded file — URL field ignored</p>}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-semibold">Brand color <span className="font-normal text-[#75777f]">(certificate accent)</span></label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={HEX_RE.test(brandColor) ? brandColor : "#0b1e3d"}
+                        onChange={(e) => setBrandColor(e.target.value)}
+                        className="h-10 w-12 shrink-0 rounded border border-[#c5c6cf] bg-white p-0.5"
+                        aria-label="Brand color picker"
+                      />
+                      <input
+                        type="text"
+                        placeholder="#0B1E3D"
+                        value={brandColor}
+                        onChange={(e) => setBrandColor(e.target.value)}
+                        className="w-full rounded border px-3.5 py-2.5 text-sm"
+                        style={{ borderColor: profileTouched && !brandColorValid ? "#C0392B" : "#c5c6cf" }}
+                      />
+                      {brandColor && (
+                        <button type="button" onClick={() => setBrandColor("")} className="shrink-0 text-xs text-[#C0392B] underline">Clear</button>
+                      )}
+                    </div>
+                    {profileTouched && !brandColorValid && <p className="mt-1 text-xs text-[#C0392B]">Use a #RRGGBB hex value</p>}
+                    <p className="mt-1 text-xs text-[#75777f]">Very light colors are rejected — card text is white.</p>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-semibold">Accent pattern</label>
+                    <div className="inline-flex overflow-hidden rounded border border-[#c5c6cf]">
+                      {(["hatch", "dots", "none"] as AccentPattern[]).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setAccentPattern(p)}
+                          className="px-4 py-2.5 text-sm font-semibold capitalize"
+                          style={{
+                            background: accentPattern === p ? "#005eb3" : "#fff",
+                            color: accentPattern === p ? "#fff" : "#44474e",
+                          }}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1.5 block text-[13px] font-semibold">Preview</label>
+                    <div className="max-w-xs">
+                      <CredentialCard
+                        id="preview"
+                        type="CERTIFICATE"
+                        title="Bachelor of Science"
+                        subtitle={`${name.trim() || institution?.name || "Your institution"} · ${new Date().getFullYear()}`}
+                        status="ISSUED"
+                        institutionName={name.trim() || institution?.name}
+                        brandColor={HEX_RE.test(brandColor.trim()) ? brandColor.trim() : null}
+                        logoUrl={displayImage}
+                        accentPattern={accentPattern}
+                      />
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <label className="mb-1.5 block text-[13px] font-semibold">Accreditation Status</label>

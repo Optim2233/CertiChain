@@ -32,6 +32,9 @@ export interface CredentialListItem {
   signature: string | null;
   issuedAt: string;
   expiresAt: string | null;
+  institutionBrandColor: string | null;
+  institutionLogoUrl: string | null;
+  institutionAccentPattern: string;
 }
 
 export interface CredentialField {

@@ -70,6 +70,15 @@ public class Institution {
     @Column(name = "profile_image_url", columnDefinition = "text")
     private String profileImageUrl;
 
+    /** #RRGGBB card accent, null = deterministic per-name fallback on the frontend. */
+    @Column(name = "brand_color", length = 7)
+    private String brandColor;
+
+    /** Card watermark style: hatch | dots | none. */
+    @Column(name = "accent_pattern", length = 10, nullable = false)
+    @Builder.Default
+    private String accentPattern = "hatch";
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 
