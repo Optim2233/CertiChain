@@ -156,7 +156,7 @@ export default function InstitutionSettingsPage() {
                 Remove
               </button>
             )}
-            <p className="m-0 text-[11px] leading-tight text-[#75777f]">JPEG, PNG, WebP, GIF • max 5MB<br />Stored in Supabase Storage</p>
+            <p className="m-0 text-[11px] leading-tight text-[#75777f]">JPEG, PNG, WebP, GIF • max 5MB</p>
           </div>
           {profileFile && <p className="m-0 mt-2 text-xs font-semibold text-[#0d9668]">New image selected: {profileFile.name}</p>}
         </div>
@@ -188,7 +188,7 @@ export default function InstitutionSettingsPage() {
                     <input type="text" placeholder="https://example.edu" value={website} onChange={(e) => setWebsite(e.target.value)} className="w-full rounded border px-3.5 py-2.5 text-sm" style={{ borderColor: "#c5c6cf" }} />
                   </div>
                   <div className="col-span-2">
-                    <label className="mb-1.5 block text-[13px] font-semibold">Profile image URL <span className="font-normal text-[#75777f]">(fallback if Supabase not configured)</span></label>
+                    <label className="mb-1.5 block text-[13px] font-semibold">Profile image URL <span className="font-normal text-[#75777f]">(optional)</span></label>
                     <input type="text" placeholder="https://..." value={profileImageUrlInput} onChange={(e) => setProfileImageUrlInput(e.target.value)} disabled={!!profileFile} className="w-full rounded border px-3.5 py-2.5 text-sm disabled:bg-[#f7f9fb] disabled:text-[#75777f]" style={{ borderColor: "#c5c6cf" }} />
                     {profileFile && <p className="mt-1 text-xs text-[#75777f]">Using uploaded file — URL field ignored</p>}
                   </div>
