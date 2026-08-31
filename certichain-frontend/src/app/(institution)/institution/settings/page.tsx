@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useInstitutionMe, useUpdateInstitution } from "@/features/institution"
 import { useChangePassword } from "@/features/auth"
 import { toast } from "sonner"
+import { uploadProfileImage } from "@/shared/config/supabase"
 
 export default function InstitutionSettingsPage() {
   const { data: institutionData, isLoading } = useInstitutionMe()
@@ -85,7 +86,7 @@ export default function InstitutionSettingsPage() {
   const phoneValid = phone.trim().length === 0 || phone.trim().length >= 6
   const websiteValid = true
 
-  function saveProfile() {
+  async function saveProfile() {
     setProfileTouched(true)
     if (!nameValid) { toast.error("Institution name is required"); return }
     if (!phoneValid) { toast.error("Phone must be at least 6 characters"); return }
@@ -94,7 +95,22 @@ export default function InstitutionSettingsPage() {
     if (phone.trim() !== (institution?.phone ?? "")) payload.phone = phone.trim()
     if (website.trim() !== (institution?.website ?? "")) payload.website = website.trim()
     if (profileFile) {
-      payload.profileImage = profileFile
+      if (institution?.id) {
+        try {
+          const publicUrl = await uploadProfileImage(profileFile, institution.id)
+          payload.profileImageUrl = publicUrl
+        } catch (err) {
+          const msg = (err as Error)?.message ?? ""
+          if (msg.includes("row-level security") || msg.includes("403") || msg.includes("Unauthorized")) {
+            payload.profileImage = profileFile
+          } else {
+            toast.error(msg || "Failed to upload image")
+            return
+          }
+        }
+      } else {
+        payload.profileImage = profileFile
+      }
     } else if (profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "")) {
       payload.profileImageUrl = profileImageUrlInput.trim()
     }
