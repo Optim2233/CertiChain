@@ -1,7 +1,10 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import type { ApiError, ApiResponse } from '@/shared/types/types';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+// Empty = same-origin: requests go to /api/... on the Next origin, which
+// rewrites them to the backend (see next.config.ts). Keeps the auth cookie
+// first-party. Set NEXT_PUBLIC_API_BASE_URL only to bypass the rewrite.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 
 
 const instance = axios.create({
@@ -9,13 +12,40 @@ const instance = axios.create({
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
+instance.interceptors.response.use(undefined, (error: AxiosError) => {
+  // Session expired mid-session: bounce to login. Skip the /auth/* probes
+  // (getMe returns 401 when simply logged out - not a redirect trigger) and
+  // any page that's already an auth page.
+  const url = error.config?.url ?? '';
+  const onAuthPage = typeof window !== 'undefined'
+    && /^\/(login|register)/.test(window.location.pathname);
+  if (
+    error.response?.status === 401
+    && typeof window !== 'undefined'
+    && !onAuthPage
+    && !url.includes('/api/auth/')
+  ) {
+    window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+  }
+  return Promise.reject(error);
+});
 
 function toApiError(error: AxiosError): ApiError {
-  const data = error.response?.data as { message?: string } | undefined;
+  const data = error.response?.data as { message?: string; error?: string; msg?: string } | undefined;
   return {
-    message: data?.message || error.message || 'Request failed',
+    message: data?.error || data?.message || data?.msg || error.message || 'Request failed',
     status: error.response?.status || 0,
   };
+}
+
+function handleFetch401(status: number, url: string) {
+  const onAuthPage =
+    typeof window !== 'undefined' && /^\/(login|register|forgot-password|reset-password)/.test(window.location.pathname);
+  if (status === 401 && typeof window !== 'undefined' && !onAuthPage && !url.includes('/api/auth/')) {
+    window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+    return true;
+  }
+  return false;
 }
 
 export class ApiClient {
@@ -70,8 +100,12 @@ export class ApiClient {
       body: formData,
     });
     if (!response.ok) {
-      const data = await response.json().catch(() => undefined) as { message?: string } | undefined;
-      throw { message: data?.message || response.statusText, status: response.status } satisfies ApiError;
+      if (handleFetch401(response.status, endpoint)) {
+        const data = await response.json().catch(() => undefined) as { message?: string; error?: string } | undefined;
+        throw { message: data?.error || data?.message || response.statusText, status: response.status } satisfies ApiError;
+      }
+      const data = await response.json().catch(() => undefined) as { message?: string; error?: string } | undefined;
+      throw { message: data?.error || data?.message || response.statusText, status: response.status } satisfies ApiError;
     }
     const data = (await response.json().catch(() => undefined)) as T;
     return { data, status: response.status };
@@ -89,8 +123,12 @@ export class ApiClient {
       body: formData,
     });
     if (!response.ok) {
-      const data = await response.json().catch(() => undefined) as { message?: string } | undefined;
-      throw { message: data?.message || response.statusText, status: response.status } satisfies ApiError;
+      if (handleFetch401(response.status, endpoint)) {
+        const data = await response.json().catch(() => undefined) as { message?: string; error?: string } | undefined;
+        throw { message: data?.error || data?.message || response.statusText, status: response.status } satisfies ApiError;
+      }
+      const data = await response.json().catch(() => undefined) as { message?: string; error?: string } | undefined;
+      throw { message: data?.error || data?.message || response.statusText, status: response.status } satisfies ApiError;
     }
     const data = (await response.json().catch(() => undefined)) as T;
     return { data, status: response.status };
@@ -107,7 +145,12 @@ export class ApiClient {
       headers,
     });
     if (!response.ok) {
-      throw { message: response.statusText, status: response.status } satisfies ApiError;
+      if (handleFetch401(response.status, endpoint)) {
+        const data = await response.json().catch(() => undefined) as { message?: string; error?: string } | undefined;
+        throw { message: data?.error || data?.message || response.statusText, status: response.status } satisfies ApiError;
+      }
+      const data = await response.json().catch(() => undefined) as { message?: string; error?: string } | undefined;
+      throw { message: data?.error || data?.message || response.statusText, status: response.status } satisfies ApiError;
     }
     const disposition = response.headers.get('Content-Disposition');
     const fileName = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? null;

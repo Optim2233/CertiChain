@@ -1,7 +1,8 @@
 // Detects this machine's current LAN IP and writes it into .env.local as
-// NEXT_PUBLIC_API_BASE_URL and DEV_LAN_IP, so switching Wi-Fi networks
-// (home/uni/etc.) doesn't need a manual edit before `next dev`. DEV_LAN_IP is
-// read by next.config.ts to populate allowedDevOrigins.
+// DEV_LAN_IP, read by next.config.ts to populate allowedDevOrigins, so LAN
+// phone testing works after switching Wi-Fi networks without a manual edit.
+// The API URL is NOT written here anymore - the browser talks to the Next
+// origin and next.config.ts rewrites /api/* to the backend.
 import { networkInterfaces } from 'node:os';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -39,10 +40,11 @@ function setVar(content, name, value) {
 }
 
 let updated = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
-updated = setVar(updated, 'NEXT_PUBLIC_API_BASE_URL', `http://${ip}:8081`);
 updated = setVar(updated, 'DEV_LAN_IP', ip);
+// Drop the old key if a previous run wrote it - the rewrite handles the API now.
+updated = updated.replace(/^NEXT_PUBLIC_API_BASE_URL=.*\n?/m, '');
 
 writeFileSync(envPath, updated);
-console.log(`Set NEXT_PUBLIC_API_BASE_URL=http://${ip}:8081`);
+console.log(`Set DEV_LAN_IP=${ip}`);
 console.log(`On THIS machine and on your phone, open: http://${ip}:3000`);
-console.log(`(same host on both ends - do not use localhost or a VPN IP for either)`);
+console.log(`(the backend just needs to be reachable at BACKEND_ORIGIN, default localhost:8081)`);

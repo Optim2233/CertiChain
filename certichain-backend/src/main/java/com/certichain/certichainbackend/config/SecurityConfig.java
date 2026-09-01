@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/logout",
@@ -51,8 +52,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class)
-                .addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
@@ -61,6 +62,9 @@ public class SecurityConfig {
     // port (or an env-driven allowlist) before deploying past local dev.
     // The 192.168.*/10.*/172.16-31.* patterns are for same-LAN phone testing
     // (QR/verify flows) only - remove once the real deploy URL replaces them.
+    @org.springframework.beans.factory.annotation.Value("${certichain.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     private UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
@@ -71,7 +75,7 @@ public class SecurityConfig {
             "http://172.1[6-9].*.*:*",
             "http://172.2*.*.*:*",
             "http://172.3[0-1].*.*:*",
-            "https://certi-chain-nine.vercel.app"
+            frontendUrl
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
