@@ -73,7 +73,22 @@ export interface BatchIssueResult {
   row?: number;
   status?: string;
   error?: string;
+  credentialId?: string;
+  batchId?: string;
+  graduate?: string;
   credential?: unknown;
+}
+
+export interface BatchSummary {
+  batchId: string;
+  issuedAt: string;
+  total: number;
+  revoked: number;
+}
+
+export interface BatchRevokeResult {
+  revoked: number;
+  alreadyRevoked: number;
 }
 
 export type DisputeStatus = 'OPEN' | 'UPHELD' | 'DISMISSED';

@@ -118,9 +118,23 @@ public class InstitutionServiceImpl implements InstitutionService {
                 if (document == null || document.isEmpty()) {
                     continue;
                 }
+                // ponytail: 5MB per file cap before loading bytes; larger needs streaming storage
+                if (document.getSize() > 5L * 1024 * 1024) {
+                    throw new ValidationException("Document too large (max 5MB): " + document.getOriginalFilename());
+                }
+                String fn = document.getOriginalFilename();
+                if (fn != null && fn.length() > 255) {
+                    throw new ValidationException("File name too long (max 255)");
+                }
+                String ct = document.getContentType();
+                if (ct != null && !ct.equals("application/pdf") && !ct.equals("application/octet-stream")) {
+                    // Allow pdf only; octet-stream is common for renamed pdfs
+                    throw new ValidationException("Only PDF documents are accepted");
+                }
+                String safeName = fn == null || fn.isBlank() ? "document.pdf" : fn.replaceAll("[^a-zA-Z0-9._-]", "_");
                 institutionDocumentRepository.save(InstitutionDocument.builder()
                         .institutionId(institution.getId())
-                        .fileName(document.getOriginalFilename())
+                        .fileName(safeName)
                         .fileData(readBytes(document))
                         .uploadedAt(Instant.now())
                         .build());
@@ -250,8 +264,8 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
-    @Cacheable(cacheNames = "institution",
-            key = "'credentials:' + @currentUser.institutionId() + ':' + #status + ':' + #page + ':' + #size")
+    // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
+    // survive the Redis JSON round trip (InvalidDefinitionException: no Creators).
     public Page<Credential> listCredentials(String status, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("issuedAt").descending());
         if (status == null || status.isBlank()) {
@@ -377,11 +391,16 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
     public List<Map<String, Object>> issueBatch(MultipartFile spreadsheet) {
+        // @Transactional (read-write) is required: the class default is readOnly=true, under
+        // which Hibernate silently skips the flush and every issued row is discarded on commit.
+        // Per-row errors are caught inside the loop, so a bad row never rolls back good ones.
         // Synchronous with per-row results: one bad row is a row-level error, never a failed
         // request. Rows are fully validated before anything is written, so a rejected row
         // leaves nothing behind.
+        UUID batchId = UUID.randomUUID();
         List<Map<String, Object>> results = new ArrayList<>();
         List<Map<String, String>> rows = parseCsv(readText(spreadsheet));
 
@@ -406,9 +425,10 @@ public class InstitutionServiceImpl implements InstitutionService {
                 if (fields.isEmpty()) {
                     throw new ValidationException("no credential fields in row");
                 }
-                Credential credential = issue(email, fields, type, expiresAt);
+                Credential credential = issue(email, fields, type, expiresAt, batchId);
                 result.put("status", "OK");
                 result.put("credentialId", credential.getId());
+                result.put("batchId", batchId);
             } catch (RuntimeException ex) {
                 result.put("status", "ERROR");
                 result.put("error", ex.getMessage());
@@ -424,13 +444,48 @@ public class InstitutionServiceImpl implements InstitutionService {
     public void revokeCredential(UUID credentialId, String reason) {
         requireText(reason, "reason");
         Credential credential = ownCredential(credentialId);
+        applyRevocation(credential, reason);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public BatchRevokeResult revokeBatch(UUID batchId, String reason) {
+        requireText(reason, "reason");
+        List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
+                currentUser.institutionId(), batchId);
+        // Empty also covers a batch owned by another institution - the institutionId filter
+        // makes it indistinguishable from "no such batch", same as ownCredential's 404.
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("Batch not found");
+        }
+        int revoked = 0;
+        int alreadyRevoked = 0;
+        for (Credential credential : members) {
+            if (credential.getStatus() == CredentialStatus.REVOKED) {
+                alreadyRevoked++;
+                continue;
+            }
+            applyRevocation(credential, reason);
+            revoked++;
+        }
+        return new BatchRevokeResult(revoked, alreadyRevoked);
+    }
+
+    /** Shared revoke behaviour: status + reason + timestamp, audit entry, graduate notification. */
+    private void applyRevocation(Credential credential, String reason) {
         credential.setStatus(CredentialStatus.REVOKED);
         credential.setRevokeReason(reason);
         credential.setRevokedAt(Instant.now());
-        auditLogService.log("Certificate revoked", currentUser.id(),
+        auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate revoked",
                 "A credential you hold was revoked. Reason: " + reason);
+    }
+
+    @Override
+    public List<BatchSummaryRow> listBatches() {
+        return credentialRepository.findBatchSummaries(currentUser.institutionId());
     }
 
     @Override
@@ -498,7 +553,7 @@ public class InstitutionServiceImpl implements InstitutionService {
             credential.setStatus(CredentialStatus.REVOKED);
             credential.setRevokeReason(resolutionNote);
             credential.setRevokedAt(Instant.now());
-            auditLogService.log("Certificate revoked", currentUser.id(),
+            auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                     credential.getInstitutionId(), credential.getId());
         } else if ("EDIT".equalsIgnoreCase(action)) {
             // Corrected values from the resolution UI take priority; falls back to re-signing
@@ -551,19 +606,26 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     /** Re-signs a credential's field set and replaces its stored fields with the signed result. */
     private void resignFields(Credential credential, List<Field> toSign) {
+        // ponytail: unique field names guard before delete to avoid transient constraint violation
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (Field f : toSign) {
+            String n = f.name().trim().toLowerCase();
+            if (!seen.add(n)) {
+                throw new ValidationException("Duplicate field name: " + f.name());
+            }
+        }
         SignedCredential signed = signingService.signCredential(toSign, credential.getInstitutionId());
         credential.setMerkleRoot(signed.merkleRoot());
         credential.setSignature(signed.signature());
 
         credentialFieldRepository.deleteByCredentialId(credential.getId());
-        for (SignedCredential.FieldWithIndex field : signed.fields()) {
-            credentialFieldRepository.save(CredentialField.builder()
+        credentialFieldRepository.flush();
+        credentialFieldRepository.saveAll(signed.fields().stream().map(field -> CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
                     .fieldValue(field.value())
                     .merkleIndex(field.merkleIndex())
-                    .build());
-        }
+                    .build()).toList());
     }
 
     /**
@@ -571,7 +633,13 @@ public class InstitutionServiceImpl implements InstitutionService {
      * funnel through here, so the APPROVED gate cannot be bypassed on one of them.
      */
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type, Instant expiresAt) {
+        return issue(graduateEmail, fields, type, expiresAt, null);
+    }
+
+    private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
+                             Instant expiresAt, UUID batchId) {
         requireText(graduateEmail, "graduate_email");
+        String normGradEmail = graduateEmail.trim().toLowerCase();
         UUID institutionId = currentUser.institutionId();
         Institution institution = load(institutionId);
         if (institution.getStatus() != InstitutionStatus.APPROVED) {
@@ -582,14 +650,25 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         SignedCredential signed = signingService.signCredential(fields, institutionId);
 
+        // Reject an exact re-issue. The DB's uq_credential_institution_merkle_active is the
+        // race-safe guarantee; this check just turns it into a clean message instead of a
+        // generic DATA_CONFLICT 409. A revoked credential with the same fields is allowed
+        // through - that is a corrected re-issue, not a duplicate.
+        if (credentialRepository.existsByInstitutionIdAndMerkleRootAndStatusNot(
+                institutionId, signed.merkleRoot(), CredentialStatus.REVOKED)) {
+            throw new ValidationException(
+                    "An identical credential has already been issued to this graduate");
+        }
+
         // Claim-on-issue: an existing account gets the credential outright, otherwise it
         // waits in PENDING_CLAIM until that email signs up.
-        Optional<User> graduate = userRepository.findByEmail(graduateEmail);
+        Optional<User> graduate = userRepository.findByEmail(normGradEmail);
         Credential credential = credentialRepository.save(Credential.builder()
                 .type(type)
                 .institutionId(institutionId)
                 .graduateUserId(graduate.map(User::getId).orElse(null))
-                .graduateEmail(graduateEmail)
+                .graduateEmail(normGradEmail)
+                .batchId(batchId)
                 .status(graduate.isPresent() ? CredentialStatus.ISSUED : CredentialStatus.PENDING_CLAIM)
                 .merkleRoot(signed.merkleRoot())
                 .signature(signed.signature())
@@ -597,16 +676,12 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .expiresAt(expiresAt)
                 .build());
 
-        for (SignedCredential.FieldWithIndex field : signed.fields()) {
-            credentialFieldRepository.save(CredentialField.builder()
+        credentialFieldRepository.saveAll(signed.fields().stream().map(field -> CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
                     .fieldValue(field.value())
-                    // The signed tree's index, never the loop counter - they must agree or
-                    // proofs won't reconstruct.
                     .merkleIndex(field.merkleIndex())
-                    .build());
-        }
+                    .build()).toList());
         auditLogService.log(AuditEvents.CERTIFICATE_ISSUED_EVENT, currentUser.id(), institutionId, credential.getId());
         // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null.
         notificationService.notify(credential.getGraduateUserId(), "Certificate issued",
@@ -616,9 +691,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     /**
      * Header row names the fields; graduate_email is the one reserved column.
-     *
-     * ponytail: naive split(",") - breaks on quoted values containing commas. Swap in
-     * commons-csv if a real institution's export needs quoting.
+     * ponytail: minimal quoted handling + 5000 row cap; use commons-csv if richer CSV needed.
      */
     static List<Map<String, String>> parseCsv(String content) {
         List<Map<String, String>> rows = new ArrayList<>();
@@ -628,8 +701,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         }
 
         // Excel writes a UTF-8 BOM; without stripping it the first column name never matches.
-        String headerLine = lines[0].startsWith("﻿") ? lines[0].substring(1) : lines[0];
-        String[] headers = headerLine.split(",");
+        String headerLine = lines[0].startsWith("\uFEFF") ? lines[0].substring(1) : lines[0];
+        String[] headers = splitCsvLine(headerLine);
         for (int i = 0; i < headers.length; i++) {
             headers[i] = headers[i].trim();
         }
@@ -638,7 +711,10 @@ public class InstitutionServiceImpl implements InstitutionService {
             if (lines[i].isBlank()) {
                 continue;
             }
-            String[] values = lines[i].split(",", -1);
+            if (rows.size() >= 5000) {
+                throw new ValidationException("CSV too large (max 5000 rows)");
+            }
+            String[] values = splitCsvLine(lines[i]);
             Map<String, String> row = new LinkedHashMap<>();
             for (int c = 0; c < headers.length; c++) {
                 row.put(headers[c], c < values.length ? values[c].trim() : "");
@@ -646,6 +722,30 @@ public class InstitutionServiceImpl implements InstitutionService {
             rows.add(row);
         }
         return rows;
+    }
+
+    private static String[] splitCsvLine(String line) {
+        List<String> out = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean inQ = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                if (inQ && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    cur.append('"');
+                    i++;
+                } else {
+                    inQ = !inQ;
+                }
+            } else if (c == ',' && !inQ) {
+                out.add(cur.toString());
+                cur.setLength(0);
+            } else {
+                cur.append(c);
+            }
+        }
+        out.add(cur.toString());
+        return out.toArray(new String[0]);
     }
 
     private DisputeFlag openDispute(UUID disputeId) {
@@ -690,10 +790,19 @@ public class InstitutionServiceImpl implements InstitutionService {
         if (file == null || file.isEmpty()) {
             throw new ValidationException("A spreadsheet file is required");
         }
+        // ponytail: streaming read; 20MB at 10MB per file cap via multipart max-size
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            return reader.lines().reduce(new StringBuilder(),
-                    (sb, line) -> sb.append(line).append('\n'), StringBuilder::append).toString();
+            StringBuilder sb = new StringBuilder();
+            String line;
+            int lines = 0;
+            while ((line = reader.readLine()) != null) {
+                if (++lines > 5001) throw new ValidationException("CSV too large (max 5000 rows)");
+                sb.append(line).append('\n');
+            }
+            return sb.toString();
+        } catch (ValidationException ve) {
+            throw ve;
         } catch (Exception ex) {
             throw new ValidationException("Could not read the uploaded spreadsheet");
         }

@@ -35,6 +35,8 @@ public interface InstitutionService {
     List<Map<String, Object>> issueBatch(MultipartFile spreadsheet);
     Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt);
     void revokeCredential(UUID credentialId, String reason);
+    List<BatchSummaryRow> listBatches();
+    BatchRevokeResult revokeBatch(UUID batchId, String reason);
     Credential getCredential(UUID credentialId);
     Credential editCredential(UUID credentialId, List<Map<String, String>> fields);
     List<CredentialField> getCredentialFields(UUID credentialId);

@@ -41,7 +41,7 @@ function CredentialDetailContent() {
   const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    if (editing) {
+    if (editing && fields.length > 0) {
       const next: Record<string, string> = {}
       fields.forEach((f) => { next[f.fieldName] = f.fieldValue })
       setForm(next)
@@ -58,8 +58,8 @@ function CredentialDetailContent() {
       </main>
     )
 
-  const requiredKeys = Object.keys(form)
-  const allValid = requiredKeys.every((k) => form[k]?.trim())
+  const requiredKeys = fields.map((f) => f.fieldName)
+  const allValid = requiredKeys.length > 0 && requiredKeys.every((k) => form[k]?.trim())
 
   function save() {
     const nextTouched: Record<string, boolean> = {}

@@ -3,6 +3,7 @@ package com.certichain.certichainbackend.common.repository;
 import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.graduate.CredentialListItem;
+import com.certichain.certichainbackend.institution.BatchSummaryRow;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,9 +21,28 @@ public interface CredentialRepository extends JpaRepository<Credential, UUID> {
 
     List<Credential> findByInstitutionId(UUID institutionId);
 
+    List<Credential> findByInstitutionIdAndBatchId(UUID institutionId, UUID batchId);
+
+    // One summary row per batch_id for the institution's Batches page, newest first.
+    @Query("""
+            SELECT c.batchId AS batchId, MIN(c.issuedAt) AS issuedAt, COUNT(c) AS total,
+                   SUM(CASE WHEN c.status = com.certichain.certichainbackend.common.enums.CredentialStatus.REVOKED
+                            THEN 1 ELSE 0 END) AS revoked
+            FROM Credential c
+            WHERE c.institutionId = :institutionId AND c.batchId IS NOT NULL
+            GROUP BY c.batchId
+            ORDER BY MIN(c.issuedAt) DESC
+            """)
+    List<BatchSummaryRow> findBatchSummaries(@Param("institutionId") UUID institutionId);
+
     List<Credential> findByGraduateUserIdOrderByIssuedAtDesc(UUID graduateUserId);
 
     List<Credential> findByGraduateEmailAndStatus(String graduateEmail, CredentialStatus status);
+
+    // Dedup guard: a matching non-revoked merkle_root means this exact field set was
+    // already issued by this institution. Backed by uq_credential_institution_merkle_active.
+    boolean existsByInstitutionIdAndMerkleRootAndStatusNot(
+            UUID institutionId, String merkleRoot, CredentialStatus status);
 
     int countByGraduateEmailAndStatus(String graduateEmail, CredentialStatus status);
 

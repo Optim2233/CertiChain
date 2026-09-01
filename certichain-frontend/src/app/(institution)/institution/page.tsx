@@ -45,8 +45,8 @@ export default function InstitutionDashboardPage() {
 
   const issued = summary?.total ?? 0
   const revoked = summary?.revoked ?? 0
-  const claimed = issued - (summary?.unclaimed ?? 0)
-  const claimedPct = issued ? Math.round((claimed / issued) * 100) : 0
+  const claimed = Math.max(0, issued - (summary?.unclaimed ?? 0))
+  const claimedPct = issued ? Math.max(0, Math.min(100, Math.round((claimed / issued) * 100))) : 0
   const openDisputes = disputes.filter((d) => d.status === "OPEN").length
 
   return (

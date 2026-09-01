@@ -29,7 +29,7 @@ export default function IssueCertificatePage() {
         fields: [
           { name: "title", value: title },
           { name: "graduationDate", value: gradDate },
-          ...extraFields.filter((f) => f.name.trim()),
+          ...extraFields.filter((f) => f.name.trim() && f.value.trim()),
         ],
         expiresAt: expiresAt || undefined,
       },

@@ -2,7 +2,7 @@ import type { Page } from '@/shared/types/types';
 import type { Institution } from '@/features/accreditation';
 import type { Credential, DisputeFlag } from '@/features/institution';
 import { apiClient } from '@/shared/config/axioconfig';
-import type { BatchIssueResult, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
+import type { BatchIssueResult, BatchRevokeResult, BatchSummary, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
 import {
   applyInstitutionSchema,
   dismissDisputeSchema,
@@ -36,10 +36,11 @@ export const institutionService = {
   },
 
   async listCredentials(status: string | null = null, page = 0, size = 20, headers?: Record<string, string>) {
-    const query = status
-      ? `?status=${status}&page=${page}&size=${size}`
-      : `?page=${page}&size=${size}`;
-    return apiClient.get<Page<Credential>>(`/api/institution/credentials${query}`, headers);
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    params.set("page", String(page));
+    params.set("size", String(size));
+    return apiClient.get<Page<Credential>>(`/api/institution/credentials?${params.toString()}`, headers);
   },
 
   async getCredentialSummary(headers?: Record<string, string>) {
@@ -90,6 +91,18 @@ export const institutionService = {
   async revokeCredential(id: string, reason: string, headers?: Record<string, string>) {
     return apiClient.post<void>(
       `/api/institution/credentials/${id}/revoke`,
+      revokeCredentialSchema.parse({ reason }),
+      headers
+    );
+  },
+
+  async listBatches(headers?: Record<string, string>) {
+    return apiClient.get<BatchSummary[]>('/api/institution/credentials/batches', headers);
+  },
+
+  async revokeBatch(batchId: string, reason: string, headers?: Record<string, string>) {
+    return apiClient.post<BatchRevokeResult>(
+      `/api/institution/credentials/batches/${batchId}/revoke`,
       revokeCredentialSchema.parse({ reason }),
       headers
     );
@@ -150,8 +163,9 @@ export const institutionService = {
       name: data.name?.trim() || undefined,
       phone: data.phone ?? "",
       website: data.website ?? "",
-      profileImageUrl: data.profileImageUrl ?? "",
-      // "" is a meaningful value here (clear the brand colour) - keep it distinct from undefined
+      // "" is a meaningful value for these two (clear the logo / brand colour) -
+      // keep it distinct from undefined (leave unchanged).
+      profileImageUrl: data.profileImageUrl === undefined ? undefined : data.profileImageUrl.trim(),
       brandColor: data.brandColor === undefined ? undefined : data.brandColor.trim(),
       accentPattern: data.accentPattern,
     });
@@ -160,7 +174,7 @@ export const institutionService = {
       if (parsed.name) formData.append("name", parsed.name);
       if (parsed.phone) formData.append("phone", parsed.phone);
       if (parsed.website) formData.append("website", parsed.website);
-      if (parsed.profileImageUrl) formData.append("profileImageUrl", parsed.profileImageUrl);
+      if (parsed.profileImageUrl !== undefined) formData.append("profileImageUrl", parsed.profileImageUrl);
       if (parsed.brandColor !== undefined) formData.append("brandColor", parsed.brandColor);
       if (parsed.accentPattern) formData.append("accentPattern", parsed.accentPattern);
       formData.append("profileImage", data.profileImage);
@@ -170,7 +184,7 @@ export const institutionService = {
       name: parsed.name,
       phone: parsed.phone || undefined,
       website: parsed.website || undefined,
-      profileImageUrl: parsed.profileImageUrl || undefined,
+      profileImageUrl: parsed.profileImageUrl,
       brandColor: parsed.brandColor,
       accentPattern: parsed.accentPattern,
     }, headers);

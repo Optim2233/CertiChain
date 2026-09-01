@@ -34,6 +34,10 @@ public class Credential {
     @Column(name = "graduate_email", nullable = false)
     private String graduateEmail;
 
+    /** Set only for credentials created by one batch upload; null for single issuance. */
+    @Column(name = "batch_id")
+    private UUID batchId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CredentialStatus status;

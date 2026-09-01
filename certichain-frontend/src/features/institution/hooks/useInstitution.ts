@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '../api/api';
 import { useInstitutionStore } from '../store/institutionStore';
@@ -7,17 +8,16 @@ import type { CredentialFieldInput } from '../types/types';
 
 export function useInstitutionMe() {
   const setMe = useInstitutionStore((state) => state.setMe);
-
-  return useQuery({
+  const query = useQuery({
     queryKey: ['institution-me'],
-    queryFn: async () => {
-      const { data } = await institutionService.getMe();
-      setMe(data);
-      return data;
-    },
+    queryFn: async () => (await institutionService.getMe()).data,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
+  useEffect(() => {
+    if (query.data) setMe(query.data);
+  }, [query.data, setMe]);
+  return query;
 }
 
 export function useCredentials(status: string | null = null, page = 0, size = 20) {
@@ -102,8 +102,30 @@ export function useIssueBatch() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (spreadsheet: File) => institutionService.issueBatch(spreadsheet),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
+    },
+  });
+}
+
+export function useBatches() {
+  return useQuery({
+    queryKey: ['institution-batches'],
+    queryFn: () => institutionService.listBatches(),
+  });
+}
+
+export function useRevokeBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ batchId, reason }: { batchId: string; reason: string }) =>
+      institutionService.revokeBatch(batchId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
+    },
   });
 }
 

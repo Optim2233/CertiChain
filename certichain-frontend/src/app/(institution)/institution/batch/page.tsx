@@ -26,8 +26,10 @@ export default function BatchIssuancePage() {
       const link = document.createElement("a")
       link.href = url
       link.download = fileName ?? "batch-template.csv"
+      document.body.appendChild(link)
       link.click()
-      URL.revokeObjectURL(url)
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
     } finally {
       setDownloadingTemplate(false)
     }
@@ -39,7 +41,10 @@ export default function BatchIssuancePage() {
     // ponytail: only CSV can be row-counted without a parsing dependency -
     // .xlsx still uploads fine, it just skips the row-count preview.
     if (file.name.toLowerCase().endsWith(".csv")) {
+      const currentName = file.name
       file.text().then((text) => {
+        // stale check: user may have picked another file before text() resolved
+        if (pendingFile?.name && pendingFile.name !== currentName && pendingFile.name !== file.name) return
         const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
         setRowCount(Math.max(lines.length - 1, 0))
       })

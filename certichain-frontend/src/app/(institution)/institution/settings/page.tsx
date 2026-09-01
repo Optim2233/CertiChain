@@ -28,6 +28,7 @@ export default function InstitutionSettingsPage() {
   const [accentPattern, setAccentPattern] = useState<AccentPattern>("hatch")
   const [profileFile, setProfileFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [logoRemoved, setLogoRemoved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [profileTouched, setProfileTouched] = useState(false)
 
@@ -52,7 +53,7 @@ export default function InstitutionSettingsPage() {
     }
   }, [profileFile])
 
-  const displayImage = previewUrl || institution?.profileImageUrl || null
+  const displayImage = previewUrl || (logoRemoved ? null : institution?.profileImageUrl) || null
 
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword
 
@@ -76,6 +77,7 @@ export default function InstitutionSettingsPage() {
       return
     }
     setProfileFile(file)
+    setLogoRemoved(false)
     setProfileTouched(true)
   }
 
@@ -83,8 +85,9 @@ export default function InstitutionSettingsPage() {
     setProfileFile(null)
     setPreviewUrl(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
+    setProfileImageUrlInput("")
     if (institution?.profileImageUrl) {
-      setProfileImageUrlInput("")
+      setLogoRemoved(true)
       setProfileTouched(true)
     }
   }
@@ -104,6 +107,8 @@ export default function InstitutionSettingsPage() {
     if (website.trim() !== (institution?.website ?? "")) payload.website = website.trim()
     if (profileFile) {
       payload.profileImage = profileFile
+    } else if (logoRemoved) {
+      payload.profileImageUrl = ""
     } else if (profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "")) {
       payload.profileImageUrl = profileImageUrlInput.trim()
     }
@@ -117,6 +122,7 @@ export default function InstitutionSettingsPage() {
       onSuccess: () => {
         toast.success("Profile updated")
         setProfileFile(null)
+        setLogoRemoved(false)
         setProfileTouched(false)
         if (fileInputRef.current) fileInputRef.current.value = ""
       },
@@ -124,7 +130,7 @@ export default function InstitutionSettingsPage() {
     })
   }
 
-  const hasProfileChanges = name.trim() !== (institution?.name ?? "") || phone.trim() !== (institution?.phone ?? "") || website.trim() !== (institution?.website ?? "") || !!profileFile || profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "") || brandColor.trim() !== (institution?.brandColor ?? "") || accentPattern !== ((institution?.accentPattern as AccentPattern) ?? "hatch")
+  const hasProfileChanges = name.trim() !== (institution?.name ?? "") || phone.trim() !== (institution?.phone ?? "") || website.trim() !== (institution?.website ?? "") || !!profileFile || logoRemoved || profileImageUrlInput.trim() !== (institution?.profileImageUrl ?? "") || brandColor.trim() !== (institution?.brandColor ?? "") || accentPattern !== ((institution?.accentPattern as AccentPattern) ?? "hatch")
 
   return (
     <main className="w-full px-6 py-8">
@@ -133,7 +139,7 @@ export default function InstitutionSettingsPage() {
 
       <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 2fr" }}>
         <div className="h-fit rounded-lg border border-[#c5c6cf] bg-white p-6 text-center">
-          <div className="relative mx-auto mb-4 size-20 overflow-hidden rounded-full" style={{ background: "#02275A" }}>
+          <div className="relative mx-auto mb-4 size-20 overflow-hidden rounded-xl" style={{ background: "#02275A" }}>
             {displayImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={displayImage} alt="Institution logo" className="h-full w-full object-cover" />
