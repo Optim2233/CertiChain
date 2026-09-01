@@ -10,6 +10,8 @@ import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializ
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
+import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.cache.interceptor.SimpleCacheErrorHandler;
 import java.time.Duration;
 
 /**
@@ -22,17 +24,32 @@ import java.time.Duration;
 public class CacheConfig {
 
     static GenericJacksonJsonRedisSerializer valueSerializer() {
-        // Spring Data Redis 4.x builder() defaults to NO default typing: without it,
-        // every cached value round-trips through Redis as a LinkedHashMap and the
-        // @Cacheable proxy blows up casting it back to the entity type. Re-enable
-        // typing (writes an @class hint) so entities deserialize correctly.
         return GenericJacksonJsonRedisSerializer.builder()
                 .enableDefaultTyping(BasicPolymorphicTypeValidator.builder()
                         .allowIfBaseType(Object.class)
-                        .allowIfSubType((ctx, clazz) -> true)
+                        .allowIfSubType((ctx, clazz) -> {
+                            String n = clazz.getName();
+                            return n.startsWith("com.certichain.certichainbackend.")
+                                    || n.startsWith("java.util.")
+                                    || n.startsWith("java.time.")
+                                    || n.equals("java.util.ArrayList")
+                                    || n.equals("java.util.LinkedHashMap");
+                        })
                         .build())
                 .enableSpringCacheNullValueSupport()
                 .build();
+    }
+
+    @Bean
+    CacheErrorHandler cacheErrorHandler() {
+        return new SimpleCacheErrorHandler() {
+            @Override
+            public void handleCacheGetError(RuntimeException ex, org.springframework.cache.Cache cache, Object key) {
+                // stale/broken Redis entry (e.g. after serializer validator change) -> evict and miss
+                try { cache.evict(key); } catch (Exception ignore) {}
+                // swallow so caller recomputes from DB instead of 500
+            }
+        };
     }
 
     @Bean

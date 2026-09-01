@@ -52,7 +52,8 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final CurrentUser currentUser;
 
     @Override
-    @Cacheable(cacheNames = "accreditation", key = "'institutions:' + #status + ':' + #page + ':' + #size")
+    // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
+    // survive the Redis JSON round trip (InvalidDefinitionException: no Creators).
     public Page<Institution> listInstitutions(String status, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("appliedAt").descending());
         if (status == null || status.isBlank()) {
@@ -139,7 +140,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
-    @Cacheable(cacheNames = "accreditation", key = "'auditLog:' + #institutionId + ':' + #page + ':' + #size")
+    // Not @Cacheable: see listInstitutions - PageImpl does not survive Redis JSON.
     public Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("occurredAt").descending());
         Page<AuditLogEntry> entries = institutionId == null
