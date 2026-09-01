@@ -8,9 +8,19 @@ export function ShareQr({ value, size = 180 }: { value: string; size?: number })
 
   useEffect(() => {
     let cancelled = false
-    QRCode.toDataURL(value, { width: size, margin: 1 }).then((url) => {
-      if (!cancelled) setDataUrl(url)
-    })
+    if (!value) {
+      setDataUrl(null)
+      return () => {
+        cancelled = true
+      }
+    }
+    QRCode.toDataURL(value, { width: size, margin: 1 })
+      .then((url) => {
+        if (!cancelled) setDataUrl(url)
+      })
+      .catch(() => {
+        if (!cancelled) setDataUrl(null)
+      })
     return () => {
       cancelled = true
     }

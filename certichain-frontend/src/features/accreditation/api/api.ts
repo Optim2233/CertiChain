@@ -15,10 +15,11 @@ export const accreditationService = {
     size = 20,
     headers?: Record<string, string>
   ) {
-    const query = status
-      ? `?status=${status}&page=${page}&size=${size}`
-      : `?page=${page}&size=${size}`;
-    return apiClient.get<Page<Institution>>(`/api/aa/institutions${query}`, headers);
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    params.set("page", String(page));
+    params.set("size", String(size));
+    return apiClient.get<Page<Institution>>(`/api/aa/institutions?${params.toString()}`, headers);
   },
 
   async getInstitution(id: string, headers?: Record<string, string>) {
@@ -87,9 +88,10 @@ export const accreditationService = {
     size = 20,
     headers?: Record<string, string>
   ) {
-    const query = institutionId
-      ? `?institutionId=${institutionId}&page=${page}&size=${size}`
-      : `?page=${page}&size=${size}`;
-    return apiClient.get<Page<AuditLogEntry>>(`/api/aa/audit-log${query}`, headers);
+    const params = new URLSearchParams();
+    if (institutionId) params.set("institutionId", institutionId);
+    params.set("page", String(page));
+    params.set("size", String(size));
+    return apiClient.get<Page<AuditLogEntry>>(`/api/aa/audit-log?${params.toString()}`, headers);
   },
 };

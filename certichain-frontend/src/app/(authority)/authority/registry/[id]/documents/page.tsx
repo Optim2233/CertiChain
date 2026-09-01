@@ -52,8 +52,10 @@ export default function ReviewDocumentsPage() {
       const link = document.createElement("a")
       link.href = url
       link.download = fileName ?? fallbackName
+      document.body.appendChild(link)
       link.click()
-      URL.revokeObjectURL(url)
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
     } finally {
       setDownloadingId(null)
     }
@@ -63,8 +65,11 @@ export default function ReviewDocumentsPage() {
   // ever used for the <iframe src> below, revoked by the cleanup effect whenever it changes.
   function selectDocument(documentId: string, fileName: string) {
     if (documentId === selectedId) return // already showing - skip the redundant re-fetch
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
     setSelectedId(documentId)
-    setPreviewUrl(null)
     setPreviewError(false)
     if (!isPdf(fileName)) return
     setPreviewLoading(true)
