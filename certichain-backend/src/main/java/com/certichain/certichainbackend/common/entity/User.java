@@ -36,6 +36,18 @@ public class User {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
+
     // Advances only when the user acknowledges a "while you were away" briefing,
     // never on login. See V10 migration and BriefingServiceImpl.
     @Column(name = "last_briefed_at", nullable = false)

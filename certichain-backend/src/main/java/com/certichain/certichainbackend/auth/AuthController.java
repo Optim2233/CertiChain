@@ -3,7 +3,9 @@ package com.certichain.certichainbackend.auth;
 import com.certichain.certichainbackend.common.enums.Role;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import lombok.RequiredArgsConstructor;
 
 import java.time.Duration;
 import java.util.Map;
@@ -46,14 +49,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         var result = authService.authenticate(request.email(), request.password());
 
         String token = jwtService.issue(result.userId(), result.email(), result.role(), result.institutionId());
         response.addHeader(HttpHeaders.SET_COOKIE, jwtCookie(token, 12 * 60 * 60).toString());
 
-        return ResponseEntity.ok(new AuthService.UserResponse(
-                result.userId(), result.email(), result.role(), result.institutionId()));
+        return ResponseEntity.ok(authService.findByUserId(result.userId()));
     }
 
     @PostMapping("/logout")
@@ -63,15 +65,14 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest request, HttpServletResponse response) {
         var result = authService.signup(request.email(), request.password(), request.role(), request.institutionId());
 
         // Auto-login: set JWT cookie
         String token = jwtService.issue(result.userId(), result.email(), result.role(), result.institutionId());
         response.addHeader(HttpHeaders.SET_COOKIE, jwtCookie(token, 12 * 60 * 60).toString());
 
-        return ResponseEntity.ok(new AuthService.UserResponse(
-                result.userId(), result.email(), result.role(), result.institutionId()));
+        return ResponseEntity.ok(authService.findByUserId(result.userId()));
     }
 
     @GetMapping("/me")
@@ -82,7 +83,7 @@ public class AuthController {
     }
 
     @PostMapping("/password")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         UUID userId = UUID.fromString(auth.getName());
         authService.changePassword(userId, request.currentPassword(), request.newPassword());
@@ -90,24 +91,24 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.requestPasswordReset(request.email());
         return ResponseEntity.ok(Map.of("message", "If that email exists, a reset link was sent"));
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
     }
 
-    public record LoginRequest(String email, String password) {}
+    public record LoginRequest(@Email @NotBlank String email, @NotBlank String password) {}
 
-    public record SignupRequest(String email, String password, Role role, UUID institutionId) {}
+    public record SignupRequest(@Email @NotBlank String email, @NotBlank String password, Role role, UUID institutionId) {}
 
-    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
+    public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {}
 
-    public record ForgotPasswordRequest(String email) {}
+    public record ForgotPasswordRequest(@Email @NotBlank String email) {}
 
-    public record ResetPasswordRequest(String token, String newPassword) {}
+    public record ResetPasswordRequest(@NotBlank String token, @NotBlank String newPassword) {}
 }

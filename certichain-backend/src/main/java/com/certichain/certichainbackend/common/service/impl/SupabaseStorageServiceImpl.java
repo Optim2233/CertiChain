@@ -52,6 +52,11 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
     @Override
     public String uploadProfileImage(UUID institutionId, MultipartFile file) {
+        return uploadImage(institutionId.toString(), file);
+    }
+
+    @Override
+    public String uploadImage(String pathPrefix, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ValidationException("Profile image file is empty");
         }
@@ -77,7 +82,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             } else {
                 ext = ".jpg";
             }
-            String path = institutionId + "/" + UUID.randomUUID() + ext;
+            String path = pathPrefix.replaceAll("^/|/$", "") + "/" + UUID.randomUUID() + ext;
             String uploadUrl = supabaseUrl + "/storage/v1/object/" + bucket + "/" + path;
 
             HttpRequest request = HttpRequest.newBuilder(URI.create(uploadUrl))
@@ -95,7 +100,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                 throw new ValidationException("Failed to upload profile image to storage: HTTP " + response.statusCode());
             }
             String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
-            log.info("Uploaded profile image for institution {} to {}", institutionId, publicUrl);
+            log.info("Uploaded image at {} to {}", path, publicUrl);
             return publicUrl;
         } catch (ValidationException ve) {
             throw ve;

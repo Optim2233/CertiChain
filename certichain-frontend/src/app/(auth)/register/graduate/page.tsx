@@ -20,7 +20,7 @@ export default function GraduateRegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [touched, setTouched] = useState(false)
 
-  const signupCheck = useSignupCheck(email)
+  const signupCheck = useSignupCheck()
   const signup = useSignup()
   const pendingCount = useGraduateStore((s) => s.pendingCredentialCount)
 
@@ -32,7 +32,7 @@ export default function GraduateRegisterPage() {
   function checkEmail() {
     setTouched(true)
     if (!detailsValid) return
-    signupCheck.mutate(undefined, { onSuccess: () => setStep(1) })
+    signupCheck.mutate(email.trim().toLowerCase(), { onSuccess: () => setStep(1) })
   }
 
   function submitSignup() {

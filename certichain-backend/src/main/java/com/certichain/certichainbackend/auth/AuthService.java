@@ -45,7 +45,7 @@ public class AuthService {
 
     public AuthResult signup(String email, String password, Role role, UUID institutionId) {
         if (userRepository.findByEmail(email).isPresent()) {
-            throw new RuntimeException("Email already registered");
+            throw new ValidationException("Email already registered");
         }
         
         String passwordHash = passwordEncoder.encode(password);
@@ -67,7 +67,8 @@ public class AuthService {
     public UserResponse findByUserId(UUID userId) {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId());
+        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId(),
+                user.getFirstName(), user.getLastName(), user.getProfileImageUrl());
     }
 
     public void changePassword(UUID userId, String currentPassword, String newPassword) {
@@ -143,5 +144,6 @@ public class AuthService {
 
     public record AuthResult(UUID userId, String email, Role role, UUID institutionId) {}
 
-    public record UserResponse(UUID userId, String email, Role role, UUID institutionId) {}
+    public record UserResponse(UUID userId, String email, Role role, UUID institutionId,
+                               String firstName, String lastName, String profileImageUrl) {}
 }

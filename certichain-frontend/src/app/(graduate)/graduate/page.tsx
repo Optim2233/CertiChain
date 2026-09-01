@@ -87,7 +87,7 @@ function GraduateOverviewContent() {
       <div className="mb-7 flex items-center justify-between gap-4">
         <div>
           <h2 className="font-heading m-0 text-[34px] font-bold">
-            Good morning, {user?.email?.split("@")[0] ?? "there"} 👋
+            Good morning, {user?.firstName ?? user?.email?.split("@")[0] ?? "there"} 👋
           </h2>
           <p className="m-0 mt-1.5 text-[15px] text-[#44474e]">Your credentials are safe, secure, and under your control.</p>
         </div>

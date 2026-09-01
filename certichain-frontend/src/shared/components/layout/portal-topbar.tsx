@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAuthStore } from "@/features/auth"
+import { useAuthStore, useLogout } from "@/features/auth"
 import { useMarkAllRead, useMarkRead, useNotifications, useUnreadCount } from "@/features/notification"
 import { TextSkeleton } from "@/shared/components/ui/skeletons"
 
@@ -94,10 +94,58 @@ function NotificationBell() {
   )
 }
 
-export function PortalTopbar({ title }: { title: string }) {
+function ProfileMenu() {
+  const [open, setOpen] = useState(false)
   const user = useAuthStore((s) => s.user)
-  const initials = (user?.email ?? "?").slice(0, 2).toUpperCase()
+  const logout = useLogout()
+  const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ")
+  const initials =
+    ((user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")).toUpperCase() ||
+    (user?.email ?? "?").slice(0, 2).toUpperCase()
 
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Account menu"
+        className="flex size-8 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white"
+        style={{ background: "#02275A" }}
+      >
+        {user?.profileImageUrl ? (
+          <img src={user.profileImageUrl} alt={name || "Account"} className="size-full object-cover" />
+        ) : (
+          initials
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-10 z-20 w-56 rounded-lg border border-[#c5c6cf] bg-white shadow-lg">
+            {(name || user?.email) && (
+              <div className="border-b border-[#f2f4f6] px-4 py-3">
+                {name && <p className="m-0 truncate text-sm font-semibold">{name}</p>}
+                {user?.email && <p className="m-0 truncate text-xs text-[#75777f]">{user.email}</p>}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-[#C0392B] hover:bg-[#f7f9fb] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-lg">logout</span>
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+export function PortalTopbar({ title }: { title: string }) {
   return (
     <header className="flex items-center gap-4 border-b border-[#c5c6cf] bg-white px-6 py-3">
       <h1 className="font-heading m-0 shrink-0 text-base font-bold" style={{ color: "#02275A" }}>
@@ -108,12 +156,7 @@ export function PortalTopbar({ title }: { title: string }) {
           Add back only if a real cross-page/global search is built. */}
       <div className="ml-auto flex items-center gap-4">
         <NotificationBell />
-        <div
-          className="flex size-8 items-center justify-center rounded-full text-xs font-bold text-white"
-          style={{ background: "#02275A" }}
-        >
-          {initials}
-        </div>
+        <ProfileMenu />
       </div>
     </header>
   )
