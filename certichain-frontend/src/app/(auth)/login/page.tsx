@@ -1,8 +1,10 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
-import { useLogin } from "@/features/auth"
+import { useRouter } from "next/navigation"
+import { ROLE_HOME, authService, useLogin, useMe } from "@/features/auth"
 import { PasswordField } from "@/features/auth/components/PasswordField"
 
 export default function LoginPage() {
@@ -15,6 +17,24 @@ export default function LoginPage() {
 
 function LoginForm() {
   const login = useLogin()
+  const router = useRouter()
+  // proxy.ts no longer bounces authenticated users off /login (it can't tell a
+  // live session from a dead cookie). Handle both here where /api/auth/me can:
+  //  - valid session -> send to the portal
+  //  - stale cookie (me 401/403) -> clear it once so it stops being sent
+  const me = useMe()
+  const queryClient = useQueryClient()
+  const clearedRef = useRef(false)
+  useEffect(() => {
+    if (me.data) {
+      router.replace(ROLE_HOME[me.data.role])
+    } else if (me.isError && !clearedRef.current) {
+      clearedRef.current = true
+      authService.logout().catch(() => {})
+      queryClient.clear()
+    }
+  }, [me.data, me.isError, router, queryClient])
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [touched, setTouched] = useState(false)
