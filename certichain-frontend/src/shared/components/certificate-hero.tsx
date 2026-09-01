@@ -93,7 +93,7 @@ export function CertificateHero({
       <div className="relative mb-7 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
+            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg"
             style={{
               background: "radial-gradient(circle at 32% 28%, #c9a85c, #8b6914 75%)",
               boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.35)",

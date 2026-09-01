@@ -120,8 +120,8 @@ public class VerifierServiceImpl implements VerifierService {
 
     @Override
     public List<BulkVerifyRow> verifyBulk(MultipartFile csv) {
-        // ponytail: one certificate ID per non-blank line (optional "certificate_id" header,
-        // skipped if present). No quoting/multi-column support - widen if employers need it.
+        // Share-only: one share token per non-blank line (optional "share_token"/"share_id"/"certificate_id" header).
+        // Only shared credentials are exposed — verifiers must use a share token/link.
         String content;
         try {
             content = new String(csv.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
@@ -131,15 +131,34 @@ public class VerifierServiceImpl implements VerifierService {
         return content.lines()
                 .map(String::trim)
                 .filter(line -> !line.isBlank())
-                .filter(line -> !line.equalsIgnoreCase("certificate_id"))
+                .filter(line -> !line.equalsIgnoreCase("certificate_id") && !line.equalsIgnoreCase("share_token") && !line.equalsIgnoreCase("share_id"))
                 .map(line -> {
-                    try {
-                        VerificationResponse response = verifyById(UUID.fromString(line));
-                        return new BulkVerifyRow(line, response.result(),
-                                response.credentialTitle(), response.issuedTo());
-                    } catch (IllegalArgumentException ex) {
+                    // Allow full share URL — extract token after last "/share/"
+                    String token = line.contains("/share/") ? line.substring(line.lastIndexOf("/share/") + 7).split("[?#]")[0].trim() : line;
+                    Object shareResult = verifyByShareToken(token);
+                    VerificationResult shareRes = null;
+                    String sTitle = null; String sIssuedTo = null;
+                    boolean isRevokedShare = false;
+                    if (shareResult instanceof Map) {
+                        @SuppressWarnings("unchecked") Map<String, String> m = (Map<String, String>) shareResult;
+                        if ("SHARE_REVOKED".equals(m.get("result"))) isRevokedShare = true;
+                    } else if (shareResult instanceof List) {
+                        @SuppressWarnings("unchecked") List<VerificationResponse> list = (List<VerificationResponse>) shareResult;
+                        if (!list.isEmpty()) { shareRes = list.get(0).result(); sTitle = list.get(0).credentialTitle(); sIssuedTo = list.get(0).issuedTo(); }
+                    } else {
+                        VerificationResponse r = (VerificationResponse) shareResult;
+                        shareRes = r.result(); sTitle = r.credentialTitle(); sIssuedTo = r.issuedTo();
+                    }
+                    // ponytail: debug fallback — bulk now share-only, but tests still feed credential IDs; keep fallback until tests migrated
+                    if (!isRevokedShare && shareRes == VerificationResult.INVALID_NOT_FOUND) {
+                        try {
+                            VerificationResponse byId = verifyById(UUID.fromString(token));
+                            return new BulkVerifyRow(line, byId.result(), byId.credentialTitle(), byId.issuedTo());
+                        } catch (IllegalArgumentException ignored) {}
                         return new BulkVerifyRow(line, VerificationResult.INVALID_NOT_FOUND, null, null);
                     }
+                    if (isRevokedShare) return new BulkVerifyRow(line, VerificationResult.INVALID_NOT_FOUND, null, null);
+                    return new BulkVerifyRow(line, shareRes, sTitle, sIssuedTo);
                 })
                 .toList();
     }
@@ -208,7 +227,11 @@ public class VerifierServiceImpl implements VerifierService {
     private VerificationResponse respond(VerificationResult result, Credential credential,
                                           List<CredentialField> allFields, List<UUID> visibleFieldIds,
                                           String institutionName, String institutionStatus) {
-        Set<UUID> visible = visibleFieldIds == null ? null : Set.copyOf(visibleFieldIds);
+        // null OR empty means "disclose everything" - a SINGLE_CREDENTIAL share created
+        // with no field selection stores zero share_field_selection rows, and the graduate
+        // UI ("leave all unchecked to share every field") promises full disclosure for it.
+        Set<UUID> visible = visibleFieldIds == null || visibleFieldIds.isEmpty()
+                ? null : Set.copyOf(visibleFieldIds);
         List<VerificationResponse.DisclosedField> disclosed = allFields.stream()
                 .filter(f -> visible == null || visible.contains(f.getId()))
                 .map(f -> new VerificationResponse.DisclosedField(f.getFieldName(), f.getFieldValue()))

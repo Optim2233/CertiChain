@@ -15,20 +15,25 @@ export default function ShareTimelinePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  const data = verifyShare.data?.data
+  const data = verifyShare.data?.data as unknown
 
-  // SHARE_REVOKED is a distinct {result, message} shape from the backend - a revoked
-  // *link* is a different fact from a revoked *credential* and isn't a VerificationResponse.
+  // Backend shapes: VerificationResponse | VerificationResponse[] | {result:"SHARE_REVOKED"} | {scope, results:[]}
   const shareRevoked =
-    data != null && !Array.isArray(data) && (data as { result: string }).result === "SHARE_REVOKED"
+    data != null && typeof data === 'object' && !Array.isArray(data) && (data as { result: string }).result === "SHARE_REVOKED"
+
+  const timelineData = data != null && typeof data === 'object' && !Array.isArray(data) && 'results' in (data as Record<string, unknown>) && Array.isArray((data as { results: unknown }).results)
+    ? ((data as { results: VerificationResponse[] }).results)
+    : null
 
   const list: VerificationResponse[] = shareRevoked
     ? []
-    : Array.isArray(data)
-      ? data
-      : data
-        ? [data as VerificationResponse]
-        : []
+    : timelineData != null
+      ? timelineData
+      : Array.isArray(data)
+        ? data as VerificationResponse[]
+        : data
+          ? [data as VerificationResponse]
+          : []
 
   const verifiedCount = list.filter((e) => e.result === "VERIFIED").length
   const flaggedCount = list.length - verifiedCount

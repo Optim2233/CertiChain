@@ -33,7 +33,7 @@ export default function BulkVerifyPage() {
           <p className="m-0 mb-1.5 text-xs font-bold uppercase tracking-wide text-[#75777f]">For Employers &amp; Background Checkers</p>
           <h1 className="font-heading m-0 mb-2 text-[32px] font-extrabold">Bulk Verify Candidates</h1>
           <p className="m-0 max-w-[560px] text-[15px] text-[#44474e]">
-            Upload a spreadsheet of candidate certificate IDs to verify an entire hiring pipeline at once.
+            Upload a spreadsheet of candidate share codes to verify an entire hiring pipeline at once. Only shared credentials are verifiable.
           </p>
         </div>
         {/* ponytail: no API docs page exists (no OpenAPI/Swagger route mounted),
@@ -49,7 +49,7 @@ export default function BulkVerifyPage() {
             <span className="material-symbols-outlined text-[28px]" style={{ color: "#02275A" }}>cloud_upload</span>
           </div>
           <h3 className="font-heading mb-1.5 text-lg font-semibold">Drag &amp; drop a candidate list</h3>
-          <p className="m-0 mb-5 text-[13px] text-[#44474e]">.csv or .xlsx, one certificate ID or link per row, up to 500 rows.</p>
+          <p className="m-0 mb-5 text-[13px] text-[#44474e]">.csv or .xlsx, one share code or share link per row, up to 500 rows.</p>
           <button type="button" className="rounded border-2 px-5 py-2.5 text-[13px] font-semibold" style={{ borderColor: "#02275A", color: "#02275A" }}>
             Browse Files
           </button>
@@ -72,7 +72,7 @@ export default function BulkVerifyPage() {
           <table className="w-full border-collapse">
             <thead>
               <tr style={{ background: "#02275A" }} className="text-xs uppercase tracking-wide text-white">
-                <th className="px-6 py-3 text-left">Candidate ID</th>
+                <th className="px-6 py-3 text-left">Share Code</th>
                 <th className="px-4 py-3 text-left">Credential</th>
                 <th className="px-4 py-3 text-left">Result</th>
               </tr>
