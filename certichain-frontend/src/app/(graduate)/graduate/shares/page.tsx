@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useShares, useCreateShare, useRevokeShare, useTimeline, useCredentialFields, useShareActivity } from "@/features/graduate"
-import type { Share, ShareScope } from "@/features/graduate"
+import type { Share } from "@/features/graduate"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
@@ -29,17 +29,19 @@ export default function GraduateSharesPage() {
 
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
-  const [scope, setScope] = useState<ShareScope>("FULL_TIMELINE")
+  // Full-timeline shares are disabled for now (verifier-side rendering not ready),
+  // so every new share is SINGLE_CREDENTIAL. Legacy FULL_TIMELINE shares still display.
   const [credentialId, setCredentialId] = useState("")
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([])
   const [touched, setTouched] = useState(false)
   const [viewedShare, setViewedShare] = useState<Share | null>(null)
 
-  const { data: fieldsData } = useCredentialFields(scope === "SINGLE_CREDENTIAL" ? credentialId : "")
+  const { data: fieldsData } = useCredentialFields(credentialId)
   const fields = fieldsData?.data ?? []
 
   const nameValid = name.trim().length > 0
-  const showError = touched && !nameValid
+  const credentialValid = credentialId !== ""
+  const showError = touched && (!nameValid || !credentialValid)
 
   function toggleField(id: string) {
     setSelectedFieldIds((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
@@ -47,19 +49,18 @@ export default function GraduateSharesPage() {
 
   function submit() {
     setTouched(true)
-    if (!nameValid) return
+    if (!nameValid || !credentialValid) return
     createShare.mutate(
       {
         name,
-        scope,
-        credentialId: scope === "SINGLE_CREDENTIAL" ? credentialId || null : null,
-        selectedFieldIds: scope === "SINGLE_CREDENTIAL" ? selectedFieldIds : [],
+        scope: "SINGLE_CREDENTIAL",
+        credentialId,
+        selectedFieldIds,
       },
       {
         onSuccess: ({ data }) => {
           setOpen(false)
           setName("")
-          setScope("FULL_TIMELINE")
           setCredentialId("")
           setSelectedFieldIds([])
           setTouched(false)
@@ -205,52 +206,41 @@ export default function GraduateSharesPage() {
               className="mb-1 w-full rounded-md border px-3 py-2 text-sm"
               style={{ borderColor: showError ? "#C0392B" : "#c5c6cf", background: showError ? "#fff6f5" : "#fff" }}
             />
-            {showError && <p className="mb-3 text-xs text-[#C0392B]">Give this share a name.</p>}
-            <label className="mb-1 mt-3 block text-sm font-semibold">What's shared</label>
+            {showError && !nameValid && <p className="mb-3 text-xs text-[#C0392B]">Give this share a name.</p>}
+            <label className="mb-1 mt-3 block text-sm font-semibold">Credential</label>
             <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as ShareScope)}
-              className="mb-3 w-full rounded-md border border-[#c5c6cf] px-3 py-2 text-sm"
+              value={credentialId}
+              onChange={(e) => {
+                setCredentialId(e.target.value)
+                setSelectedFieldIds([])
+              }}
+              className="mb-1 w-full rounded-md border border-[#c5c6cf] px-3 py-2 text-sm"
             >
-              <option value="FULL_TIMELINE">Full timeline</option>
-              <option value="SINGLE_CREDENTIAL">Single credential</option>
+              <option value="">Select credential</option>
+              {credentials.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {credentialTitle(c)} — {credentialSubtitle(c)}
+                </option>
+              ))}
             </select>
-            {scope === "SINGLE_CREDENTIAL" && (
-              <>
-                <select
-                  value={credentialId}
-                  onChange={(e) => {
-                    setCredentialId(e.target.value)
-                    setSelectedFieldIds([])
-                  }}
-                  className="mb-3 w-full rounded-md border border-[#c5c6cf] px-3 py-2 text-sm"
-                >
-                  <option value="">Select credential</option>
-                  {credentials.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {credentialTitle(c)} — {credentialSubtitle(c)}
-                    </option>
+            {showError && !credentialValid && <p className="mb-3 text-xs text-[#C0392B]">Choose a credential to share.</p>}
+            {credentialId && fields.length > 0 && (
+              <div className="mb-4 mt-3">
+                <label className="mb-1.5 block text-sm font-semibold">Fields to share</label>
+                <p className="mb-2 text-xs text-[#75777f]">Leave all unchecked to share every field.</p>
+                <div className="flex flex-col gap-1.5 rounded-md border border-[#c5c6cf] p-3">
+                  {fields.map((f) => (
+                    <label key={f.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedFieldIds.includes(f.id)}
+                        onChange={() => toggleField(f.id)}
+                      />
+                      {f.fieldName}
+                    </label>
                   ))}
-                </select>
-                {credentialId && fields.length > 0 && (
-                  <div className="mb-4">
-                    <label className="mb-1.5 block text-sm font-semibold">Fields to share</label>
-                    <p className="mb-2 text-xs text-[#75777f]">Leave all unchecked to share every field.</p>
-                    <div className="flex flex-col gap-1.5 rounded-md border border-[#c5c6cf] p-3">
-                      {fields.map((f) => (
-                        <label key={f.id} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedFieldIds.includes(f.id)}
-                            onChange={() => toggleField(f.id)}
-                          />
-                          {f.fieldName}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+                </div>
+              </div>
             )}
             <div className="mt-2 flex justify-end gap-3">
               <button

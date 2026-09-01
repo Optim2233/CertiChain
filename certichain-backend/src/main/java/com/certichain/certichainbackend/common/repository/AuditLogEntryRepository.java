@@ -27,6 +27,8 @@ public interface AuditLogEntryRepository extends JpaRepository<AuditLogEntry, UU
 
     List<AuditLogEntry> findByShareIdOrderByOccurredAtDesc(UUID shareId);
 
+    List<AuditLogEntry> findByShareIdAndEventOrderByOccurredAtDesc(UUID shareId, String event);
+
     /**
      * Daily counts of a given event for one institution since a cutoff, for a trend view.
      * Native + date_trunc is fine here - Postgres is the only target DB for this project.
