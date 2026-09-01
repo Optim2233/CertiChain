@@ -9,3 +9,10 @@ certichain-frontend/Designs/
 # JVM crash dumps
 hs_err_pid*.log
 replay_pid*.log
+
+# Playwright test output
+certichain-frontend/test-results/
+certichain-frontend/playwright-report/
+
+# IntelliJ editor-tab state (per-machine, not shared config)
+.idea/claudeCodeEditorTabs.xml
