@@ -106,8 +106,12 @@ public class AuthService {
                 .build();
         passwordResetTokenRepository.save(token);
         String link = frontendUrl.replaceAll("/$", "") + "/reset-password?token=" + rawToken;
-        emailService.send(user.getEmail(), "Reset your CertiChain password",
-                "Click the link to reset your password (expires in 30 minutes):\n" + link + "\n\nIf you didn't request this, ignore this email.");
+        try {
+            ((com.certichain.certichainbackend.common.service.impl.EmailServiceImpl) emailService).sendPasswordReset(user.getEmail(), link);
+        } catch (Exception ex) {
+            emailService.send(user.getEmail(), "Reset your CertiChain password",
+                    "Click the link to reset your password (expires in 30 minutes):\n" + link + "\n\nIf you didn't request this, ignore this email.");
+        }
         log.info("Password reset link for {}: {}", user.getEmail(), link);
     }
 

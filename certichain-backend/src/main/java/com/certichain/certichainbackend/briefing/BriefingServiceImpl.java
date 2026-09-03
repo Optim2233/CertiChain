@@ -96,20 +96,11 @@ public class BriefingServiceImpl implements BriefingService {
     }
 
     private void addGraduateAggregates(List<BriefingItem> items, UUID userId, Instant windowStart, Instant at) {
-        List<UUID> credentialIds = credentialRepository
-                .findByGraduateUserIdOrderByIssuedAtDesc(userId).stream()
-                .map(Credential::getId)
-                .toList();
-        if (!credentialIds.isEmpty()) {
-            int verifications = auditLogEntryRepository.countByEventAndCredentialIdInAndOccurredAtAfter(
-                    AuditEvents.VERIFY_EVENT, credentialIds, windowStart);
-            if (verifications > 0) {
-                items.add(new BriefingItem("verifications",
-                        "Your credentials were verified " + verifications + plural(verifications, " time", " times"),
-                        "By employers or other parties checking your records.", verifications, at));
-            }
-        }
-
+        // A graduate's credentials are only reachable through a share link, so every
+        // VERIFY_EVENT on their credentials is already counted by the SHARE_VIEWED_EVENT
+        // that produced it. Reporting both was the same number twice - keep only the
+        // share-view line, which is the graduate-facing fact ("someone looked at what
+        // you shared"). Institutions still get their own verifications item.
         List<UUID> shareIds = shareRepository.findByGraduateUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(Share::getId)
                 .toList();
@@ -118,8 +109,8 @@ public class BriefingServiceImpl implements BriefingService {
                     AuditEvents.SHARE_VIEWED_EVENT, shareIds, windowStart);
             if (views > 0) {
                 items.add(new BriefingItem("shareViews",
-                        "Your share links were viewed " + views + plural(views, " time", " times"),
-                        "Someone opened a link you shared.", views, at));
+                        "Your shared credentials were viewed " + views + plural(views, " time", " times"),
+                        "Employers or other parties opened a link you shared.", views, at));
             }
         }
     }

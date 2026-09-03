@@ -41,7 +41,10 @@ public class NotificationServiceImpl implements NotificationService {
 
         userRepository.findById(recipientUserId)
                 .map(User::getEmail)
-                .ifPresent(email -> emailService.send(email, "CertiChain: " + type, message));
+                .ifPresent(email -> {
+                    try { ((EmailServiceImpl) emailService).sendNotification(email, type, message); }
+                    catch (Exception e) { emailService.send(email, "CertiChain: " + type, message); }
+                });
     }
 
     @Override
