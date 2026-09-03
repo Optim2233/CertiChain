@@ -101,21 +101,28 @@ class InstitutionServiceImplTest {
         });
     }
 
+    // ponytail: helper to build ApplyInstitutionRequest for legacy 7-arg test calls
+    private ApplyInstitutionRequest req(String name, String ministry, String email, String password, String phone, String website, List<org.springframework.web.multipart.MultipartFile> docs) {
+        return ApplyInstitutionRequest.builder()
+                .name(name).governingMinistry(ministry).email(email).password(password)
+                .phone(phone).website(website).documents(docs).build();
+    }
+
     // --- apply (self-registration) ---
 
     @Test
     void applyRejectsBlankRequiredFields() {
         assertThrows(ValidationException.class,
-                () -> service.apply("", "MoST", "e@x.com", "pw", null, null, null));
+                () -> service.apply(req("", "MoST", "e@x.com", "pw", null, null, null)));
         assertThrows(ValidationException.class,
-                () -> service.apply("UIT", "MoST", "e@x.com", "  ", null, null, null));
+                () -> service.apply(req("UIT", "MoST", "e@x.com", "  ", null, null, null)));
     }
 
     @Test
     void applyRejectsDuplicateEmail() {
         when(userRepository.existsByEmail("e@x.com")).thenReturn(true);
         assertThrows(ValidationException.class,
-                () -> service.apply("UIT", "MoST", "e@x.com", "pw", null, null, null));
+                () -> service.apply(req("UIT", "MoST", "e@x.com", "pw", null, null, null)));
         verify(institutionRepository, never()).save(any());
     }
 
@@ -123,9 +130,9 @@ class InstitutionServiceImplTest {
     void applyRejectsOverlongPhoneAndWebsite() {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         assertThrows(ValidationException.class,
-                () -> service.apply("UIT", "MoST", "e@x.com", "pw", "1".repeat(51), null, null));
+                () -> service.apply(req("UIT", "MoST", "e@x.com", "pw", "1".repeat(51), null, null)));
         assertThrows(ValidationException.class,
-                () -> service.apply("UIT", "MoST", "e@x.com", "pw", null, "w".repeat(256), null));
+                () -> service.apply(req("UIT", "MoST", "e@x.com", "pw", null, "w".repeat(256), null)));
     }
 
     @Test
@@ -138,7 +145,7 @@ class InstitutionServiceImplTest {
             return inst;
         });
 
-        Institution result = service.apply("UIT", "MoST", "e@x.com", "pw", " +855 1 ", " https://uit.edu ", null);
+        Institution result = service.apply(req("UIT", "MoST", "e@x.com", "pw", " +855 1 ", " https://uit.edu ", null));
 
         assertEquals(InstitutionStatus.PENDING, result.getStatus());
         assertEquals("+855 1", result.getPhone());
@@ -153,7 +160,7 @@ class InstitutionServiceImplTest {
     void updateRejectsBadBrandColor() {
         callerIsApprovedInstitution();
         assertThrows(ValidationException.class, () -> service.updateOwnInstitution(
-                null, null, null, null, null, "not-a-hex", null));
+                null, null, null, null, null, "not-a-hex", null, null, null, null, null, null, null));
     }
 
     @Test
@@ -161,21 +168,21 @@ class InstitutionServiceImplTest {
         callerIsApprovedInstitution();
         // #ffffff on white fails the 4.5 contrast rule
         assertThrows(ValidationException.class, () -> service.updateOwnInstitution(
-                null, null, null, null, null, "#ffffff", null));
+                null, null, null, null, null, "#ffffff", null, null, null, null, null, null, null));
     }
 
     @Test
     void updateRejectsBadAccentPattern() {
         callerIsApprovedInstitution();
         assertThrows(ValidationException.class, () -> service.updateOwnInstitution(
-                null, null, null, null, null, null, "sparkles"));
+                null, null, null, null, null, null, "sparkles", null, null, null, null, null, null));
     }
 
     @Test
     void updateRejectsNonHttpLogoUrl() {
         callerIsApprovedInstitution();
         assertThrows(ValidationException.class, () -> service.updateOwnInstitution(
-                null, null, null, "ftp://x/y.png", null, null, null));
+                null, null, null, "ftp://x/y.png", null, null, null, null, null, null, null, null, null));
     }
 
     @Test
@@ -184,7 +191,7 @@ class InstitutionServiceImplTest {
         when(institutionRepository.save(any(Institution.class))).thenAnswer(i -> i.getArgument(0));
 
         Institution result = service.updateOwnInstitution(
-                "UIT Renamed", null, null, null, null, "#1a1a2e", "dots");
+                "UIT Renamed", null, null, null, null, "#1a1a2e", "dots", null, null, null, null, null, null);
 
         assertEquals("UIT Renamed", result.getName());
         assertEquals("#1a1a2e", result.getBrandColor());
@@ -249,6 +256,36 @@ class InstitutionServiceImplTest {
                 .reason("wrong").status(DisputeStatus.OPEN).createdAt(Instant.now()).build();
         when(disputeFlagRepository.findById(id)).thenReturn(Optional.of(d));
         return d;
+    }
+
+    @Test
+    void listDisputesReturnsEnrichedRowsForAllStatuses() {
+        callerIsApprovedInstitution();
+        Credential c = Credential.builder()
+                .id(UUID.randomUUID()).type(CredentialType.CERTIFICATE).institutionId(institutionId)
+                .graduateUserId(UUID.randomUUID()).graduateEmail("grad@uit.edu.mm")
+                .status(CredentialStatus.ISSUED).issuedAt(Instant.now()).build();
+        when(credentialRepository.findByInstitutionId(institutionId)).thenReturn(List.of(c));
+
+        DisputeFlag open = DisputeFlag.builder().id(UUID.randomUUID()).credentialId(c.getId())
+                .reason("wrong").status(DisputeStatus.OPEN).createdAt(Instant.now()).build();
+        DisputeFlag dismissed = DisputeFlag.builder().id(UUID.randomUUID()).credentialId(c.getId())
+                .reason("also wrong").status(DisputeStatus.DISMISSED).resolutionNote("no")
+                .createdAt(Instant.now()).resolvedAt(Instant.now()).build();
+        when(disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(List.of(c.getId())))
+                .thenReturn(List.of(open, dismissed));
+        when(credentialFieldRepository.findByCredentialIdInAndFieldName(any(), eq("title")))
+                .thenReturn(List.of(CredentialField.builder()
+                        .credentialId(c.getId()).fieldName("title").fieldValue("BSc CS").build()));
+
+        List<InstitutionDisputeResponse> rows = service.listDisputes();
+
+        assertEquals(2, rows.size());
+        assertEquals("BSc CS", rows.get(0).credentialTitle());
+        assertEquals("grad@uit.edu.mm", rows.get(0).graduateEmail());
+        assertEquals(CredentialType.CERTIFICATE, rows.get(0).credentialType());
+        assertEquals(List.of(DisputeStatus.OPEN, DisputeStatus.DISMISSED),
+                rows.stream().map(InstitutionDisputeResponse::status).toList());
     }
 
     @Test

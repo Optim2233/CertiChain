@@ -39,7 +39,7 @@ class AccreditationDocumentsAndListingTest {
     @Test
     void listInstitutionsRejectsUnknownStatus() {
         assertThrows(ValidationException.class,
-                () -> service.listInstitutions("NONSENSE", 0, 20));
+                () -> service.listInstitutions("NONSENSE", null, 0, 20));
     }
 
     @Test

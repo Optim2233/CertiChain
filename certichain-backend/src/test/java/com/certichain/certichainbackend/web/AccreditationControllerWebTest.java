@@ -50,7 +50,7 @@ class AccreditationControllerWebTest {
 
     @Test
     void listInstitutionsOkForAa() throws Exception {
-        when(accreditationService.listInstitutions(any(), eq(0), eq(20)))
+        when(accreditationService.listInstitutions(any(), any(), eq(0), eq(20)))
                 .thenReturn(new PageImpl<>(List.of()));
         mvc.perform(get("/api/aa/institutions").with(user(uid).roles("ACCREDITATION_AUTHORITY")))
                 .andExpect(status().isOk());

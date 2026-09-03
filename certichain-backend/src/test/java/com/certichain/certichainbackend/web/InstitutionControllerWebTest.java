@@ -96,7 +96,7 @@ class InstitutionControllerWebTest {
 
     @Test
     void applyIsPublicMultipart() throws Exception {
-        when(institutionService.apply(any(), any(), any(), any(), any(), any(), any())).thenReturn(inst());
+        when(institutionService.apply(any())).thenReturn(inst());
         mvc.perform(post("/api/institution/apply").with(csrf())
                         .param("name", "UIT").param("ministry", "MoST")
                         .param("email", "a@x.com").param("password", "pw"))
