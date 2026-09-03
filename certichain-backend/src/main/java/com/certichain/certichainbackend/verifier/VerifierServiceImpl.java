@@ -20,7 +20,9 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +30,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +56,12 @@ public class VerifierServiceImpl implements VerifierService {
     private final MerkleService merkleService;
     private final AuditLogService auditLogService;
     private final AuditLogEntryRepository auditLogEntryRepository;
+
+    // Self-reference for the cached counters above: internal this.* calls bypass
+    // the cache proxy. @Lazy breaks the constructor cycle.
+    @Autowired
+    @Lazy
+    private VerifierService self;
 
     @Override
     @Transactional
@@ -133,47 +145,188 @@ public class VerifierServiceImpl implements VerifierService {
         } catch (Exception ex) {
             return List.of();
         }
-        return content.lines()
-                .map(String::trim)
+        List<String> tokens = content.lines()
+                .map(line -> line.contains("/share/")
+                        ? line.substring(line.lastIndexOf("/share/") + 7).split("[?#]")[0].trim()
+                        : line.trim())
                 .filter(line -> !line.isBlank())
                 .filter(line -> !BULK_VERIFY_HEADERS.contains(line.toLowerCase()))
-                .map(line -> {
-                    // Allow full share URL — extract token after last "/share/"
-                    String token = line.contains("/share/") ? line.substring(line.lastIndexOf("/share/") + 7).split("[?#]")[0].trim() : line;
-                    Object shareResult = verifyByShareToken(token);
-                    VerificationResult shareRes = null;
-                    String sTitle = null; String sIssuedTo = null;
-                    boolean isRevokedShare = false;
-                    if (shareResult instanceof Map) {
-                        @SuppressWarnings("unchecked") Map<String, String> m = (Map<String, String>) shareResult;
-                        if ("SHARE_REVOKED".equals(m.get("result"))) isRevokedShare = true;
-                    } else if (shareResult instanceof List) {
-                        @SuppressWarnings("unchecked") List<VerificationResponse> list = (List<VerificationResponse>) shareResult;
-                        if (!list.isEmpty()) { shareRes = list.get(0).result(); sTitle = list.get(0).credentialTitle(); sIssuedTo = list.get(0).issuedTo(); }
-                    } else {
-                        VerificationResponse r = (VerificationResponse) shareResult;
-                        shareRes = r.result(); sTitle = r.credentialTitle(); sIssuedTo = r.issuedTo();
-                    }
-                    // ponytail: debug fallback — bulk now share-only, but tests still feed credential IDs; keep fallback until tests migrated
-                    if (!isRevokedShare && shareRes == VerificationResult.INVALID_NOT_FOUND) {
-                        try {
-                            VerificationResponse byId = verifyById(UUID.fromString(token));
-                            return new BulkVerifyRow(line, byId.result(), byId.credentialTitle(), byId.issuedTo());
-                        } catch (IllegalArgumentException ignored) {}
-                        return new BulkVerifyRow(line, VerificationResult.INVALID_NOT_FOUND, null, null);
-                    }
-                    if (isRevokedShare) return new BulkVerifyRow(line, VerificationResult.INVALID_NOT_FOUND, null, null);
-                    return new BulkVerifyRow(line, shareRes, sTitle, sIssuedTo);
-                })
                 .toList();
+
+        BulkPrefetch pre = prefetch(tokens);
+        return tokens.stream().map(token -> verifyBulkRow(token, pre)).toList();
+    }
+
+    /**
+     * Everything the rows need, fetched in a handful of IN queries instead of
+     * ~6 round-trips per row. Best-effort: on a miss the per-row path falls back
+     * to the singular lookup, so behavior (including the per-row audit rows)
+     * never changes.
+     */
+    private static final class BulkPrefetch {
+        final Map<String, Share> shares = new HashMap<>();
+        final Map<UUID, Credential> credentials = new HashMap<>();
+        final Map<UUID, List<CredentialField>> fields = new HashMap<>();
+        final Map<UUID, Institution> institutions = new HashMap<>();
+        final Map<UUID, List<UUID>> selections = new HashMap<>();
+        final Map<UUID, List<Credential>> timelines = new HashMap<>();
+    }
+
+    private BulkPrefetch prefetch(List<String> tokens) {
+        BulkPrefetch pre = new BulkPrefetch();
+        if (tokens.isEmpty()) return pre; // empty IN () is a SQL error on some drivers
+        Set<String> distinct = new HashSet<>(tokens);
+        for (Share s : shareRepository.findByShareTokenIn(distinct)) pre.shares.put(s.getShareToken(), s);
+
+        Set<UUID> credIds = new HashSet<>();
+        Set<UUID> gradIds = new HashSet<>();
+        for (String token : distinct) {
+            Share s = pre.shares.get(token);
+            if (s == null || s.isRevoked()) continue;
+            if (s.getScope() == ShareScope.SINGLE_CREDENTIAL && s.getCredentialId() != null) {
+                credIds.add(s.getCredentialId());
+            } else if (s.getScope() == ShareScope.FULL_TIMELINE && s.getGraduateUserId() != null) {
+                gradIds.add(s.getGraduateUserId());
+            }
+        }
+        // Debug fallback: a bare credential ID straight in the CSV.
+        for (String token : distinct) {
+            if (pre.shares.containsKey(token)) continue;
+            try { credIds.add(UUID.fromString(token)); } catch (IllegalArgumentException ignored) {}
+        }
+        for (UUID gradId : gradIds) {
+            List<Credential> timeline = credentialRepository.findByGraduateUserIdOrderByIssuedAtDesc(gradId);
+            pre.timelines.put(gradId, timeline);
+            for (Credential c : timeline) credIds.add(c.getId());
+        }
+        if (!credIds.isEmpty()) {
+            for (Credential c : credentialRepository.findAllById(credIds)) pre.credentials.put(c.getId(), c);
+            for (CredentialField f : credentialFieldRepository.findByCredentialIdIn(credIds)) {
+                pre.fields.computeIfAbsent(f.getCredentialId(), k -> new ArrayList<>()).add(f);
+            }
+            // IN queries don't preserve order - the Merkle root depends on it.
+            for (List<CredentialField> l : pre.fields.values()) {
+                l.sort(Comparator.comparingInt(CredentialField::getMerkleIndex));
+            }
+            Set<UUID> instIds = new HashSet<>();
+            for (UUID id : credIds) {
+                Credential c = pre.credentials.get(id);
+                if (c != null && c.getInstitutionId() != null) instIds.add(c.getInstitutionId());
+            }
+            if (!instIds.isEmpty()) {
+                for (Institution i : institutionRepository.findAllById(instIds)) {
+                    pre.institutions.put(i.getId(), i);
+                }
+            }
+        }
+        Set<UUID> singleShareIds = new HashSet<>();
+        for (String token : distinct) {
+            Share s = pre.shares.get(token);
+            if (s != null && !s.isRevoked() && s.getScope() == ShareScope.SINGLE_CREDENTIAL) {
+                singleShareIds.add(s.getId());
+            }
+        }
+        if (!singleShareIds.isEmpty()) {
+            for (ShareFieldSelection sel : shareFieldSelectionRepository.findByShareIdIn(singleShareIds)) {
+                pre.selections.computeIfAbsent(sel.getShareId(), k -> new ArrayList<>())
+                        .add(sel.getCredentialFieldId());
+            }
+        }
+        return pre;
+    }
+
+    private BulkVerifyRow verifyBulkRow(String token, BulkPrefetch pre) {
+        Share share = pre.shares.get(token);
+        if (share == null) share = shareRepository.findByShareToken(token).orElse(null);
+        if (share == null) {
+            // ponytail: debug fallback — bulk now share-only, but tests still feed credential IDs; keep fallback until tests migrated
+            try {
+                Credential c = pre.credentials.get(UUID.fromString(token));
+                if (c == null) c = credentialRepository.findById(UUID.fromString(token)).orElse(null);
+                if (c == null) return new BulkVerifyRow(token, VerificationResult.INVALID_NOT_FOUND, null, null);
+                VerificationResponse byId = evaluateBulk(c, null, pre);
+                return new BulkVerifyRow(token, byId.result(), byId.credentialTitle(), byId.issuedTo());
+            } catch (IllegalArgumentException ignored) {}
+            return new BulkVerifyRow(token, VerificationResult.INVALID_NOT_FOUND, null, null);
+        }
+        if (share.isRevoked()) return new BulkVerifyRow(token, VerificationResult.INVALID_NOT_FOUND, null, null);
+
+        // View-count bump + SHARE_VIEWED audit stay per row, exactly as before.
+        share.setViewCount(share.getViewCount() + 1);
+        shareRepository.save(share);
+        auditLogService.log(AuditEvents.SHARE_VIEWED_EVENT, null, null, null, share.getId());
+
+        if (share.getScope() == ShareScope.SINGLE_CREDENTIAL) {
+            List<UUID> visible = pre.selections.get(share.getId());
+            if (visible == null) {
+                visible = shareFieldSelectionRepository.findByShareId(share.getId()).stream()
+                        .map(ShareFieldSelection::getCredentialFieldId).toList();
+            }
+            Credential credential = null;
+            if (share.getCredentialId() != null) {
+                credential = pre.credentials.get(share.getCredentialId());
+                if (credential == null) {
+                    credential = credentialRepository.findById(share.getCredentialId()).orElse(null);
+                }
+            }
+            if (credential == null) {
+                return new BulkVerifyRow(token, VerificationResult.INVALID_NOT_FOUND, null, null);
+            }
+            VerificationResponse r = evaluateBulk(credential, visible, pre);
+            return new BulkVerifyRow(token, r.result(), r.credentialTitle(), r.issuedTo());
+        }
+
+        // FULL_TIMELINE: every entry evaluated (each writes its own audit row),
+        // the first entry's result labels the row.
+        List<Credential> timeline = pre.timelines.get(share.getGraduateUserId());
+        if (timeline == null) {
+            timeline = credentialRepository.findByGraduateUserIdOrderByIssuedAtDesc(share.getGraduateUserId());
+        }
+        VerificationResponse first = null;
+        for (Credential c : timeline) {
+            VerificationResponse r = evaluateBulk(c, null, pre);
+            if (first == null) first = r;
+        }
+        if (first == null) return new BulkVerifyRow(token, null, null, null);
+        return new BulkVerifyRow(token, first.result(), first.credentialTitle(), first.issuedTo());
+    }
+
+    private VerificationResponse evaluateBulk(Credential credential, List<UUID> visibleFieldIds, BulkPrefetch pre) {
+        List<CredentialField> fields = pre.fields.get(credential.getId());
+        if (fields == null) {
+            fields = credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
+        }
+        Institution institution = null;
+        if (credential.getInstitutionId() != null) {
+            institution = pre.institutions.get(credential.getInstitutionId());
+            if (institution == null) {
+                institution = institutionRepository.findById(credential.getInstitutionId()).orElse(null);
+            }
+        }
+        return evaluate(credential, visibleFieldIds, fields, institution);
     }
 
     // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
     @Override
     public TrustStats getTrustStats() {
-        return new TrustStats(
-                institutionRepository.countByStatus(InstitutionStatus.APPROVED),
-                auditLogEntryRepository.countByEvent(AuditEvents.VERIFY_EVENT));
+        // Self-call through the proxy so the @Cacheable counters below apply.
+        // Null-guard: unit tests construct this class directly (no proxy).
+        // Null-guard: unit tests construct this class directly (no proxy).
+        int approved = self != null ? self.countApprovedInstitutions()
+                : institutionRepository.countByStatus(InstitutionStatus.APPROVED);
+        int verifications = self != null ? self.countVerifications()
+                : auditLogEntryRepository.countByEvent(AuditEvents.VERIFY_EVENT);
+        return new TrustStats(approved, verifications);
+    }
+
+    @Cacheable(cacheNames = "verifier", key = "'trustStatsApproved'")
+    public int countApprovedInstitutions() {
+        return institutionRepository.countByStatus(InstitutionStatus.APPROVED);
+    }
+
+    @Cacheable(cacheNames = "verifier", key = "'trustStatsVerifications'")
+    public int countVerifications() {
+        return auditLogEntryRepository.countByEvent(AuditEvents.VERIFY_EVENT);
     }
 
     @Override
@@ -193,11 +346,13 @@ public class VerifierServiceImpl implements VerifierService {
      *                        disclosure to the share's selected fields.
      */
     private VerificationResponse evaluate(Credential credential, List<UUID> visibleFieldIds) {
-        List<CredentialField> allFields =
-                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
+        return evaluate(credential, visibleFieldIds,
+                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId()),
+                institutionRepository.findById(credential.getInstitutionId()).orElse(null));
+    }
 
-        Institution institution =
-                institutionRepository.findById(credential.getInstitutionId()).orElse(null);
+    private VerificationResponse evaluate(Credential credential, List<UUID> visibleFieldIds,
+                                          List<CredentialField> allFields, Institution institution) {
         String institutionName = institution == null ? null : institution.getName();
         String institutionStatus = institution == null ? null : institution.getStatus().name();
 

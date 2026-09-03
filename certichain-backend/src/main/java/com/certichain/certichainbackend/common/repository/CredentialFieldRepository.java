@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface CredentialFieldRepository extends JpaRepository<CredentialField, UUID> {
     List<CredentialField> findByCredentialIdOrderByMerkleIndex(UUID credentialId);
+    List<CredentialField> findByCredentialIdIn(Collection<UUID> credentialIds);
     List<CredentialField> findByCredentialIdInAndFieldName(Collection<UUID> credentialIds, String fieldName);
     void deleteByCredentialId(UUID credentialId);
 }

@@ -1,6 +1,7 @@
 package com.certichain.certichainbackend.config;
 
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -21,6 +22,7 @@ import java.time.Duration;
  */
 @Configuration
 @EnableCaching
+@EnableAsync // email dispatch only (@Async on EmailServiceImpl) - keeps SMTP round-trips off request threads
 public class CacheConfig {
 
     static GenericJacksonJsonRedisSerializer valueSerializer() {
@@ -62,6 +64,10 @@ public class CacheConfig {
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
+                // Caller identity goes stale fast on purpose: role revocation and
+                // profile edits must propagate within a minute, not five.
+                .withCacheConfiguration("currentUser",
+                        defaultConfig.entryTtl(Duration.ofSeconds(60)))
                 .build();
     }
 }

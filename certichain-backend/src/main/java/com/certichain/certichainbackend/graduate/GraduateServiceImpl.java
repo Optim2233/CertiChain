@@ -103,6 +103,7 @@ public class GraduateServiceImpl implements GraduateService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "currentUser", allEntries = true)
     public GraduateProfileResponse updateOwnProfile(String firstName, String lastName, String phone,
                                                     String profileImageUrl, MultipartFile profileImage) {
         User user = loadCurrentUser();

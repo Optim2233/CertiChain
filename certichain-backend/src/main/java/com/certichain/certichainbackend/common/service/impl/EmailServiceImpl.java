@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -46,6 +47,9 @@ public class EmailServiceImpl implements EmailService {
         sendInternal(to, subject, body, null, null);
     }
 
+    // Async so the SMTP round-trip never blocks the API request that triggered
+    // the email. Failures are already caught and logged inside each method.
+    @Async
     public void sendPasswordReset(String to, String resetLink) {
         if (!configured) return;
         try {
@@ -62,6 +66,7 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Async
     public void sendNotification(String to, String type, String message) {
         String ctaUrl = null; String ctaLabel = null;
         if (type != null && type.toLowerCase().contains("certificate")) { ctaUrl = frontendUrl + "/graduate"; ctaLabel = "View credentials"; }

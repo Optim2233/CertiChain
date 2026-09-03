@@ -18,6 +18,7 @@ import com.certichain.certichainbackend.common.service.AuditEvents;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -89,6 +90,7 @@ public class BriefingServiceImpl implements BriefingService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "currentUser", allEntries = true)
     public void acknowledge() {
         User user = currentUser.user();
         user.setLastBriefedAt(Instant.now());
