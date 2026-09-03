@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { loadEnvConfig } from "@next/env";
+import createNextIntlPlugin from 'next-intl/plugin';
 
 // next.config.ts runs before Next's own env injection, so .env.local has to
 // be loaded explicitly here to read DEV_LAN_IP.
@@ -25,4 +26,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
+export default withNextIntl(nextConfig);

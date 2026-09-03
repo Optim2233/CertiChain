@@ -20,7 +20,7 @@
   --color-card-ink: #0b1220;
   --color-foil: #c9a85c;
   --font-heading: var(--font-manrope), sans-serif;
-  --font-sans: var(--font-ibm-plex-sans), sans-serif;
+  --font-sans: var(--font-ibm-plex-sans), var(--font-myanmar), sans-serif;
 }
 
 @layer base {

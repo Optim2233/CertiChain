@@ -16,3 +16,6 @@ certichain-frontend/playwright-report/
 
 # IntelliJ editor-tab state (per-machine, not shared config)
 .idea/claudeCodeEditorTabs.xml
+
+# Kilo Code IDE state (per-machine worktrees and agent metadata)
+.kilo/
