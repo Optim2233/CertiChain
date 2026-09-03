@@ -15,19 +15,23 @@ import {
 } from './schemas';
 
 export const institutionService = {
-  async applyInstitution(
-    name: string,
-    ministry: string,
-    email: string,
-    password: string,
-    phone: string,
-    website: string,
-    documents: File[]
-  ) {
-    const fields = applyInstitutionSchema.parse({ name, ministry, email, password, phone, website });
+  async applyInstitution(input: {
+    fields: Record<string, unknown>;
+    files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null; documents?: File[] };
+  }) {
+    const parsed = applyInstitutionSchema.parse(input.fields);
     const formData = new FormData();
-    Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
-    documents.forEach((doc) => formData.append('documents', doc));
+    Object.entries(parsed).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') formData.append(k, String(v));
+      else if (k === 'foreignInvolvement' && typeof v === 'boolean') formData.append(k, String(v));
+    });
+    // also send ministry alias for backward compat when public
+    if (parsed.governingMinistry) formData.append('ministry', parsed.governingMinistry as string);
+    if (input.files.establishmentDocFile) formData.append('establishmentDocFile', input.files.establishmentDocFile);
+    if (input.files.dicaCertificate) formData.append('dicaCertificate', input.files.dicaCertificate);
+    if (input.files.taxClearance) formData.append('taxClearance', input.files.taxClearance);
+    if (input.files.micPermit) formData.append('micPermit', input.files.micPermit);
+    input.files.documents?.forEach((d) => formData.append('documents', d));
     return apiClient.postMultipart<Institution>('/api/institution/apply', formData);
   },
 
@@ -47,8 +51,8 @@ export const institutionService = {
     return apiClient.get<CredentialSummary>('/api/institution/credentials/summary', headers);
   },
 
-  async getAnalytics(headers?: Record<string, string>) {
-    return apiClient.get<InstitutionAnalytics>('/api/institution/analytics', headers);
+  async getAnalytics(days = 30, headers?: Record<string, string>) {
+    return apiClient.get<InstitutionAnalytics>(`/api/institution/analytics?days=${days}`, headers);
   },
 
   async issueCertificate(
@@ -151,24 +155,30 @@ export const institutionService = {
   },
 
   async updateMe(data: {
-    name?: string;
-    phone?: string;
-    website?: string;
-    profileImageUrl?: string;
-    profileImage?: File | null;
-    brandColor?: string;
-    accentPattern?: "hatch" | "dots" | "none";
+    name?: string; phone?: string; website?: string;
+    profileImageUrl?: string; profileImage?: File | null;
+    brandColor?: string; accentPattern?: string;
+    secondaryBrandColor?: string; accentColor?: string; patternScale?: string;
+    titleFont?: string;
+    medalPosition?: string;
+    watermarkIcon?: string;
   }, headers?: Record<string, string>) {
     const parsed = updateInstitutionSchema.parse({
       name: data.name?.trim() || undefined,
       phone: data.phone ?? "",
       website: data.website ?? "",
-      // "" is a meaningful value for these two (clear the logo / brand colour) -
-      // keep it distinct from undefined (leave unchanged).
       profileImageUrl: data.profileImageUrl === undefined ? undefined : data.profileImageUrl.trim(),
       brandColor: data.brandColor === undefined ? undefined : data.brandColor.trim(),
-      accentPattern: data.accentPattern,
+      accentPattern: data.accentPattern as any,
+      secondaryBrandColor: (data.secondaryBrandColor as any) === undefined ? undefined : String(data.secondaryBrandColor).trim(),
+      accentColor: data.accentColor as any,
+      patternScale: data.patternScale as any,
+      titleFont: data.titleFont as any,
+      medalPosition: data.medalPosition as any,
+      watermarkIcon: data.watermarkIcon as any,
     });
+    const extraKeys = ["secondaryBrandColor","accentColor","patternScale","titleFont","medalPosition","watermarkIcon"] as const;
+    const appendExtras = (fd: FormData) => { for (const k of extraKeys) { const v = (parsed as any)[k]; if (v !== undefined) fd.append(k, String(v)); } };
     if (data.profileImage) {
       const formData = new FormData();
       if (parsed.name) formData.append("name", parsed.name);
@@ -177,16 +187,16 @@ export const institutionService = {
       if (parsed.profileImageUrl !== undefined) formData.append("profileImageUrl", parsed.profileImageUrl);
       if (parsed.brandColor !== undefined) formData.append("brandColor", parsed.brandColor);
       if (parsed.accentPattern) formData.append("accentPattern", parsed.accentPattern);
+      appendExtras(formData);
       formData.append("profileImage", data.profileImage);
       return apiClient.putMultipart<Institution>("/api/institution/me", formData, headers);
     }
     return apiClient.put<Institution>("/api/institution/me", {
-      name: parsed.name,
-      phone: parsed.phone || undefined,
-      website: parsed.website || undefined,
-      profileImageUrl: parsed.profileImageUrl,
-      brandColor: parsed.brandColor,
-      accentPattern: parsed.accentPattern,
+      name: parsed.name, phone: parsed.phone || undefined, website: parsed.website || undefined,
+      profileImageUrl: parsed.profileImageUrl, brandColor: parsed.brandColor, accentPattern: parsed.accentPattern,
+      secondaryBrandColor: (parsed as any).secondaryBrandColor, accentColor: (parsed as any).accentColor, patternScale: (parsed as any).patternScale,
+      titleFont: (parsed as any).titleFont,
+      medalPosition: (parsed as any).medalPosition, watermarkIcon: (parsed as any).watermarkIcon,
     }, headers);
   },
 

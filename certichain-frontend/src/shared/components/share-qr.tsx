@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import QRCode from "qrcode"
 
 export function ShareQr({ value, size = 180 }: { value: string; size?: number }) {
+  const t = useTranslations("common")
   const [dataUrl, setDataUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -31,5 +33,5 @@ export function ShareQr({ value, size = 180 }: { value: string; size?: number })
   }
 
   // eslint-disable-next-line @next/next/no-img-element -- data URL, no benefit from next/image
-  return <img src={dataUrl} alt="QR code linking to this share" width={size} height={size} className="rounded-md" />
+  return <img src={dataUrl} alt={t("qrAlt")} width={size} height={size} className="rounded-md" />
 }

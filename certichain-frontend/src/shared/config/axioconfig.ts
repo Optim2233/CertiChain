@@ -33,7 +33,8 @@ instance.interceptors.response.use(undefined, (error: AxiosError) => {
 function toApiError(error: AxiosError): ApiError {
   const data = error.response?.data as { message?: string; error?: string; msg?: string } | undefined;
   return {
-    message: data?.error || data?.message || data?.msg || error.message || 'Request failed',
+    // ponytail: code, not copy — UI toasts show translated generic messages; raw text never renders.
+    message: data?.error || data?.message || data?.msg || error.message || 'UNKNOWN_ERROR',
     status: error.response?.status || 0,
   };
 }

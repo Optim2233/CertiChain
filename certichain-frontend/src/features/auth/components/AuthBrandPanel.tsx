@@ -1,6 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
+import { CertiChainShield } from "@/shared/components/brand/CertiChainShield"
 
 export function AuthBrandPanel({
   icon,
@@ -34,8 +35,8 @@ export function AuthBrandPanel({
         {icon}
       </span>
       <div className="relative flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-full bg-white">
-          <span className="material-symbols-outlined text-[20px]" style={{ color: "#02275A" }}>{icon}</span>
+        <div className="flex size-9 items-center justify-center rounded-full bg-white p-1.5">
+          <CertiChainShield size={22} />
         </div>
         <span className="font-heading text-lg font-extrabold text-white">CertiChain</span>
       </div>

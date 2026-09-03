@@ -18,6 +18,31 @@ export interface Institution {
   profileImageUrl: string | null;
   brandColor: string | null;
   accentPattern: string;
+  secondaryBrandColor: string | null;
+  accentColor: string | null;
+  watermarkOpacity: number | null;
+  patternScale: string | null;
+  cardRadius: string | null;
+  titleFont: string | null;
+  logoShape: string | null;
+  medalStyle: string | null;
+  medalShape: string | null;
+  medalPosition: string | null;
+  medalIcon: string | null;
+  medalSize: string | null;
+  watermarkIcon: string | null;
+}
+
+/** AA institution-detail endpoint only (`GET /api/aa/institutions/{id}`). The raw
+ *  `/api/institution/me` entity used elsewhere does not carry these. */
+export interface InstitutionDetail extends Institution {
+  publicKey: string | null;
+  keyAlgorithm: string | null;
+  keyGeneratedAt: string | null;
+  updatedAt: string | null;
+  version: number;
+  contactEmail: string | null;
+  contactSince: string | null;
 }
 
 export interface InstitutionDocument {

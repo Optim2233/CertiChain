@@ -41,10 +41,10 @@ export function useCredentialSummary() {
   });
 }
 
-export function useInstitutionAnalytics() {
+export function useInstitutionAnalytics(days = 30) {
   return useQuery({
-    queryKey: ['institution-analytics'],
-    queryFn: () => institutionService.getAnalytics(),
+    queryKey: ['institution-analytics', days],
+    queryFn: () => institutionService.getAnalytics(days),
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -61,23 +61,10 @@ export function useDisputes() {
 
 export function useApplyInstitution() {
   return useMutation({
-    mutationFn: ({
-      name,
-      ministry,
-      email,
-      password,
-      phone,
-      website,
-      documents,
-    }: {
-      name: string;
-      ministry: string;
-      email: string;
-      password: string;
-      phone: string;
-      website: string;
-      documents: File[];
-    }) => institutionService.applyInstitution(name, ministry, email, password, phone, website, documents),
+    mutationFn: (input: {
+      fields: Record<string, unknown>;
+      files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null; documents?: File[] };
+    }) => institutionService.applyInstitution(input),
   });
 }
 

@@ -1,5 +1,5 @@
 import type { Page } from '@/shared/types/types';
-import type { AuditLogEntry, Institution, InstitutionDocument } from '@/features/accreditation';
+import type { AuditLogEntry, Institution, InstitutionDetail, InstitutionDocument } from '@/features/accreditation';
 import { apiClient } from '@/shared/config/axioconfig';
 import {
   rejectInstitutionSchema,
@@ -13,17 +13,19 @@ export const accreditationService = {
     status: string | null = null,
     page = 0,
     size = 20,
+    q: string | null = null,
     headers?: Record<string, string>
   ) {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
+    if (q && q.trim()) params.set("q", q.trim());
     params.set("page", String(page));
     params.set("size", String(size));
     return apiClient.get<Page<Institution>>(`/api/aa/institutions?${params.toString()}`, headers);
   },
 
   async getInstitution(id: string, headers?: Record<string, string>) {
-    return apiClient.get<Institution>(`/api/aa/institutions/${id}`, headers);
+    return apiClient.get<InstitutionDetail>(`/api/aa/institutions/${id}`, headers);
   },
 
   async getDisputedInstitutionIds(headers?: Record<string, string>) {
