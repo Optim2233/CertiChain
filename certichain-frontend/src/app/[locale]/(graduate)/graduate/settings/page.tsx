@@ -96,6 +96,7 @@ export default function GraduateSettingsPage() {
             <img
               src={profile.profileImageUrl}
               alt={name || tc("profileAlt")}
+              loading="lazy"
               className="mx-auto mb-4 size-20 rounded-full object-cover"
             />
           ) : (

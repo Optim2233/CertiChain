@@ -174,7 +174,7 @@ export default function InstitutionDetailPage() {
               <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#02275A]">
                 {institution.profileImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={institution.profileImageUrl} alt="" className="size-full object-cover" />
+                  <img src={institution.profileImageUrl} alt="" loading="lazy" className="size-full object-cover" />
                 ) : (
                   <span className="material-symbols-outlined text-[26px] text-white">account_balance</span>
                 )}

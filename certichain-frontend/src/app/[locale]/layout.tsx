@@ -19,10 +19,12 @@ export default async function LocaleLayout({
     notFound()
   }
   setRequestLocale(locale)
-  const messages = await getMessages()
+  // Only the keys every subtree needs. Portal/auth/share layouts each add
+  // their own namespace via a nested provider, so pages never ship all 797.
+  const { error } = await getMessages()
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider messages={{ error }}>
       {children}
     </NextIntlClientProvider>
   )

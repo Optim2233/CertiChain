@@ -119,7 +119,7 @@ export default function InstitutionSettingsPage() {
       <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 2fr" }}>
         <div className="h-fit rounded-lg border border-[#c5c6cf] bg-white p-6 text-center">
           <div className="relative mx-auto mb-4 size-20 overflow-hidden rounded-xl" style={{ background: "#02275A" }}>
-            {displayImage ? <img src={displayImage} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center bg-white p-3"><img src="/certichain-shield.svg" alt="" className="h-full w-full object-contain" /></div>}
+            {displayImage ? <img src={displayImage} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center bg-white p-3"><img src="/certichain-shield.svg" alt="" className="h-full w-full object-contain" /></div>}
             <button type="button" onClick={()=>fileInputRef.current?.click()} className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100"><span className="material-symbols-outlined text-white">photo_camera</span></button>
           </div>
           <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleFileChange} />

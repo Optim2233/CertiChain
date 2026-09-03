@@ -1,4 +1,5 @@
-import { getTranslations } from "next-intl/server"
+import { getMessages, getTranslations } from "next-intl/server"
+import { NextIntlClientProvider } from "next-intl"
 import { Link } from "@/i18n/navigation"
 import { CertiChainShield } from "@/shared/components/brand/CertiChainShield"
 
@@ -7,7 +8,9 @@ import { CertiChainShield } from "@/shared/components/brand/CertiChainShield"
 // "Verify another" link back into the full verifier flow.
 export default async function ShareLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("share")
+  const { common, share, error } = await getMessages()
   return (
+    <NextIntlClientProvider messages={{ common, share, error }}>
     <div className="flex min-h-screen flex-col" style={{ background: "#f7f9fb", color: "#191c1e" }}>
       <header className="flex h-14 items-center justify-between border-b border-[#c5c6cf] bg-white px-4 sm:px-8">
         <Link href="/verify" className="flex items-center gap-2">
@@ -25,5 +28,6 @@ export default async function ShareLayout({ children }: { children: React.ReactN
         </p>
       </footer>
     </div>
+    </NextIntlClientProvider>
   )
 }

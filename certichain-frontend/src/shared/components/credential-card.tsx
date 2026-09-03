@@ -145,7 +145,7 @@ export function CredentialCard({
           <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg size-11`} style={{ background: medal.bg, border: medal.border as any }}>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" className="size-full object-cover" />
+              <img src={logoUrl} alt="" loading="lazy" className="size-full object-cover" />
             ) : initials ? (
               <span className="text-[11px] font-extrabold" style={{ color: "#c9a85c" }}>{initials}</span>
             ) : (

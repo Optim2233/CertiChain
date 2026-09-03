@@ -1,11 +1,15 @@
-import { getTranslations } from "next-intl/server"
+import { getMessages, getTranslations } from "next-intl/server"
+import { NextIntlClientProvider } from "next-intl"
 import { Link } from "@/i18n/navigation"
 import { AuthBrandPanel } from "@/features/auth/components/AuthBrandPanel"
 import { LocaleToggle } from "@/shared/components/locale-toggle"
 
 export default async function LandingPage() {
   const t = await getTranslations("common")
+  // Landing sits outside every portal layout - only common + error ship here.
+  const { common, error } = await getMessages()
   return (
+    <NextIntlClientProvider messages={{ common, error }}>
     <div className="flex min-h-screen">
       <AuthBrandPanel
         icon="verified_user"
@@ -43,5 +47,6 @@ export default async function LandingPage() {
         </p>
       </main>
     </div>
+    </NextIntlClientProvider>
   )
 }
