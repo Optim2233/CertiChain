@@ -53,6 +53,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 @Service
@@ -76,73 +78,149 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
-    public Institution apply(String name, String ministry, String email, String password,
-                              String phone, String website,
-                              List<MultipartFile> documents) {
-        requireText(name, "name");
-        requireText(ministry, "ministry");
-        requireText(email, "email");
-        requireText(password, "password");
-        if (userRepository.existsByEmail(email)) {
-            throw new ValidationException("Email already registered");
+    public Institution apply(ApplyInstitutionRequest req) {
+        requireText(req.getName(), "name");
+        requireText(req.getEmail(), "email");
+        requireText(req.getPassword(), "password");
+        if (userRepository.existsByEmail(req.getEmail())) throw new ValidationException("Email already registered");
+        if (req.getPhone() != null && req.getPhone().length() > 50) throw new ValidationException("phone too long (max 50)");
+        if (req.getWebsite() != null && req.getWebsite().length() > 255) throw new ValidationException("website too long (max 255)");
+
+        String type = req.getInstitutionType() != null ? req.getInstitutionType().trim().toLowerCase() : null;
+        // backward compat: old clients send ministry but no institutionType -> treat as private
+        if (type == null) {
+            if (req.getGoverningMinistry() != null && !req.getGoverningMinistry().isBlank()) type = "private";
+            else type = "private";
         }
-        if (phone != null && phone.length() > 50) {
-            throw new ValidationException("phone too long (max 50)");
+        if (!type.equals("public") && !type.equals("private")) throw new ValidationException("institutionType must be public or private");
+        if (req.getInstitutionCategory() != null && !req.getInstitutionCategory().isBlank()) {
+            String cat = req.getInstitutionCategory().trim();
+            if (!java.util.Set.of("university","college","degreeCollege","institute","center").contains(cat))
+                throw new ValidationException("Invalid institutionCategory");
         }
-        if (website != null && website.length() > 255) {
-            throw new ValidationException("website too long (max 255)");
+        if ("public".equals(type)) {
+            if (req.getGoverningMinistry() == null || req.getGoverningMinistry().isBlank())
+                throw new ValidationException("governingMinistry is required for public institutions");
         }
 
-        // Institution first: the user row's FK and the chk_user_institution_role CHECK both
-        // need the institution to exist already.
-        Institution institution = institutionRepository.save(Institution.builder()
-                .name(name)
-                .ministry(ministry)
-                .phone(phone != null && !phone.isBlank() ? phone.trim() : null)
-                .website(website != null && !website.isBlank() ? website.trim() : null)
+        // validate JSONB shapes lightly (must be valid JSON)
+        String foundersJson = req.getFoundersJson() != null && !req.getFoundersJson().isBlank() ? req.getFoundersJson().trim() : "[]";
+        String adminJson = req.getAdministratorJson();
+        // ponytail: light JSON shape check without extra dep; full parse if jackson available, else just brackets
+        if (adminJson != null && !adminJson.isBlank()) {
+            String t = adminJson.trim();
+            if (!(t.startsWith("{") && t.endsWith("}"))) throw new ValidationException("Invalid administrator JSON");
+        }
+        { String t = foundersJson.trim(); if (!(t.startsWith("[") && t.endsWith("]"))) throw new ValidationException("Invalid founders JSON"); }
+
+        java.time.LocalDate estDate = null;
+        if (req.getEstablishmentDocIssueDate() != null && !req.getEstablishmentDocIssueDate().isBlank()) {
+            try { estDate = java.time.LocalDate.parse(req.getEstablishmentDocIssueDate().trim()); }
+            catch (Exception e) { throw new ValidationException("Invalid establishmentDocIssueDate (expected YYYY-MM-DD)"); }
+        }
+        java.time.LocalDate incorpDate = null;
+        if (req.getIncorporationDate() != null && !req.getIncorporationDate().isBlank()) {
+            try { incorpDate = java.time.LocalDate.parse(req.getIncorporationDate().trim()); }
+            catch (Exception e) { throw new ValidationException("Invalid incorporationDate (expected YYYY-MM-DD)"); }
+        }
+
+        Institution institution = Institution.builder()
+                .name(req.getName().trim())
+                .ministry(req.getGoverningMinistry() != null && !req.getGoverningMinistry().isBlank() ? req.getGoverningMinistry().trim() : null)
+                .institutionType(type)
+                .institutionNameMm(req.getInstitutionNameMm() != null && !req.getInstitutionNameMm().isBlank() ? req.getInstitutionNameMm().trim() : null)
+                .institutionCategory(req.getInstitutionCategory() != null && !req.getInstitutionCategory().isBlank() ? req.getInstitutionCategory().trim() : null)
+                .phone(req.getPhone() != null && !req.getPhone().isBlank() ? req.getPhone().trim() : null)
+                .website(req.getWebsite() != null && !req.getWebsite().isBlank() ? req.getWebsite().trim() : null)
+                .stateRegion(req.getStateRegion() != null && !req.getStateRegion().isBlank() ? req.getStateRegion().trim() : null)
+                .district(req.getDistrict() != null && !req.getDistrict().isBlank() ? req.getDistrict().trim() : null)
+                .township(req.getTownship() != null && !req.getTownship().isBlank() ? req.getTownship().trim() : null)
+                .ward(req.getWard() != null && !req.getWard().isBlank() ? req.getWard().trim() : null)
+                .street(req.getStreet() != null && !req.getStreet().isBlank() ? req.getStreet().trim() : null)
+                .postalCode(req.getPostalCode() != null && !req.getPostalCode().isBlank() ? req.getPostalCode().trim() : null)
+                .yearEstablished(req.getYearEstablished())
+                .establishmentDocType(req.getEstablishmentDocType() != null && !req.getEstablishmentDocType().isBlank() ? req.getEstablishmentDocType().trim() : null)
+                .establishmentDocTitle(req.getEstablishmentDocTitle() != null && !req.getEstablishmentDocTitle().isBlank() ? req.getEstablishmentDocTitle().trim() : null)
+                .establishmentDocRef(req.getEstablishmentDocRef() != null && !req.getEstablishmentDocRef().isBlank() ? req.getEstablishmentDocRef().trim() : null)
+                .establishmentDocIssueDate(estDate)
+                .companyName(req.getCompanyName() != null && !req.getCompanyName().isBlank() ? req.getCompanyName().trim() : null)
+                .dicaCertificateNumber(req.getDicaCertificateNumber() != null && !req.getDicaCertificateNumber().isBlank() ? req.getDicaCertificateNumber().trim() : null)
+                .mycoRegistrationNumber(req.getMycoRegistrationNumber() != null && !req.getMycoRegistrationNumber().isBlank() ? req.getMycoRegistrationNumber().trim() : null)
+                .tinNumber(req.getTinNumber() != null && !req.getTinNumber().isBlank() ? req.getTinNumber().trim() : null)
+                .incorporationDate(incorpDate)
+                .ownershipStructure(req.getOwnershipStructure() != null && !req.getOwnershipStructure().isBlank() ? req.getOwnershipStructure().trim() : null)
+                .investmentAmount(req.getInvestmentAmount())
+                .foreignInvolvement(Boolean.TRUE.equals(req.getForeignInvolvement()))
+                .micPermitNumber(req.getMicPermitNumber() != null && !req.getMicPermitNumber().isBlank() ? req.getMicPermitNumber().trim() : null)
+                .founders(foundersJson)
+                .administrator(adminJson != null && !adminJson.isBlank() ? adminJson.trim() : null)
                 .status(InstitutionStatus.PENDING)
                 .appliedAt(Instant.now())
-                .build());
+                .build();
 
-        userRepository.save(User.builder()
-                .email(email)
-                .passwordHash(passwordEncoder.encode(password))
-                .role(Role.INSTITUTION)
-                .institutionId(institution.getId())
-                .createdAt(Instant.now())
-                .lastBriefedAt(Instant.now()) // zero gap: no briefing card on first login
-                .build());
+        institution = institutionRepository.save(institution);
 
-        if (documents != null) {
-            for (MultipartFile document : documents) {
-                if (document == null || document.isEmpty()) {
-                    continue;
-                }
-                // ponytail: 5MB per file cap before loading bytes; larger needs streaming storage
-                if (document.getSize() > 5L * 1024 * 1024) {
-                    throw new ValidationException("Document too large (max 5MB): " + document.getOriginalFilename());
-                }
+        // Supabase uploads (preferred) — fall back to inline BYTEA only if not configured
+        institution.setEstablishmentDocUrl(uploadIfPresent(institution.getId(), "establishment", req.getEstablishmentDocFile()));
+        institution.setDicaCertificateUrl(uploadIfPresent(institution.getId(), "dica", req.getDicaCertificate()));
+        institution.setTaxClearanceUrl(uploadIfPresent(institution.getId(), "tax", req.getTaxClearance()));
+        institution.setMicPermitUrl(uploadIfPresent(institution.getId(), "mic", req.getMicPermit()));
+        institution = institutionRepository.save(institution);
+
+        // legacy documents[] fallback (inline BYTEA)
+        if (req.getDocuments() != null) {
+            for (MultipartFile document : req.getDocuments()) {
+                if (document == null || document.isEmpty()) continue;
+                if (document.getSize() > 10L * 1024 * 1024) throw new ValidationException("Document too large (max 10MB): " + document.getOriginalFilename());
                 String fn = document.getOriginalFilename();
-                if (fn != null && fn.length() > 255) {
-                    throw new ValidationException("File name too long (max 255)");
-                }
+                if (fn != null && fn.length() > 255) throw new ValidationException("File name too long (max 255)");
                 String ct = document.getContentType();
-                if (ct != null && !ct.equals("application/pdf") && !ct.equals("application/octet-stream")) {
-                    // Allow pdf only; octet-stream is common for renamed pdfs
+                if (ct != null && !ct.equals("application/pdf") && !ct.equals("application/octet-stream"))
                     throw new ValidationException("Only PDF documents are accepted");
-                }
                 String safeName = fn == null || fn.isBlank() ? "document.pdf" : fn.replaceAll("[^a-zA-Z0-9._-]", "_");
-                institutionDocumentRepository.save(InstitutionDocument.builder()
+                // try Supabase first
+                String url = null;
+                if (supabaseStorageService.isConfigured()) {
+                    try { url = supabaseStorageService.uploadDocument(institution.getId(), "legacy", document); } catch (Exception ignored) {}
+                }
+                InstitutionDocument doc = InstitutionDocument.builder()
                         .institutionId(institution.getId())
                         .fileName(safeName)
-                        .fileData(readBytes(document))
+                        .fileData(url != null ? new byte[0] : readBytes(document))
+                        .fileUrl(url)
                         .uploadedAt(Instant.now())
-                        .build());
+                        .build();
+                institutionDocumentRepository.save(doc);
             }
         }
 
+        userRepository.save(User.builder()
+                .email(req.getEmail().trim().toLowerCase())
+                .passwordHash(passwordEncoder.encode(req.getPassword()))
+                .role(Role.INSTITUTION)
+                .institutionId(institution.getId())
+                .createdAt(Instant.now())
+                .lastBriefedAt(Instant.now())
+                .build());
+
         auditLogService.log("Institution application submitted", null, institution.getId(), null);
         return institution;
+    }
+
+    private String uploadIfPresent(UUID instId, String kind, MultipartFile file) {
+        if (file == null || file.isEmpty()) return null;
+        if (supabaseStorageService.isConfigured()) {
+            return supabaseStorageService.uploadDocument(instId, kind, file);
+        }
+        // dev fallback: store inline as legacy document and return null URL (will be read from institution_document)
+        InstitutionDocument doc = InstitutionDocument.builder()
+                .institutionId(instId)
+                .fileName(file.getOriginalFilename() != null ? file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_") : kind + ".pdf")
+                .fileData(readBytes(file))
+                .uploadedAt(Instant.now())
+                .build();
+        institutionDocumentRepository.save(doc);
+        return null;
     }
 
     @Override
@@ -155,8 +233,11 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
     public Institution updateOwnInstitution(String name, String phone, String website,
-                                            String profileImageUrl, MultipartFile profileImage,
-                                            String brandColor, String accentPattern) {
+                                             String profileImageUrl, MultipartFile profileImage,
+                                             String brandColor, String accentPattern,
+                                             String secondaryBrandColor, String accentColor,
+                                             String patternScale,
+                                             String titleFont, String medalPosition, String watermarkIcon) {
         Institution institution = load(currentUser.institutionId());
 
         boolean changed = false;
@@ -232,13 +313,46 @@ public class InstitutionServiceImpl implements InstitutionService {
         }
         if (accentPattern != null && !accentPattern.isBlank()) {
             String trimmed = accentPattern.trim().toLowerCase();
-            if (!trimmed.equals("hatch") && !trimmed.equals("dots") && !trimmed.equals("none")) {
-                throw new ValidationException("accent pattern must be one of: hatch, dots, none");
+            if (!java.util.Set.of("hatch","dots","none","grid","waves","circles").contains(trimmed)) {
+                throw new ValidationException("accent pattern must be one of: hatch, dots, none, grid, waves, circles");
             }
             if (!trimmed.equals(institution.getAccentPattern())) {
                 institution.setAccentPattern(trimmed);
                 changed = true;
             }
+        }
+        if (secondaryBrandColor != null) {
+            String t = secondaryBrandColor.isBlank() ? null : secondaryBrandColor.trim();
+            if (t != null) {
+                if (!t.matches("^#[0-9a-fA-F]{6}$")) throw new ValidationException("secondary brand color must be #RRGGBB");
+                if (contrastRatioAgainstWhite(t) < 4.5) throw new ValidationException("secondary brand color too light");
+            }
+            if (!java.util.Objects.equals(t, institution.getSecondaryBrandColor())) { institution.setSecondaryBrandColor(t); changed = true; }
+        }
+        if (accentColor != null && !accentColor.isBlank()) {
+            String t = accentColor.trim().toLowerCase();
+            if (!java.util.Set.of("light","brand","gold").contains(t)) throw new ValidationException("accentColor must be light, brand or gold");
+            if (!t.equals(institution.getAccentColor())) { institution.setAccentColor(t); changed = true; }
+        }
+        if (patternScale != null && !patternScale.isBlank()) {
+            String t = patternScale.trim().toLowerCase();
+            if (!java.util.Set.of("sm","md","lg").contains(t)) throw new ValidationException("patternScale must be sm, md, lg");
+            if (!t.equals(institution.getPatternScale())) { institution.setPatternScale(t); changed = true; }
+        }
+        if (titleFont != null && !titleFont.isBlank()) {
+            String t = titleFont.trim().toLowerCase();
+            if (!java.util.Set.of("heading","serif","mono").contains(t)) throw new ValidationException("titleFont must be heading, serif, mono");
+            if (!t.equals(institution.getTitleFont())) { institution.setTitleFont(t); changed = true; }
+        }
+        if (medalPosition != null && !medalPosition.isBlank()) {
+            String t = medalPosition.trim().toLowerCase();
+            if (!java.util.Set.of("top-left","top-right").contains(t)) throw new ValidationException("medalPosition must be top-left or top-right");
+            if (!t.equals(institution.getMedalPosition())) { institution.setMedalPosition(t); changed = true; }
+        }
+        if (watermarkIcon != null && !watermarkIcon.isBlank()) {
+            String t = watermarkIcon.trim().toLowerCase();
+            if (!java.util.Set.of("workspace_premium","verified","stars","none").contains(t)) throw new ValidationException("watermarkIcon must be workspace_premium, verified, stars, none");
+            if (!t.equals(institution.getWatermarkIcon())) { institution.setWatermarkIcon(t); changed = true; }
         }
 
         if (changed) {
@@ -287,25 +401,145 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
     @Override
-    public InstitutionAnalytics getAnalytics() {
+    public InstitutionAnalytics getAnalytics(int days) {
+        int d = (days == 7 || days == 30 || days == 90 || days == 180 || days == 365) ? days : 30;
         UUID institutionId = currentUser.institutionId();
-        Instant since = Instant.now().minus(30, ChronoUnit.DAYS);
-        Instant soon = Instant.now().plus(30, ChronoUnit.DAYS);
+        Instant now = Instant.now();
+        Instant since = now.minus(d, ChronoUnit.DAYS);
+        Instant soon30 = now.plus(30, ChronoUnit.DAYS);
 
         List<Credential> credentials = credentialRepository.findByInstitutionId(institutionId);
         List<UUID> credentialIds = credentials.stream().map(Credential::getId).toList();
+
         int totalVerifications = credentialIds.isEmpty() ? 0
                 : auditLogEntryRepository.countByEventAndCredentialIdIn(AuditEvents.VERIFY_EVENT, credentialIds);
+        int totalRevokedVerifications = credentialIds.isEmpty() ? 0
+                : auditLogEntryRepository.countByEventAndCredentialIdIn(AuditEvents.VERIFY_REVOKED_EVENT, credentialIds);
+
+        // status breakdown
+        int issued = 0, revoked = 0, pendingClaim = 0, expired = 0;
+        int cert = 0, act = 0;
+        Map<String, Long> revokeReasons = new java.util.HashMap<>();
+        // for claim latency / expiry buckets
+        int c0_7 = 0, c8_30 = 0, c31_90 = 0, c90p = 0, cUnclaimed = 0;
+        int e0_7 = 0, e8_30 = 0, e31_90 = 0;
+        for (Credential c : credentials) {
+            if (c.getStatus() == CredentialStatus.REVOKED) revoked++;
+            else if (c.getStatus() == CredentialStatus.PENDING_CLAIM) pendingClaim++;
+            else if (c.getStatus() == CredentialStatus.ISSUED) {
+                if (c.getExpiresAt() != null && c.getExpiresAt().isBefore(now)) expired++;
+                else issued++;
+            }
+            if (c.getType() == CredentialType.CERTIFICATE) cert++; else act++;
+            if (c.getStatus() == CredentialStatus.REVOKED && c.getRevokeReason() != null) {
+                String key = c.getRevokeReason().trim();
+                if (!key.isEmpty()) revokeReasons.merge(key.length() > 60 ? key.substring(0,60) : key, 1L, Long::sum);
+            }
+            // expiry buckets (only non-revoked, non-expired with future expiry)
+            if (c.getStatus() == CredentialStatus.ISSUED && c.getExpiresAt() != null && c.getExpiresAt().isAfter(now)) {
+                long daysToExpiry = ChronoUnit.DAYS.between(now, c.getExpiresAt());
+                if (daysToExpiry <= 7) e0_7++;
+                else if (daysToExpiry <= 30) e8_30++;
+                else if (daysToExpiry <= 90) e31_90++;
+            }
+            // claim latency: ponytail — no claimed_at column, approx from status
+            // PENDING_CLAIM = unclaimed, else assume claimed within bucket by age (conservative)
+            if (c.getStatus() == CredentialStatus.PENDING_CLAIM) cUnclaimed++;
+            else {
+                long ageDays = ChronoUnit.DAYS.between(c.getIssuedAt(), now);
+                // if still pending logic not needed; for issued/revoked we bucket by age as proxy
+                // ponytail: add claimed_at column if precise latency needed
+                if (ageDays <= 7) c0_7++;
+                else if (ageDays <= 30) c8_30++;
+                else if (ageDays <= 90) c31_90++;
+                else c90p++;
+            }
+        }
+        // ponytail: top verified via in-memory count map (cheap for <10k creds); add GROUP BY query if larger
+        List<InstitutionAnalytics.TopCredential> topVerified = List.of();
+        if (!credentialIds.isEmpty()) {
+            Map<UUID, Long> counts = auditLogEntryRepository.findByEventAndCredentialIdInOrderByOccurredAtDesc(
+                    AuditEvents.VERIFY_EVENT, credentialIds).stream()
+                    .collect(Collectors.groupingBy(com.certichain.certichainbackend.common.entity.AuditLogEntry::getCredentialId, Collectors.counting()));
+            // also include revoked verifications in counts? keep separate — top is clean verifies
+            Map<UUID, String> titleById = Map.of();
+            try {
+                titleById = credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title").stream()
+                        .collect(Collectors.toMap(com.certichain.certichainbackend.common.entity.CredentialField::getCredentialId,
+                                com.certichain.certichainbackend.common.entity.CredentialField::getFieldValue, (a,b)->a));
+            } catch (Exception ignored) {}
+            Map<UUID, String> tf = titleById;
+            topVerified = counts.entrySet().stream()
+                    .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
+                    .limit(5)
+                    .map(e -> new InstitutionAnalytics.TopCredential(e.getKey().toString(),
+                            tf.getOrDefault(e.getKey(), e.getKey().toString().substring(0,8)), e.getValue()))
+                    .toList();
+        }
+
+        // disputes + disputesByDay (grouped in-memory from dispute_flag — no audit event for flag)
+        int open = 0, upheld = 0, dismissed = 0;
+        Double medianHours = null;
+        List<DisputeFlag> allFlags = List.of();
+        if (!credentialIds.isEmpty()) {
+            allFlags = disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds);
+            List<Long> hours = new ArrayList<>();
+            for (DisputeFlag f : allFlags) {
+                if (f.getStatus() == DisputeStatus.OPEN) open++;
+                else if (f.getStatus() == DisputeStatus.UPHELD) upheld++;
+                else if (f.getStatus() == DisputeStatus.DISMISSED) dismissed++;
+                if (f.getResolvedAt() != null) {
+                    hours.add(ChronoUnit.HOURS.between(f.getCreatedAt(), f.getResolvedAt()));
+                }
+            }
+            if (!hours.isEmpty()) {
+                hours.sort(Long::compareTo);
+                int mid = hours.size() / 2;
+                medianHours = hours.size() % 2 == 0 ? (hours.get(mid-1)+hours.get(mid))/2.0 : (double) hours.get(mid);
+            }
+        }
+
+        double yield = credentials.isEmpty() ? 0 : (double) totalVerifications / credentials.size();
+        // revoke reason top 3
+        Map<String, Long> topReasons = revokeReasons.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed()).limit(5)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a,b)->a, LinkedHashMap::new));
+
+        // disputesByDay from dispute_flag createdAt
+        Map<LocalDate, Long> disputeDayMap = allFlags.stream()
+                .filter(f -> !f.getCreatedAt().isBefore(since))
+                .collect(Collectors.groupingBy(f -> f.getCreatedAt().atZone(ZoneOffset.UTC).toLocalDate(), Collectors.counting()));
+        List<DailyCount> disputesByDay = disputeDayMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> new DailyCount(e.getKey(), e.getValue()))
+                .toList();
 
         return new InstitutionAnalytics(
                 credentials.size(),
                 totalVerifications,
+                totalRevokedVerifications,
                 credentialRepository.countByInstitutionIdAndStatusAndExpiresAtBetween(
-                        institutionId, CredentialStatus.ISSUED, Instant.now(), soon),
+                        institutionId, CredentialStatus.ISSUED, now, soon30),
                 toDailyCounts(auditLogEntryRepository.dailyCountsByInstitutionAndEvent(
                         institutionId, AuditEvents.CERTIFICATE_ISSUED_EVENT, since)),
                 toDailyCounts(auditLogEntryRepository.dailyCountsByInstitutionAndEvent(
-                        institutionId, AuditEvents.VERIFY_EVENT, since)));
+                        institutionId, AuditEvents.VERIFY_EVENT, since)),
+                toDailyCounts(auditLogEntryRepository.dailyCountsByInstitutionAndEvent(
+                        institutionId, AuditEvents.VERIFY_REVOKED_EVENT, since)),
+                toDailyCounts(auditLogEntryRepository.dailyCountsByInstitutionAndEvent(
+                        institutionId, AuditEvents.CERTIFICATE_REVOKED_EVENT, since)),
+                disputesByDay,
+                new InstitutionAnalytics.StatusBreakdown(issued, revoked, pendingClaim, expired),
+                new InstitutionAnalytics.TypeBreakdown(cert, act),
+                new InstitutionAnalytics.DisputeSummary(open, upheld, dismissed, medianHours),
+                List.of(new InstitutionAnalytics.Bucket("0-7d", c0_7), new InstitutionAnalytics.Bucket("8-30d", c8_30),
+                        new InstitutionAnalytics.Bucket("31-90d", c31_90), new InstitutionAnalytics.Bucket("90d+", c90p),
+                        new InstitutionAnalytics.Bucket("Unclaimed", cUnclaimed)),
+                List.of(new InstitutionAnalytics.Bucket("0-7 days", e0_7), new InstitutionAnalytics.Bucket("8-30 days", e8_30),
+                        new InstitutionAnalytics.Bucket("31-90 days", e31_90)),
+                topVerified,
+                Math.round(yield*1000)/1000.0,
+                topReasons);
     }
 
     /**
@@ -530,15 +764,35 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Cacheable(cacheNames = "institution", key = "'disputes:' + @currentUser.institutionId()")
-    public List<?> listDisputes() {
-        List<UUID> credentialIds = credentialRepository
-                .findByInstitutionId(currentUser.institutionId()).stream()
-                .map(Credential::getId)
-                .toList();
-        if (credentialIds.isEmpty()) {
+    public List<InstitutionDisputeResponse> listDisputes() {
+        List<Credential> credentials = credentialRepository.findByInstitutionId(currentUser.institutionId());
+        if (credentials.isEmpty()) {
             return List.of(); // an empty IN () is a SQL error on some drivers
         }
-        return disputeFlagRepository.findByCredentialIdInAndStatus(credentialIds, DisputeStatus.OPEN);
+        List<UUID> credentialIds = credentials.stream().map(Credential::getId).toList();
+
+        List<DisputeFlag> flags = disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds);
+        if (flags.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, Credential> credById = credentials.stream()
+                .collect(Collectors.toMap(Credential::getId, Function.identity()));
+        // title lives in the 'title' CredentialField row; one batch query, no N+1
+        Map<UUID, String> titleById = credentialFieldRepository
+                .findByCredentialIdInAndFieldName(credentialIds, "title").stream()
+                .collect(Collectors.toMap(CredentialField::getCredentialId, CredentialField::getFieldValue, (a, b) -> a));
+
+        return flags.stream().map(f -> {
+            Credential c = credById.get(f.getCredentialId());
+            return new InstitutionDisputeResponse(
+                    f.getId(), f.getCredentialId(),
+                    titleById.get(f.getCredentialId()),
+                    c != null ? c.getType() : null,
+                    c != null ? c.getGraduateEmail() : null,
+                    f.getReason(), f.getStatus(), f.getResolutionNote(),
+                    f.getCreatedAt(), f.getResolvedAt());
+        }).toList();
     }
 
     @Override

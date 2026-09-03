@@ -28,14 +28,63 @@ public class InstitutionController {
     private final InstitutionService institutionService;
 
     @PostMapping("/apply")
-    public InstitutionResponse apply(@RequestParam String name,
-                               @RequestParam String ministry,
-                               @RequestParam String email,
-                               @RequestParam String password,
-                               @RequestParam(required = false) String phone,
-                               @RequestParam(required = false) String website,
-                               @RequestParam(value = "documents", required = false) List<MultipartFile> documents) {
-        return InstitutionResponse.from(institutionService.apply(name, ministry, email, password, phone, website, documents));
+    public InstitutionResponse apply(
+            @RequestParam String name,
+            @RequestParam(required = false) String ministry,
+            @RequestParam String email,
+            @RequestParam String password,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String website,
+            @RequestParam(required = false) String institutionType,
+            @RequestParam(required = false) String institutionNameMm,
+            @RequestParam(required = false) String institutionCategory,
+            @RequestParam(required = false) String stateRegion,
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String township,
+            @RequestParam(required = false) String ward,
+            @RequestParam(required = false) String street,
+            @RequestParam(required = false) String postalCode,
+            @RequestParam(required = false) String governingMinistry,
+            @RequestParam(required = false) Integer yearEstablished,
+            @RequestParam(required = false) String establishmentDocType,
+            @RequestParam(required = false) String establishmentDocTitle,
+            @RequestParam(required = false) String establishmentDocRef,
+            @RequestParam(required = false) String establishmentDocIssueDate,
+            @RequestParam(required = false) String companyName,
+            @RequestParam(required = false) String dicaCertificateNumber,
+            @RequestParam(required = false) String mycoRegistrationNumber,
+            @RequestParam(required = false) String tinNumber,
+            @RequestParam(required = false) String incorporationDate,
+            @RequestParam(required = false) String ownershipStructure,
+            @RequestParam(required = false) Long investmentAmount,
+            @RequestParam(required = false) Boolean foreignInvolvement,
+            @RequestParam(required = false) String micPermitNumber,
+            @RequestParam(required = false) String foundersJson,
+            @RequestParam(required = false) String administratorJson,
+            @RequestParam(value = "establishmentDocFile", required = false) MultipartFile establishmentDocFile,
+            @RequestParam(value = "dicaCertificate", required = false) MultipartFile dicaCertificate,
+            @RequestParam(value = "taxClearance", required = false) MultipartFile taxClearance,
+            @RequestParam(value = "micPermit", required = false) MultipartFile micPermit,
+            @RequestParam(value = "documents", required = false) List<MultipartFile> documents) {
+        // ministry is legacy alias for governingMinistry
+        String gm = governingMinistry != null ? governingMinistry : ministry;
+        ApplyInstitutionRequest req = ApplyInstitutionRequest.builder()
+                .name(name).institutionNameMm(institutionNameMm).institutionType(institutionType)
+                .institutionCategory(institutionCategory).email(email).password(password)
+                .phone(phone).website(website)
+                .stateRegion(stateRegion).district(district).township(township).ward(ward).street(street).postalCode(postalCode)
+                .governingMinistry(gm).yearEstablished(yearEstablished)
+                .establishmentDocType(establishmentDocType).establishmentDocTitle(establishmentDocTitle)
+                .establishmentDocRef(establishmentDocRef).establishmentDocIssueDate(establishmentDocIssueDate)
+                .companyName(companyName).dicaCertificateNumber(dicaCertificateNumber)
+                .mycoRegistrationNumber(mycoRegistrationNumber).tinNumber(tinNumber)
+                .incorporationDate(incorporationDate).ownershipStructure(ownershipStructure)
+                .investmentAmount(investmentAmount).foreignInvolvement(foreignInvolvement).micPermitNumber(micPermitNumber)
+                .foundersJson(foundersJson).administratorJson(administratorJson)
+                .establishmentDocFile(establishmentDocFile).dicaCertificate(dicaCertificate)
+                .taxClearance(taxClearance).micPermit(micPermit).documents(documents)
+                .build();
+        return InstitutionResponse.from(institutionService.apply(req));
     }
 
     @GetMapping("/me")
@@ -53,22 +102,28 @@ public class InstitutionController {
             @RequestParam(required = false) String profileImageUrl,
             @RequestParam(value = "profileImage", required = false) MultipartFile profileImage,
             @RequestParam(required = false) String brandColor,
-            @RequestParam(required = false) String accentPattern) {
+            @RequestParam(required = false) String accentPattern,
+            @RequestParam(required = false) String secondaryBrandColor,
+            @RequestParam(required = false) String accentColor,
+            @RequestParam(required = false) String patternScale,
+            @RequestParam(required = false) String titleFont,
+            @RequestParam(required = false) String medalPosition,
+            @RequestParam(required = false) String watermarkIcon) {
         return InstitutionResponse.from(institutionService.updateOwnInstitution(
-                name, phone, website, profileImageUrl, profileImage, brandColor, accentPattern));
+                name, phone, website, profileImageUrl, profileImage, brandColor, accentPattern,
+                secondaryBrandColor, accentColor, patternScale, titleFont,
+                medalPosition, watermarkIcon));
     }
 
     @PutMapping(value = "/me", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('INSTITUTION')")
     public InstitutionResponse updateMeJson(@RequestBody Map<String, String> body) {
         return InstitutionResponse.from(institutionService.updateOwnInstitution(
-                body.get("name"),
-                body.get("phone"),
-                body.get("website"),
-                body.get("profileImageUrl"),
-                null,
-                body.get("brandColor"),
-                body.get("accentPattern")));
+                body.get("name"), body.get("phone"), body.get("website"),
+                body.get("profileImageUrl"), null, body.get("brandColor"), body.get("accentPattern"),
+                body.get("secondaryBrandColor"), body.get("accentColor"),
+                body.get("patternScale"), body.get("titleFont"),
+                body.get("medalPosition"), body.get("watermarkIcon")));
     }
 
     @GetMapping("/credentials")
@@ -82,8 +137,8 @@ public class InstitutionController {
 
     @GetMapping("/analytics")
     @PreAuthorize("hasRole('INSTITUTION')")
-    public InstitutionAnalytics getAnalytics() {
-        return institutionService.getAnalytics();
+    public InstitutionAnalytics getAnalytics(@RequestParam(defaultValue = "30") int days) {
+        return institutionService.getAnalytics(days);
     }
 
     @GetMapping("/credentials/summary")
@@ -179,7 +234,7 @@ public class InstitutionController {
 
     @GetMapping("/disputes")
     @PreAuthorize("hasRole('INSTITUTION')")
-    public List<?> listDisputes() {
+    public List<InstitutionDisputeResponse> listDisputes() {
         return institutionService.listDisputes();
     }
 
