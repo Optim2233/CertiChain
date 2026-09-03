@@ -118,9 +118,14 @@ public class VerifierServiceImpl implements VerifierService {
                 .toList();
     }
 
+    // Header cells the bulk-verify CSV may start with — skipped so a labelled column
+    // doesn't turn into a failed lookup. Mirrors the docs panel on the /verify/bulk page.
+    private static final Set<String> BULK_VERIFY_HEADERS = Set.of(
+            "certificate_id", "share_token", "share_id", "share_code", "share_link", "share_url");
+
     @Override
     public List<BulkVerifyRow> verifyBulk(MultipartFile csv) {
-        // Share-only: one share token per non-blank line (optional "share_token"/"share_id"/"certificate_id" header).
+        // Share-only: one share token (or full share link) per non-blank line, optional header row.
         // Only shared credentials are exposed — verifiers must use a share token/link.
         String content;
         try {
@@ -131,7 +136,7 @@ public class VerifierServiceImpl implements VerifierService {
         return content.lines()
                 .map(String::trim)
                 .filter(line -> !line.isBlank())
-                .filter(line -> !line.equalsIgnoreCase("certificate_id") && !line.equalsIgnoreCase("share_token") && !line.equalsIgnoreCase("share_id"))
+                .filter(line -> !BULK_VERIFY_HEADERS.contains(line.toLowerCase()))
                 .map(line -> {
                     // Allow full share URL — extract token after last "/share/"
                     String token = line.contains("/share/") ? line.substring(line.lastIndexOf("/share/") + 7).split("[?#]")[0].trim() : line;
@@ -200,7 +205,7 @@ public class VerifierServiceImpl implements VerifierService {
         // perfectly valid signature, so checking crypto first would report it as VERIFIED.
         if (credential.getStatus() == CredentialStatus.REVOKED) {
             return respond(VerificationResult.REVOKED, credential, allFields, visibleFieldIds,
-                    institutionName, institutionStatus);
+                    institution, institutionName, institutionStatus);
         }
 
         // Same reasoning as revocation: an expired credential's signature is still perfectly
@@ -208,7 +213,7 @@ public class VerifierServiceImpl implements VerifierService {
         // null means the credential never expires (the common case for degrees).
         if (credential.getExpiresAt() != null && credential.getExpiresAt().isBefore(Instant.now())) {
             return respond(VerificationResult.EXPIRED, credential, allFields, visibleFieldIds,
-                    institutionName, institutionStatus);
+                    institution, institutionName, institutionStatus);
         }
 
         // Recompute the root from stored fields and compare against the signed root. This is
@@ -221,12 +226,12 @@ public class VerifierServiceImpl implements VerifierService {
         }
 
         return respond(VerificationResult.VERIFIED, credential, allFields, visibleFieldIds,
-                institutionName, institutionStatus);
+                institution, institutionName, institutionStatus);
     }
 
     private VerificationResponse respond(VerificationResult result, Credential credential,
                                           List<CredentialField> allFields, List<UUID> visibleFieldIds,
-                                          String institutionName, String institutionStatus) {
+                                          Institution institution, String institutionName, String institutionStatus) {
         // null OR empty means "disclose everything" - a SINGLE_CREDENTIAL share created
         // with no field selection stores zero share_field_selection rows, and the graduate
         // UI ("leave all unchecked to share every field") promises full disclosure for it.
@@ -238,8 +243,11 @@ public class VerifierServiceImpl implements VerifierService {
                 .toList();
 
         // Every successful lookup is logged against the credential/institution only - there
-        // is no verifier identity to record, by design.
-        auditLogService.log(AuditEvents.VERIFY_EVENT, null, credential.getInstitutionId(), credential.getId());
+        // is no verifier identity to record, by design. Revoked views get a distinct event
+        // so institution analytics can split clean yield vs revoked exposure.
+        String event = result == VerificationResult.REVOKED
+                ? AuditEvents.VERIFY_REVOKED_EVENT : AuditEvents.VERIFY_EVENT;
+        auditLogService.log(event, null, credential.getInstitutionId(), credential.getId());
 
         return new VerificationResponse(
                 result,
@@ -252,7 +260,21 @@ public class VerifierServiceImpl implements VerifierService {
                 credential.getRevokedAt(),
                 credential.getRevokeReason(),
                 disclosed,
-                "merkleRoot=" + credential.getMerkleRoot() + "; signature=" + credential.getSignature());
+                "merkleRoot=" + credential.getMerkleRoot() + "; signature=" + credential.getSignature(),
+                institution != null ? institution.getBrandColor() : null,
+                institution != null ? institution.getSecondaryBrandColor() : null,
+                institution != null ? institution.getProfileImageUrl() : null,
+                institution != null ? institution.getAccentPattern() : null,
+                institution != null ? institution.getAccentColor() : null,
+                institution != null ? institution.getWatermarkOpacity() : null,
+                institution != null ? institution.getPatternScale() : null,
+                institution != null ? institution.getCardRadius() : null,
+                institution != null ? institution.getTitleFont() : null,
+                institution != null ? institution.getLogoShape() : null,
+                institution != null ? institution.getMedalStyle() : null,
+                institution != null ? institution.getMedalShape() : null,
+                institution != null ? institution.getMedalSize() : null,
+                institution != null ? institution.getWatermarkIcon() : null);
     }
 
     private String title(List<CredentialField> fields, Credential credential) {
@@ -267,6 +289,7 @@ public class VerifierServiceImpl implements VerifierService {
 
     private static VerificationResponse notFound() {
         return new VerificationResponse(VerificationResult.INVALID_NOT_FOUND,
-                null, null, null, null, null, null, null, null, List.of(), null);
+                null, null, null, null, null, null, null, null, List.of(), null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

@@ -214,7 +214,9 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'shares:' + @currentUser.id()")
+    // Not cached: a single indexed per-user query. Caching it in remote Redis added a
+    // read-after-evict lag window where the list right after createShare/revokeShare still
+    // served the stale value, so the freshly created row didn't show until a later refetch.
     public List<Share> listShares() {
         return shareRepository.findByGraduateUserIdOrderByCreatedAtDesc(currentUser.id());
     }

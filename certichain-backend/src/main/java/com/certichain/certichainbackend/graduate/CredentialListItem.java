@@ -6,13 +6,6 @@ import com.certichain.certichainbackend.common.enums.CredentialType;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Timeline row for the graduate's credential cards. The bare Credential entity carries
- * neither the credential's title (a credential_field row) nor the issuer's name (a join
- * away), so cards had nothing identifying to show and fell back to the literal word
- * "Certificate" on every one of them. Both are joined in here so the list renders from a
- * single query instead of N per-credential field fetches.
- */
 public record CredentialListItem(
         UUID id,
         CredentialType type,
@@ -26,6 +19,19 @@ public record CredentialListItem(
         Instant issuedAt,
         Instant expiresAt,
         String institutionBrandColor,
+        String institutionSecondaryBrandColor,
         String institutionLogoUrl,
-        String institutionAccentPattern) {
+        String institutionAccentPattern,
+        String institutionAccentColor,
+        Integer institutionWatermarkOpacity,
+        String institutionPatternScale,
+        String institutionCardRadius,
+        String institutionTitleFont,
+        String institutionLogoShape,
+        String institutionMedalStyle,
+        String institutionMedalShape,
+        String institutionMedalPosition,
+        String institutionMedalIcon,
+        String institutionMedalSize,
+        String institutionWatermarkIcon) {
 }

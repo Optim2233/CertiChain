@@ -60,7 +60,9 @@ public interface CredentialRepository extends JpaRepository<Credential, UUID> {
             SELECT new com.certichain.certichainbackend.graduate.CredentialListItem(
                 c.id, c.type, f.fieldValue, i.name, c.graduateEmail, c.status,
                 c.revokeReason, c.merkleRoot, c.signature, c.issuedAt, c.expiresAt,
-                i.brandColor, i.profileImageUrl, i.accentPattern)
+                i.brandColor, i.secondaryBrandColor, i.profileImageUrl, i.accentPattern,
+                i.accentColor, i.watermarkOpacity, i.patternScale, i.cardRadius, i.titleFont, i.logoShape,
+                i.medalStyle, i.medalShape, i.medalPosition, i.medalIcon, i.medalSize, i.watermarkIcon)
             FROM Credential c
             LEFT JOIN Institution i ON i.id = c.institutionId
             LEFT JOIN CredentialField f ON f.credentialId = c.id AND f.fieldName = 'title'

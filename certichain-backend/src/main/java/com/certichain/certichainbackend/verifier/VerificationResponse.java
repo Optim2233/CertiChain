@@ -16,7 +16,21 @@ public record VerificationResponse(
         Instant revokedAt,
         String revokeReason,
         List<DisclosedField> disclosedFields,
-        String signatureDetails
+        String signatureDetails,
+        String institutionBrandColor,
+        String institutionSecondaryBrandColor,
+        String institutionLogoUrl,
+        String institutionAccentPattern,
+        String institutionAccentColor,
+        Integer institutionWatermarkOpacity,
+        String institutionPatternScale,
+        String institutionCardRadius,
+        String institutionTitleFont,
+        String institutionLogoShape,
+        String institutionMedalStyle,
+        String institutionMedalShape,
+        String institutionMedalSize,
+        String institutionWatermarkIcon
 ) {
     public record DisclosedField(String name, String value) {}
 }
