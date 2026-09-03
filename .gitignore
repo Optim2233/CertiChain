@@ -19,3 +19,6 @@ certichain-frontend/playwright-report/
 
 # Kilo Code IDE state (per-machine worktrees and agent metadata)
 .kilo/
+
+# Vendored seed-script dependencies (reinstall via npm in scripts/seed)
+scripts/seed/node_modules/
