@@ -16,6 +16,7 @@ Credential verification platform with an Accreditation Authority, Institution, G
 
 ```bash
 cd certichain-backend
+mvnw.cmd spring-boot:run
 cp .env.example .env   # edit if your DB creds differ
 ./mvnw spring-boot:run # or mvnw.cmd on Windows cmd.exe
 ```
@@ -26,8 +27,8 @@ Runs on `http://localhost:8080`. `.env` is gitignored — never commit real cred
 
 ```bash
 cd certichain-frontend
-npm install
 npm run dev
+npm install
 ```
 
 Runs on `http://localhost:3000`.
