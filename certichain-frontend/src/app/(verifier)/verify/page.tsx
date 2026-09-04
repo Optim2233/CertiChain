@@ -1,14 +1,24 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useVerifyCertificate, useVerifyFile, useTrustStats } from "@/features/verifier"
 import type { VerificationResponse } from "@/features/verifier"
 
 const QR_PATH = "M0 0h3v3H0zM7 0h3v3H7zM0 7h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM4 5h2v1H4zM4 7h1v3H4zM6 4h1v1H6zM8 4h2v1H8zM6 6h1v4H6zM8 8h2v2H8z"
 
 export default function VerifyPage() {
-  const [mode, setMode] = useState<"text" | "qr">("text")
-  const [certId, setCertId] = useState("")
+  return (
+    <Suspense>
+      <VerifyPageInner />
+    </Suspense>
+  )
+}
+
+function VerifyPageInner() {
+  const searchParams = useSearchParams()
+  const [mode, setMode] = useState<"text" | "qr">(searchParams.get("mode") === "qr" ? "qr" : "text")
+  const [certId, setCertId] = useState(searchParams.get("id") ?? "")
   const [certLink, setCertLink] = useState("")
   const [touched, setTouched] = useState(false)
   const [result, setResult] = useState<VerificationResponse | null>(null)
@@ -27,6 +37,19 @@ export default function VerifyPage() {
     const id = certId.trim() || certLink.trim()
     verifyCert.mutate(id, { onSuccess: ({ data }) => setResult(data) })
   }
+
+  // Arriving from the home page's "Instant Verification" widget with a
+  // pre-filled id (?id=...) runs the check immediately instead of making
+  // the visitor press Verify again.
+  const autoSubmitted = useRef(false)
+  useEffect(() => {
+    const idParam = searchParams.get("id")
+    if (idParam && !autoSubmitted.current) {
+      autoSubmitted.current = true
+      verifyCert.mutate(idParam, { onSuccess: ({ data }) => setResult(data) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function reset() {
     setResult(null)
