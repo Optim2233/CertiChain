@@ -19,6 +19,7 @@ import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -56,6 +57,7 @@ public class VerifierServiceImpl implements VerifierService {
     private final MerkleService merkleService;
     private final AuditLogService auditLogService;
     private final AuditLogEntryRepository auditLogEntryRepository;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
 
     // Self-reference for the cached counters above: internal this.* calls bypass
     // the cache proxy. @Lazy breaks the constructor cycle.
@@ -346,8 +348,18 @@ public class VerifierServiceImpl implements VerifierService {
      *                        disclosure to the share's selected fields.
      */
     private VerificationResponse evaluate(Credential credential, List<UUID> visibleFieldIds) {
-        return evaluate(credential, visibleFieldIds,
-                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId()),
+        List<CredentialField> allFields =
+                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
+        try {
+            allFields = credentialFieldCryptoService.decrypted(allFields, credential.getInstitutionId());
+        } catch (IllegalStateException e) {
+            // No DEK yet (institution predates encryption and hasn't been backfilled) or its
+            // institution row is gone entirely. Never let the public verify endpoint 500 over
+            // this - failing closed to "nothing disclosed" also means the Merkle recompute
+            // below won't match, so this reports as unverifiable rather than falsely VERIFIED.
+            allFields = List.of();
+        }
+        return evaluate(credential, visibleFieldIds, allFields,
                 institutionRepository.findById(credential.getInstitutionId()).orElse(null));
     }
 
@@ -368,6 +380,11 @@ public class VerifierServiceImpl implements VerifierService {
         // null means the credential never expires (the common case for degrees).
         if (credential.getExpiresAt() != null && credential.getExpiresAt().isBefore(Instant.now())) {
             return respond(VerificationResult.EXPIRED, credential, allFields, visibleFieldIds,
+                    institution, institutionName, institutionStatus);
+        }
+
+        if (institution == null || institution.getStatus() != InstitutionStatus.APPROVED) {
+            return respond(VerificationResult.ISSUER_NOT_ACCREDITED, credential, allFields, visibleFieldIds,
                     institution, institutionName, institutionStatus);
         }
 

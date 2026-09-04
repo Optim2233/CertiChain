@@ -18,6 +18,7 @@ import com.certichain.certichainbackend.common.repository.ShareFieldSelectionRep
 import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.MerkleServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -49,10 +50,18 @@ class VerifierShareAndBulkTest {
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final AuditLogEntryRepository auditLogEntryRepository = mock(AuditLogEntryRepository.class);
     private final MerkleServiceImpl merkleService = new MerkleServiceImpl(null);
+    private final CredentialFieldCryptoService credentialFieldCryptoService = passthroughCrypto();
 
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository, shareRepository,
-            shareFieldSelectionRepository, merkleService, auditLogService, auditLogEntryRepository);
+            shareFieldSelectionRepository, merkleService, auditLogService, auditLogEntryRepository, credentialFieldCryptoService);
+
+    private static CredentialFieldCryptoService passthroughCrypto() {
+        CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);
+        org.mockito.Mockito.when(c.decrypted(org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+        return c;
+    }
 
     private final List<Field> fields = List.of(
             new Field("degree", "BSc Computer Science"),

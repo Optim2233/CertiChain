@@ -42,7 +42,7 @@ class RevokeBatchTest {
 
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
             null, null, null, credentialRepository, null, null, null, null,
-            auditLogService, notificationService, null, null, currentUser);
+            auditLogService, notificationService, null, null, currentUser, null);
 
     private Credential member(CredentialStatus status) {
         return Credential.builder()

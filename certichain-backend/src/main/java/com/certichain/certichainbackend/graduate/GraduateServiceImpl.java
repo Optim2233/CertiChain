@@ -25,6 +25,7 @@ import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -53,6 +54,7 @@ public class GraduateServiceImpl implements GraduateService {
     private final SupabaseStorageService supabaseStorageService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
 
     @Override
     public int checkPendingCredentials(String email) {
@@ -162,8 +164,10 @@ public class GraduateServiceImpl implements GraduateService {
     @Override
     @Cacheable(cacheNames = "graduate", key = "'credentialFields:' + @currentUser.id() + ':' + #credentialId")
     public List<CredentialField> getCredentialFields(UUID credentialId) {
-        ownCredential(credentialId);
-        return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        Credential credential = ownCredential(credentialId);
+        List<CredentialField> fields =
+                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        return credentialFieldCryptoService.decrypted(fields, credential.getInstitutionId());
     }
 
     @Override

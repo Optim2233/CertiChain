@@ -29,14 +29,16 @@ class GraduateServiceImplTest {
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
 
-    private final com.certichain.certichainbackend.common.service.SupabaseStorageService storageService =
+private final com.certichain.certichainbackend.common.service.SupabaseStorageService storageService =
             mock(com.certichain.certichainbackend.common.service.SupabaseStorageService.class);
     private final com.certichain.certichainbackend.auth.CurrentUser currentUser =
             mock(com.certichain.certichainbackend.auth.CurrentUser.class);
 
+    // null credentialFieldCryptoService: none of these tests touch getCredentialFields(),
+    // the only method that calls it.
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, null, null, null, null, null, null,
-            storageService, passwordEncoder, currentUser);
+            storageService, passwordEncoder, currentUser, null);
 
     private Credential pendingCredential(String email) {
         return Credential.builder()

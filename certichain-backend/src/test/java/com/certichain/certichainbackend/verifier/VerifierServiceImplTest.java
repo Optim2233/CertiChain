@@ -12,6 +12,7 @@ import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.MerkleServiceImpl;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +24,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,6 +32,9 @@ import static org.mockito.Mockito.when;
 
 /**
  * Uses the REAL MerkleServiceImpl so the root comparison is genuine, not a stubbed boolean.
+ * credentialFieldCryptoService is stubbed as a passthrough (returns its input unchanged) -
+ * these tests seed plaintext field values directly and are about verification logic, not
+ * encryption, which EnvelopeEncryptionServiceImplTest already covers on its own.
  */
 class VerifierServiceImplTest {
 
@@ -38,10 +43,16 @@ class VerifierServiceImplTest {
     private final InstitutionRepository institutionRepository = mock(InstitutionRepository.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final MerkleServiceImpl merkleService = new MerkleServiceImpl(null);
+    private final CredentialFieldCryptoService credentialFieldCryptoService = mock(CredentialFieldCryptoService.class);
 
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
-            null, null, merkleService, auditLogService, null);
+            null, null, merkleService, auditLogService, null, credentialFieldCryptoService);
+
+    {
+        when(credentialFieldCryptoService.decrypted(anyList(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     private final List<Field> fields = List.of(
             new Field("degree", "BSc Computer Science"),

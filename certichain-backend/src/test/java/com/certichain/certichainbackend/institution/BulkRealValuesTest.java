@@ -10,6 +10,7 @@ import com.certichain.certichainbackend.common.enums.VerificationResult;
 import com.certichain.certichainbackend.common.repository.*;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.MerkleServiceImpl;
 import com.certichain.certichainbackend.institution.InstitutionServiceImpl;
 import com.certichain.certichainbackend.verifier.BulkVerifyRow;
@@ -38,10 +39,18 @@ class BulkRealValuesTest {
     private final InstitutionRepository institutionRepository = mock(InstitutionRepository.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final MerkleServiceImpl merkleService = new MerkleServiceImpl(null);
+    private final CredentialFieldCryptoService credentialFieldCryptoService = passthroughCrypto();
     private final VerifierServiceImpl verifierService = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
             mock(ShareRepository.class), mock(ShareFieldSelectionRepository.class),
-            merkleService, auditLogService, mock(AuditLogEntryRepository.class));
+            merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService);
+
+    private static CredentialFieldCryptoService passthroughCrypto() {
+        CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);
+        org.mockito.Mockito.when(c.decrypted(org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+        return c;
+    }
 
     private Credential seedReal(CredentialStatus status, Instant expiresAt) {
         UUID id = UUID.randomUUID(); UUID instId = UUID.randomUUID();

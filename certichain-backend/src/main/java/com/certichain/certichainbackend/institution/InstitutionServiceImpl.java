@@ -29,6 +29,7 @@ import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -75,6 +76,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final SupabaseStorageService supabaseStorageService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
 
     @Override
     @Transactional
@@ -727,7 +729,9 @@ public class InstitutionServiceImpl implements InstitutionService {
             key = "'credentialFields:' + @currentUser.institutionId() + ':' + #credentialId")
     public List<CredentialField> getCredentialFields(UUID credentialId) {
         ownCredential(credentialId); // authorization check only
-        return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        List<CredentialField> fields =
+                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        return credentialFieldCryptoService.decrypted(fields, currentUser.institutionId());
     }
 
     @Override
@@ -821,7 +825,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                     toSign.add(new Field(fieldName, field.getOrDefault("value", "")));
                 }
             } else {
-                toSign = credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId()).stream()
+                List<CredentialField> existing =
+                        credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
+                toSign = credentialFieldCryptoService.decrypted(existing, credential.getInstitutionId()).stream()
                         .map(f -> new Field(f.getFieldName(), f.getFieldValue()))
                         .toList();
             }
@@ -874,12 +880,16 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         credentialFieldRepository.deleteByCredentialId(credential.getId());
         credentialFieldRepository.flush();
-        credentialFieldRepository.saveAll(signed.fields().stream().map(field -> CredentialField.builder()
+        for (SignedCredential.FieldWithIndex field : signed.fields()) {
+            CredentialField toSave = CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
                     .fieldValue(field.value())
                     .merkleIndex(field.merkleIndex())
-                    .build()).toList());
+                    .build();
+            credentialFieldCryptoService.encryptForStorage(toSave, credential.getInstitutionId());
+            credentialFieldRepository.save(toSave);
+        }
     }
 
     /**
@@ -930,12 +940,16 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .expiresAt(expiresAt)
                 .build());
 
-        credentialFieldRepository.saveAll(signed.fields().stream().map(field -> CredentialField.builder()
+for (SignedCredential.FieldWithIndex field : signed.fields()) {
+            CredentialField toSave = CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
                     .fieldValue(field.value())
                     .merkleIndex(field.merkleIndex())
-                    .build()).toList());
+                    .build();
+            credentialFieldCryptoService.encryptForStorage(toSave, institutionId);
+            credentialFieldRepository.save(toSave);
+        }
         auditLogService.log(AuditEvents.CERTIFICATE_ISSUED_EVENT, currentUser.id(), institutionId, credential.getId());
         // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null.
         notificationService.notify(credential.getGraduateUserId(), "Certificate issued",

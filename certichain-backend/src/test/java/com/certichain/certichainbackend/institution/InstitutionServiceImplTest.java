@@ -21,12 +21,17 @@ import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.EncryptedPayload;
+import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
+import com.certichain.certichainbackend.common.service.impl.EnvelopeEncryptionServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -58,20 +63,34 @@ class InstitutionServiceImplTest {
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
 
+    private static final byte[] RAW_DEK = "B".repeat(32).getBytes(StandardCharsets.UTF_8);
+    private final EnvelopeEncryptionService envelopeEncryptionService =
+            new EnvelopeEncryptionServiceImpl("A".repeat(32));
+    private final CredentialFieldCryptoService credentialFieldCryptoService =
+            new CredentialFieldCryptoService(envelopeEncryptionService, institutionRepository);
+
     private final UUID institutionId = UUID.randomUUID();
     private final UUID actorId = UUID.randomUUID();
 
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
             institutionRepository, institutionDocumentRepository, userRepository, credentialRepository,
             credentialFieldRepository, disputeFlagRepository, null, signingService, auditLogService,
-            notificationService, null, passwordEncoder, currentUser);
+            notificationService, null, passwordEncoder, currentUser, credentialFieldCryptoService);
+
+    /** Wraps a fresh DEK with the app-wide KEK and stamps it on the institution. */
+    private Institution minted(Institution institution) {
+        EncryptedPayload wrapped = envelopeEncryptionService.encrypt(RAW_DEK, envelopeEncryptionService.kek());
+        institution.setDekWrapped(wrapped.ciphertext());
+        institution.setDekIv(wrapped.iv());
+        return institution;
+    }
 
     private void callerIsApprovedInstitution() {
         when(currentUser.institutionId()).thenReturn(institutionId);
         when(currentUser.id()).thenReturn(actorId);
-        when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(Institution.builder()
+        when(institutionRepository.findById(institutionId)).thenReturn(Optional.of(minted(Institution.builder()
                 .id(institutionId).name("UIT").ministry("MoST")
-                .status(InstitutionStatus.APPROVED).appliedAt(Instant.now()).build()));
+                .status(InstitutionStatus.APPROVED).appliedAt(Instant.now()).build())));
     }
 
     private Credential ownedCredential(CredentialStatus status) {
@@ -323,9 +342,11 @@ class InstitutionServiceImplTest {
         stubSigning();
         Credential c = ownedCredential(CredentialStatus.ISSUED);
         DisputeFlag d = openDispute(c);
+        CredentialField gpa = CredentialField.builder().id(UUID.randomUUID())
+                .credentialId(c.getId()).fieldName("gpa").fieldValue("3.0").merkleIndex(0).build();
+        credentialFieldCryptoService.encryptForStorage(gpa, institutionId);
         when(credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(c.getId()))
-                .thenReturn(List.of(CredentialField.builder().id(UUID.randomUUID())
-                        .credentialId(c.getId()).fieldName("gpa").fieldValue("3.0").merkleIndex(0).build()));
+                .thenReturn(List.of(gpa));
 
         service.upholdDispute(d.getId(), "corrected", "EDIT",
                 List.of(Map.of("name", "gpa", "value", "3.9")));

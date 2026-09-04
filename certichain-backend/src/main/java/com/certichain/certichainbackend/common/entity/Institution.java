@@ -188,6 +188,19 @@ public class Institution {
     @Builder.Default
     private String watermarkIcon = "workspace_premium";
 
+    /**
+     * This institution's Data Encryption Key (DEK), itself encrypted ("wrapped") with the
+     * app-wide KEK - see EnvelopeEncryptionService. Same never-serialize rule as
+     * privateKeyEnc: backend-internal use only.
+     */
+    @JsonIgnore
+    @Column(name = "dek_wrapped")
+    private byte[] dekWrapped;
+
+    @JsonIgnore
+    @Column(name = "dek_iv")
+    private byte[] dekIv;
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 

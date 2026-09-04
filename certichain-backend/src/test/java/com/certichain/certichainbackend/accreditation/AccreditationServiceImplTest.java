@@ -9,7 +9,9 @@ import com.certichain.certichainbackend.common.repository.InstitutionDocumentRep
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import com.certichain.certichainbackend.common.service.NotificationService;
+import com.certichain.certichainbackend.common.service.impl.EnvelopeEncryptionServiceImpl;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,10 +45,14 @@ class AccreditationServiceImplTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final InstitutionDocumentRepository institutionDocumentRepository = mock(InstitutionDocumentRepository.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
+    // Real (not mocked) crypto - approve() actually generates and wraps a DEK, so this needs
+    // to do real AES-GCM work rather than return nulls that would NPE inside encrypt().
+    private final EnvelopeEncryptionService envelopeEncryptionService =
+            new EnvelopeEncryptionServiceImpl("A".repeat(32));
 
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
             institutionRepository, null, auditLogService, notificationService, userRepository,
-            institutionDocumentRepository, null, currentUser);
+            institutionDocumentRepository, null, currentUser, envelopeEncryptionService);
 
     private Institution institutionWith(InstitutionStatus status) {
         Institution institution = Institution.builder()
@@ -68,6 +75,8 @@ class AccreditationServiceImplTest {
 
         assertEquals(InstitutionStatus.APPROVED, institution.getStatus());
         verify(auditLogService).log(eq("Institution approved"), any(), eq(institution.getId()), isNull());
+        assertNotNull(institution.getDekWrapped());
+        assertNotNull(institution.getDekIv());
     }
 
     @Test

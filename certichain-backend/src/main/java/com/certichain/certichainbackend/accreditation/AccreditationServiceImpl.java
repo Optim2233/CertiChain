@@ -16,6 +16,8 @@ import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.EncryptedPayload;
+import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import com.certichain.certichainbackend.common.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -26,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -51,6 +54,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final InstitutionDocumentRepository institutionDocumentRepository;
     private final CredentialRepository credentialRepository;
     private final CurrentUser currentUser;
+    private final EnvelopeEncryptionService envelopeEncryptionService;
 
     @Override
     // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
@@ -98,9 +102,24 @@ public class AccreditationServiceImpl implements AccreditationService {
     @Transactional
     @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void approve(UUID id) {
+        // REJECTED is allowed alongside PENDING so the authority can reconsider a rejected
+        // application rather than forcing the institution to reapply from scratch.
         Institution institution = transition(id, InstitutionStatus.APPROVED, null,
-                InstitutionStatus.PENDING);
+                InstitutionStatus.PENDING, InstitutionStatus.REJECTED);
         institution.setStatusReason(null);
+
+        // Mint this institution's Data Encryption Key here, once, at first approval - never
+        // manually, never per-record. Guarded on dekWrapped being unset since the state
+        // machine only ever reaches APPROVED via this method (REVOKED is terminal, so a
+        // second approve() on the same institution can't normally happen).
+        if (institution.getDekWrapped() == null) {
+            SecretKey dek = envelopeEncryptionService.generateDek();
+            EncryptedPayload wrapped = envelopeEncryptionService.encrypt(
+                    dek.getEncoded(), envelopeEncryptionService.kek());
+            institution.setDekWrapped(wrapped.ciphertext());
+            institution.setDekIv(wrapped.iv());
+        }
+
         audit("Institution approved", id);
     }
 

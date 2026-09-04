@@ -54,7 +54,7 @@ class GraduateSharesAndDisputesTest {
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, credentialFieldRepository, shareRepository,
             shareFieldSelectionRepository, disputeFlagRepository, auditLogEntryRepository,
-            auditLogService, null, null, currentUser);
+            auditLogService, null, null, currentUser, null);
 
     {
         when(currentUser.id()).thenReturn(meId);

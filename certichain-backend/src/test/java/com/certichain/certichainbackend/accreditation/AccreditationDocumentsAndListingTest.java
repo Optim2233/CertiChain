@@ -34,7 +34,7 @@ class AccreditationDocumentsAndListingTest {
 
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
             institutionRepository, null, auditLogService, null, null,
-            documentRepository, null, currentUser);
+            documentRepository, null, currentUser, null);
 
     @Test
     void listInstitutionsRejectsUnknownStatus() {
