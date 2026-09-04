@@ -34,4 +34,17 @@ public record CredentialListItem(
         String institutionMedalIcon,
         String institutionMedalSize,
         String institutionWatermarkIcon) {
+
+    /** Copy with an already-decrypted title - the {@code title} slot is the only field
+     *  the record ever ships in encrypted form. */
+    public CredentialListItem withTitle(String replacement) {
+        return new CredentialListItem(id, type, replacement, institutionName, graduateEmail, status,
+                revokeReason, merkleRoot, signature, issuedAt, expiresAt,
+                institutionBrandColor, institutionSecondaryBrandColor, institutionLogoUrl,
+                institutionAccentPattern, institutionAccentColor, institutionWatermarkOpacity,
+                institutionPatternScale, institutionCardRadius, institutionTitleFont,
+                institutionLogoShape, institutionMedalStyle, institutionMedalShape,
+                institutionMedalPosition, institutionMedalIcon, institutionMedalSize,
+                institutionWatermarkIcon);
+    }
 }

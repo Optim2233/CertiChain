@@ -22,3 +22,4 @@ certichain-frontend/playwright-report/
 
 # Vendored seed-script dependencies (reinstall via npm in scripts/seed)
 scripts/seed/node_modules/
+.neon

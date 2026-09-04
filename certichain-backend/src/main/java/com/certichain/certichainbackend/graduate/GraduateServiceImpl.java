@@ -36,7 +36,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -158,7 +160,21 @@ public class GraduateServiceImpl implements GraduateService {
     // but there's no reason to add caching here.)
     @Override
     public List<CredentialListItem> getTimeline() {
-        return credentialRepository.findTimelineByGraduateUserId(currentUser.id());
+        List<CredentialListItem> items = credentialRepository.findTimelineByGraduateUserId(currentUser.id());
+        if (items.isEmpty()) {
+            return items;
+        }
+        // The join in findTimelineByGraduateUserId reads the "title" field_value straight from
+        // the DB, so it comes back as ciphertext - swap in the decrypted titles here.
+        List<UUID> credentialIds = items.stream().map(CredentialListItem::id).toList();
+        Map<UUID, UUID> credentialToInstitution = credentialRepository.findAllById(credentialIds).stream()
+                .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
+        Map<UUID, String> titles = credentialFieldCryptoService.decryptedTitlesByCredential(
+                credentialToInstitution,
+                credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
+        return items.stream()
+                .map(item -> titles.containsKey(item.id()) ? item.withTitle(titles.get(item.id())) : item)
+                .toList();
     }
 
     @Override

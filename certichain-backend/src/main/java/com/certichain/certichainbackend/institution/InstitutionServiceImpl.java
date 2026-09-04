@@ -464,18 +464,19 @@ public class InstitutionServiceImpl implements InstitutionService {
                     AuditEvents.VERIFY_EVENT, credentialIds).stream()
                     .collect(Collectors.groupingBy(com.certichain.certichainbackend.common.entity.AuditLogEntry::getCredentialId, Collectors.counting()));
             // also include revoked verifications in counts? keep separate — top is clean verifies
-            Map<UUID, String> titleById = Map.of();
-            try {
-                titleById = credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title").stream()
-                        .collect(Collectors.toMap(com.certichain.certichainbackend.common.entity.CredentialField::getCredentialId,
-                                com.certichain.certichainbackend.common.entity.CredentialField::getFieldValue, (a,b)->a));
-            } catch (Exception ignored) {}
-            Map<UUID, String> tf = titleById;
+            // title rows are ciphertext in the DB - decrypt per owning institution (this
+            // institution's own DEK only) so the labels are readable. No silent catch: a
+            // decrypt failure here is a real data/DEK problem worth surfacing as a 500.
+            Map<UUID, UUID> credentialToInstitution = credentials.stream()
+                    .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
+            Map<UUID, String> titleById = credentialFieldCryptoService.decryptedTitlesByCredential(
+                    credentialToInstitution,
+                    credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
             topVerified = counts.entrySet().stream()
                     .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
                     .limit(5)
                     .map(e -> new InstitutionAnalytics.TopCredential(e.getKey().toString(),
-                            tf.getOrDefault(e.getKey(), e.getKey().toString().substring(0,8)), e.getValue()))
+                            titleById.getOrDefault(e.getKey(), e.getKey().toString().substring(0,8)), e.getValue()))
                     .toList();
         }
 
@@ -782,10 +783,13 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         Map<UUID, Credential> credById = credentials.stream()
                 .collect(Collectors.toMap(Credential::getId, Function.identity()));
-        // title lives in the 'title' CredentialField row; one batch query, no N+1
-        Map<UUID, String> titleById = credentialFieldRepository
-                .findByCredentialIdInAndFieldName(credentialIds, "title").stream()
-                .collect(Collectors.toMap(CredentialField::getCredentialId, CredentialField::getFieldValue, (a, b) -> a));
+        // title lives in the 'title' CredentialField row; one batch query, no N+1. The row
+        // comes back as ciphertext, so decrypt per owning institution before wiring it in.
+        Map<UUID, UUID> credentialToInstitution = credById.values().stream()
+                .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
+        Map<UUID, String> titleById = credentialFieldCryptoService.decryptedTitlesByCredential(
+                credentialToInstitution,
+                credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
 
         return flags.stream().map(f -> {
             Credential c = credById.get(f.getCredentialId());

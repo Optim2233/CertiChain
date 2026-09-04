@@ -13,6 +13,7 @@ import com.certichain.certichainbackend.common.enums.InstitutionStatus;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
 import com.certichain.certichainbackend.common.repository.CredentialFieldRepository;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.DisputeFlagRepository;
@@ -57,6 +58,7 @@ class InstitutionServiceImplTest {
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
     private final CredentialFieldRepository credentialFieldRepository = mock(CredentialFieldRepository.class);
     private final DisputeFlagRepository disputeFlagRepository = mock(DisputeFlagRepository.class);
+    private final AuditLogEntryRepository auditLogEntryRepository = mock(AuditLogEntryRepository.class);
     private final SigningService signingService = mock(SigningService.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
@@ -74,7 +76,8 @@ class InstitutionServiceImplTest {
 
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
             institutionRepository, institutionDocumentRepository, userRepository, credentialRepository,
-            credentialFieldRepository, disputeFlagRepository, null, signingService, auditLogService,
+            credentialFieldRepository, disputeFlagRepository, auditLogEntryRepository,
+            signingService, auditLogService,
             notificationService, null, passwordEncoder, currentUser, credentialFieldCryptoService);
 
     /** Wraps a fresh DEK with the app-wide KEK and stamps it on the institution. */
@@ -83,6 +86,19 @@ class InstitutionServiceImplTest {
         institution.setDekWrapped(wrapped.ciphertext());
         institution.setDekIv(wrapped.iv());
         return institution;
+    }
+
+    /** Builds a "title" row the way the DB stores it - Base64 ciphertext + IV - for a
+     *  real-crypto round trip through {@code decryptedTitlesByCredential}. */
+    private CredentialField encryptedTitle(Credential c, String plaintext) {
+        EncryptedPayload payload = envelopeEncryptionService.encrypt(
+                plaintext.getBytes(StandardCharsets.UTF_8),
+                new javax.crypto.spec.SecretKeySpec(RAW_DEK, "AES"));
+        return CredentialField.builder()
+                .credentialId(c.getId()).fieldName("title")
+                .fieldValue(java.util.Base64.getEncoder().encodeToString(payload.ciphertext()))
+                .fieldValueIv(payload.iv())
+                .build();
     }
 
     private void callerIsApprovedInstitution() {
@@ -294,8 +310,7 @@ class InstitutionServiceImplTest {
         when(disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(List.of(c.getId())))
                 .thenReturn(List.of(open, dismissed));
         when(credentialFieldRepository.findByCredentialIdInAndFieldName(any(), eq("title")))
-                .thenReturn(List.of(CredentialField.builder()
-                        .credentialId(c.getId()).fieldName("title").fieldValue("BSc CS").build()));
+                .thenReturn(List.of(encryptedTitle(c, "BSc CS")));
 
         List<InstitutionDisputeResponse> rows = service.listDisputes();
 
@@ -416,5 +431,30 @@ class InstitutionServiceImplTest {
 
         assertEquals(CredentialStatus.PENDING_CLAIM, c.getStatus());
         verify(credentialRepository).save(any(Credential.class));
+    }
+
+    // --- analytics decrypts stored (ciphertext) titles ---
+
+    @Test
+    void analyticsTopCredentialTitlesAreDecrypted() {
+        callerIsApprovedInstitution();
+        Credential c = ownedCredential(CredentialStatus.ISSUED);
+        when(credentialRepository.findByInstitutionId(institutionId)).thenReturn(List.of(c));
+        when(credentialRepository.countByInstitutionIdAndStatusAndExpiresAtBetween(any(), any(), any(), any()))
+                .thenReturn(0);
+        when(auditLogEntryRepository.countByEventAndCredentialIdIn(any(), any())).thenReturn(0);
+        // one clean verification on c -> it surfaces as the top credential
+        when(auditLogEntryRepository.findByEventAndCredentialIdInOrderByOccurredAtDesc(
+                any(), eq(List.of(c.getId()))))
+                .thenReturn(List.of(com.certichain.certichainbackend.common.entity.AuditLogEntry.builder()
+                        .id(UUID.randomUUID()).credentialId(c.getId()).build()));
+        when(credentialFieldRepository.findByCredentialIdInAndFieldName(any(), eq("title")))
+                .thenReturn(List.of(encryptedTitle(c, "BSc Computer Science")));
+
+        InstitutionAnalytics analytics = service.getAnalytics(30);
+
+        assertEquals(1, analytics.topVerified().size());
+        assertEquals("BSc Computer Science", analytics.topVerified().get(0).title());
+        assertEquals(c.getId().toString(), analytics.topVerified().get(0).credentialId());
     }
 }
