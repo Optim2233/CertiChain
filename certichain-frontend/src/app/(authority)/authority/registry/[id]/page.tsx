@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { useInstitution, useReinstateInstitution, useRevokeInstitution, useSuspendInstitution } from "@/features/accreditation"
+import { useApproveInstitution, useInstitution, useReinstateInstitution, useRevokeInstitution, useSuspendInstitution } from "@/features/accreditation"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
   PENDING: { bg: "#e0e3e5", color: "#44474e", icon: "schedule", label: "Pending" },
@@ -20,6 +20,7 @@ export default function InstitutionDetailPage() {
   const reinstate = useReinstateInstitution()
   const revoke = useRevokeInstitution()
   const suspend = useSuspendInstitution()
+  const approve = useApproveInstitution()
 
   const [modalType, setModalType] = useState<"revoke" | "suspend" | null>(null)
   const [reason, setReason] = useState("")
@@ -75,6 +76,17 @@ export default function InstitutionDetailPage() {
         </div>
 
         <div className="flex justify-end gap-3 border-t border-[#c5c6cf] pt-5">
+          {institution.status === "REJECTED" && (
+            <button
+              type="button"
+              onClick={() => approve.mutate(id)}
+              disabled={approve.isPending}
+              className="rounded px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              style={{ background: "#0d9668" }}
+            >
+              {approve.isPending ? "Approving…" : "Approve Anyway"}
+            </button>
+          )}
           {institution.status === "SUSPENDED" && (
             <button
               type="button"
