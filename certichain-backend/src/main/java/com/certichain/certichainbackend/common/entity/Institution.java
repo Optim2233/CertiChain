@@ -92,9 +92,11 @@ public class Institution {
 
     // variable-shape -> JSONB (ponytail: avoids extra tables for write-once arrays/objects)
     @Column(name = "founders", columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     @Builder.Default
     private String founders = "[]";
     @Column(name = "administrator", columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     private String administrator;
 
     @Enumerated(EnumType.STRING)
