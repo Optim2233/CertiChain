@@ -19,6 +19,7 @@ import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class VerifierServiceImpl implements VerifierService {
     private final MerkleService merkleService;
     private final AuditLogService auditLogService;
     private final AuditLogEntryRepository auditLogEntryRepository;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
 
     @Override
     @Transactional
@@ -166,6 +168,15 @@ public class VerifierServiceImpl implements VerifierService {
     private VerificationResponse evaluate(Credential credential, List<UUID> visibleFieldIds) {
         List<CredentialField> allFields =
                 credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
+        try {
+            allFields = credentialFieldCryptoService.decrypted(allFields, credential.getInstitutionId());
+        } catch (IllegalStateException e) {
+            // No DEK yet (institution predates encryption and hasn't been backfilled) or its
+            // institution row is gone entirely. Never let the public verify endpoint 500 over
+            // this - failing closed to "nothing disclosed" also means the Merkle recompute
+            // below won't match, so this reports as unverifiable rather than falsely VERIFIED.
+            allFields = List.of();
+        }
 
         Institution institution =
                 institutionRepository.findById(credential.getInstitutionId()).orElse(null);
@@ -176,6 +187,11 @@ public class VerifierServiceImpl implements VerifierService {
         // perfectly valid signature, so checking crypto first would report it as VERIFIED.
         if (credential.getStatus() == CredentialStatus.REVOKED) {
             return respond(VerificationResult.REVOKED, credential, allFields, visibleFieldIds,
+                    institutionName, institutionStatus);
+        }
+
+        if (institution == null || institution.getStatus() != InstitutionStatus.APPROVED) {
+            return respond(VerificationResult.ISSUER_NOT_ACCREDITED, credential, allFields, visibleFieldIds,
                     institutionName, institutionStatus);
         }
 
