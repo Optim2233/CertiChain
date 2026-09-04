@@ -9,3 +9,9 @@ certichain-frontend/Designs/
 # JVM crash dumps
 hs_err_pid*.log
 replay_pid*.log
+
+# Kilo CLI session state
+.kilo/
+
+# Vendored seed-script dependencies (reinstall via npm in scripts/seed)
+scripts/seed/node_modules/
