@@ -90,6 +90,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .role(Role.INSTITUTION)
                 .institutionId(institution.getId())
                 .createdAt(Instant.now())
+                .lastBriefedAt(Instant.now())
                 .build());
 
         if (documents != null) {

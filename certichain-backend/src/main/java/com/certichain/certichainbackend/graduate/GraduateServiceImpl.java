@@ -73,6 +73,7 @@ public class GraduateServiceImpl implements GraduateService {
                 .passwordHash(passwordEncoder.encode(password))
                 .role(Role.GRADUATE)
                 .createdAt(Instant.now())
+                .lastBriefedAt(Instant.now())
                 .build());
 
         // Claim everything already issued to this email. Same transaction as the account
