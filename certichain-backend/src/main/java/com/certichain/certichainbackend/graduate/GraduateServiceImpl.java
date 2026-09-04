@@ -23,6 +23,7 @@ import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -49,6 +50,7 @@ public class GraduateServiceImpl implements GraduateService {
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
 
     @Override
     public int checkPendingCredentials(String email) {
@@ -91,8 +93,10 @@ public class GraduateServiceImpl implements GraduateService {
 
     @Override
     public List<CredentialField> getCredentialFields(UUID credentialId) {
-        ownCredential(credentialId);
-        return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        Credential credential = ownCredential(credentialId);
+        List<CredentialField> fields =
+                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        return credentialFieldCryptoService.decrypted(fields, credential.getInstitutionId());
     }
 
     @Override

@@ -25,6 +25,7 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,6 +61,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
 
     @Override
     @Transactional
@@ -218,7 +220,9 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     public List<CredentialField> getCredentialFields(UUID credentialId) {
         ownCredential(credentialId); // authorization check only
-        return credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        List<CredentialField> fields =
+                credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credentialId);
+        return credentialFieldCryptoService.decrypted(fields, currentUser.institutionId());
     }
 
     @Override
@@ -285,7 +289,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                     toSign.add(new Field(fieldName, field.getOrDefault("value", "")));
                 }
             } else {
-                toSign = credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId()).stream()
+                List<CredentialField> existing =
+                        credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
+                toSign = credentialFieldCryptoService.decrypted(existing, credential.getInstitutionId()).stream()
                         .map(f -> new Field(f.getFieldName(), f.getFieldValue()))
                         .toList();
             }
@@ -325,12 +331,14 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         credentialFieldRepository.deleteByCredentialId(credential.getId());
         for (SignedCredential.FieldWithIndex field : signed.fields()) {
-            credentialFieldRepository.save(CredentialField.builder()
+            CredentialField toSave = CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
                     .fieldValue(field.value())
                     .merkleIndex(field.merkleIndex())
-                    .build());
+                    .build();
+            credentialFieldCryptoService.encryptForStorage(toSave, credential.getInstitutionId());
+            credentialFieldRepository.save(toSave);
         }
     }
 
@@ -365,14 +373,16 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .build());
 
         for (SignedCredential.FieldWithIndex field : signed.fields()) {
-            credentialFieldRepository.save(CredentialField.builder()
+            CredentialField toSave = CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
                     .fieldValue(field.value())
                     // The signed tree's index, never the loop counter - they must agree or
                     // proofs won't reconstruct.
                     .merkleIndex(field.merkleIndex())
-                    .build());
+                    .build();
+            credentialFieldCryptoService.encryptForStorage(toSave, institutionId);
+            credentialFieldRepository.save(toSave);
         }
         return credential;
     }

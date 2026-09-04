@@ -29,9 +29,11 @@ class GraduateServiceImplTest {
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
 
+    // null credentialFieldCryptoService: none of these tests touch getCredentialFields(),
+    // the only method that calls it.
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, null, null, null, null, null, null,
-            passwordEncoder, null);
+            passwordEncoder, null, null);
 
     private Credential pendingCredential(String email) {
         return Credential.builder()

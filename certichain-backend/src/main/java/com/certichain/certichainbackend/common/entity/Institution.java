@@ -61,6 +61,19 @@ public class Institution {
     @Column(name = "key_generated_at")
     private Instant keyGeneratedAt;
 
+    /**
+     * This institution's Data Encryption Key (DEK), itself encrypted ("wrapped") with the
+     * app-wide KEK - see EnvelopeEncryptionService. Same never-serialize rule as
+     * privateKeyEnc: backend-internal use only.
+     */
+    @JsonIgnore
+    @Column(name = "dek_wrapped")
+    private byte[] dekWrapped;
+
+    @JsonIgnore
+    @Column(name = "dek_iv")
+    private byte[] dekIv;
+
     @Column(name = "updated_at")
     private Instant updatedAt;
 
