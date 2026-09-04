@@ -16,7 +16,8 @@ Credential verification platform with an Accreditation Authority, Institution, G
 
 ```bash
 cd certichain-backend
-cp .env.example .env   # edit if your DB creds differ
+
+   # edit if your DB creds differ
 ./mvnw spring-boot:run # or mvnw.cmd on Windows cmd.exe
 ```
 
