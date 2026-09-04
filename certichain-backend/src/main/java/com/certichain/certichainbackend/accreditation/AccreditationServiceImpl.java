@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,13 +53,23 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final CurrentUser currentUser;
 
     @Override
-    @Cacheable(cacheNames = "accreditation", key = "'institutions:' + #status + ':' + #page + ':' + #size")
-    public Page<Institution> listInstitutions(String status, int page, int size) {
+    // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
+    // survive the Redis JSON round trip (InvalidDefinitionException: no Creators).
+    public Page<Institution> listInstitutions(String status, String q, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("appliedAt").descending());
-        if (status == null || status.isBlank()) {
-            return institutionRepository.findAll(pageRequest);
+        boolean hasStatus = status != null && !status.isBlank();
+        boolean hasQuery = q != null && !q.isBlank();
+        InstitutionStatus parsed = hasStatus ? parseStatus(status) : null;
+
+        if (hasQuery) {
+            String term = q.strip();
+            return hasStatus
+                    ? institutionRepository.searchByNameAndStatus(term, parsed, pageRequest)
+                    : institutionRepository.searchByName(term, pageRequest);
         }
-        return institutionRepository.findByStatus(parseStatus(status), pageRequest);
+        return hasStatus
+                ? institutionRepository.findByStatus(parsed, pageRequest)
+                : institutionRepository.findAll(pageRequest);
     }
 
     @Override
@@ -69,8 +80,18 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     @Cacheable(cacheNames = "accreditation", key = "'institution:' + #id")
-    public Institution getInstitution(UUID id) {
-        return load(id);
+    public InstitutionDetailResponse getInstitution(UUID id) {
+        Institution i = load(id);
+        User contact = userRepository.findByInstitutionId(id).stream()
+                .min(Comparator.comparing(User::getCreatedAt))   // oldest = the registrant
+                .orElse(null);
+        return new InstitutionDetailResponse(
+                i.getId(), i.getName(), i.getMinistry(), i.getStatus(), i.getStatusReason(),
+                i.getAppliedAt(), i.getDecidedAt(), i.getPublicKey(), i.getKeyAlgorithm(),
+                i.getKeyGeneratedAt(), i.getPhone(), i.getWebsite(), i.getProfileImageUrl(),
+                i.getBrandColor(), i.getAccentPattern(), i.getUpdatedAt(), i.getVersion(),
+                contact == null ? null : contact.getEmail(),
+                contact == null ? null : contact.getCreatedAt());
     }
 
     @Override
@@ -139,7 +160,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
-    @Cacheable(cacheNames = "accreditation", key = "'auditLog:' + #institutionId + ':' + #page + ':' + #size")
+    // Not @Cacheable: see listInstitutions - PageImpl does not survive Redis JSON.
     public Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("occurredAt").descending());
         Page<AuditLogEntry> entries = institutionId == null

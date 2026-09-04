@@ -4,10 +4,10 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { accreditationService } from '../api/api';
 import type { InstitutionStatusFilter } from '../types/types';
 
-export function useInstitutions(status: InstitutionStatusFilter, page = 0, size = 20) {
+export function useInstitutions(status: InstitutionStatusFilter, page = 0, size = 20, q = '') {
   return useQuery({
-    queryKey: ['institutions', status, page, size],
-    queryFn: () => accreditationService.listInstitutions(status, page, size),
+    queryKey: ['institutions', status, page, size, q],
+    queryFn: () => accreditationService.listInstitutions(status, page, size, q),
     // Paging keeps the current rows visible instead of flashing a skeleton.
     placeholderData: keepPreviousData,
     staleTime: 30 * 1000,

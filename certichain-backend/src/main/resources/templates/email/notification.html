@@ -1,0 +1,6 @@
+<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" th:replace="~{email/layout :: layout(~{::content})}">
+<body><div th:fragment="content">
+<h1 th:text="${title}" style="margin:0 0 8px;color:#02275A;font-size:18px;font-weight:800"></h1>
+<p th:text="${message}" style="margin:0 0 20px;color:#44474e;font-size:14px;line-height:1.7;white-space:pre-wrap"></p>
+<p th:if="${ctaUrl}" style="margin:0"><a th:href="${ctaUrl}" th:text="${ctaLabel ?: 'Open CertiChain'}" style="display:inline-block;background:#0462BA;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px;font-weight:700;font-size:14px"></a></p>
+</div></body></html>

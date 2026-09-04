@@ -24,13 +24,14 @@ public class AccreditationController {
     @GetMapping("/institutions")
     public Page<Institution> listInstitutions(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return accreditationService.listInstitutions(status, page, size);
+        return accreditationService.listInstitutions(status, q, page, size);
     }
 
     @GetMapping("/institutions/{id}")
-    public Institution getInstitution(@PathVariable UUID id) {
+    public InstitutionDetailResponse getInstitution(@PathVariable UUID id) {
         return accreditationService.getInstitution(id);
     }
 

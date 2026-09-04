@@ -22,7 +22,9 @@ export interface VerificationResponse {
   message?: string;
 }
 
-export type ShareVerificationResponse = VerificationResponse | VerificationResponse[];
+export type ShareRevokedResponse = { result: 'SHARE_REVOKED'; message: string };
+export type ShareTimelineWrapper = { scope: string; results: VerificationResponse[] };
+export type ShareVerificationResponse = VerificationResponse | VerificationResponse[] | ShareRevokedResponse | ShareTimelineWrapper;
 
 export interface TrustStats {
   institutionCount: number;

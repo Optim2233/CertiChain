@@ -4,8 +4,10 @@ import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.DisputeFlag;
 import com.certichain.certichainbackend.common.entity.Share;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,7 +28,33 @@ public class GraduateController {
 
     @PostMapping("/signup")
     public void signup(@RequestBody Map<String, String> body) {
-        graduateService.signup(body.get("email"), body.get("password"));
+        graduateService.signup(
+                body.get("email"), body.get("password"),
+                body.get("firstName"), body.get("lastName"), body.get("phone"));
+    }
+
+    @GetMapping("/profile")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public GraduateProfileResponse getProfile() {
+        return graduateService.getOwnProfile();
+    }
+
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('GRADUATE')")
+    public GraduateProfileResponse updateProfileMultipart(
+            @RequestParam(required = false) String firstName,
+            @RequestParam(required = false) String lastName,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String profileImageUrl,
+            @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
+        return graduateService.updateOwnProfile(firstName, lastName, phone, profileImageUrl, profileImage);
+    }
+
+    @PutMapping(value = "/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('GRADUATE')")
+    public GraduateProfileResponse updateProfileJson(@RequestBody Map<String, String> body) {
+        return graduateService.updateOwnProfile(body.get("firstName"), body.get("lastName"),
+                body.get("phone"), body.get("profileImageUrl"), null);
     }
 
     @GetMapping("/timeline")

@@ -24,12 +24,14 @@ import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
@@ -48,27 +50,33 @@ public class GraduateServiceImpl implements GraduateService {
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final AuditLogService auditLogService;
+    private final SupabaseStorageService supabaseStorageService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
 
     @Override
     public int checkPendingCredentials(String email) {
-        requireText(email, "email");
+        String norm = email == null ? null : email.trim().toLowerCase();
+        requireText(norm, "email");
         // Pre-signup preview only - deliberately creates nothing.
-        return credentialRepository.countByGraduateEmailAndStatus(email, CredentialStatus.PENDING_CLAIM);
+        return credentialRepository.countByGraduateEmailAndStatus(norm, CredentialStatus.PENDING_CLAIM);
     }
 
     @Override
     @Transactional
-    public void signup(String email, String password) {
-        requireText(email, "email");
+    public void signup(String email, String password, String firstName, String lastName, String phone) {
+        String normEmail = email == null ? null : email.trim().toLowerCase();
+        requireText(normEmail, "email");
         requireText(password, "password");
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmail(normEmail)) {
             throw new ValidationException("Email already registered");
         }
 
         User user = userRepository.save(User.builder()
-                .email(email)
+                .email(normEmail)
+                .firstName(firstName == null || firstName.isBlank() ? null : firstName.trim())
+                .lastName(lastName == null || lastName.isBlank() ? null : lastName.trim())
+                .phone(phone == null || phone.isBlank() ? null : phone.trim())
                 .passwordHash(passwordEncoder.encode(password))
                 .role(Role.GRADUATE)
                 .createdAt(Instant.now())
@@ -77,8 +85,10 @@ public class GraduateServiceImpl implements GraduateService {
 
         // Claim everything already issued to this email. Same transaction as the account
         // creation, so a half-claimed account can't exist.
+        // Graduate email stored normalized in InstitutionServiceImpl.issue().
+        String searchEmail = normEmail;
         List<Credential> pending = credentialRepository
-                .findByGraduateEmailAndStatus(email, CredentialStatus.PENDING_CLAIM);
+                .findByGraduateEmailAndStatus(searchEmail, CredentialStatus.PENDING_CLAIM);
         for (Credential credential : pending) {
             credential.setGraduateUserId(user.getId());
             credential.setStatus(CredentialStatus.ISSUED);
@@ -86,10 +96,64 @@ public class GraduateServiceImpl implements GraduateService {
         credentialRepository.saveAll(pending);
     }
 
-    // Not cached: the Redis serializer drops the element type of a cached List of records
-    // (records are final, so its default typing skips them) and the list comes back as
-    // LinkedHashMaps, failing only on a cache hit. This is a single indexed query, so the
-    // cache bought little anyway. See CacheSerializationTest, which pins that behaviour.
+    @Override
+    public GraduateProfileResponse getOwnProfile() {
+        return GraduateProfileResponse.from(loadCurrentUser());
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "currentUser", allEntries = true)
+    public GraduateProfileResponse updateOwnProfile(String firstName, String lastName, String phone,
+                                                    String profileImageUrl, MultipartFile profileImage) {
+        User user = loadCurrentUser();
+
+        String fn = trimToNull(firstName);
+        if (fn != null || firstName != null) {
+            if (fn != null && fn.length() > 100) throw new ValidationException("first name too long (max 100)");
+            user.setFirstName(fn);
+        }
+        String ln = trimToNull(lastName);
+        if (ln != null || lastName != null) {
+            if (ln != null && ln.length() > 100) throw new ValidationException("last name too long (max 100)");
+            user.setLastName(ln);
+        }
+        String ph = trimToNull(phone);
+        if (ph != null || phone != null) {
+            if (ph != null && ph.length() > 50) throw new ValidationException("phone too long (max 50)");
+            user.setPhone(ph);
+        }
+
+        if (profileImage != null && !profileImage.isEmpty()) {
+            user.setProfileImageUrl(supabaseStorageService.uploadImage("users/" + user.getId(), profileImage));
+        } else if (profileImageUrl != null) {
+            String trimmed = profileImageUrl.isBlank() ? null : profileImageUrl.trim();
+            if (trimmed != null && trimmed.length() > 2048) {
+                throw new ValidationException("profileImageUrl too long");
+            }
+            if (trimmed != null && !(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
+                throw new ValidationException("profileImageUrl must start with http:// or https://");
+            }
+            user.setProfileImageUrl(trimmed);
+        }
+
+        return GraduateProfileResponse.from(user);
+    }
+
+    private User loadCurrentUser() {
+        return userRepository.findById(currentUser.id())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    // Not cached: a single indexed query, the cache bought little. (The Redis serializer
+    // now writes type tags so records would survive a round trip - see CacheSerializationTest -
+    // but there's no reason to add caching here.)
     @Override
     public List<CredentialListItem> getTimeline() {
         return credentialRepository.findTimelineByGraduateUserId(currentUser.id());
@@ -151,7 +215,9 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'shares:' + @currentUser.id()")
+    // Not cached: a single indexed per-user query. Caching it in remote Redis added a
+    // read-after-evict lag window where the list right after createShare/revokeShare still
+    // served the stale value, so the freshly created row didn't show until a later refetch.
     public List<Share> listShares() {
         return shareRepository.findByGraduateUserIdOrderByCreatedAtDesc(currentUser.id());
     }
@@ -167,12 +233,14 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'shareActivity:' + @currentUser.id() + ':' + #shareId")
     public List<Instant> getShareActivity(UUID shareId) {
         ownShare(shareId);
+        // View events only - the create/revoke entries also carry this shareId, and
+        // including them made the activity list disagree with the share's viewCount.
         // Timestamps only - no viewer identity is recorded, by design (see
         // VerifierServiceImpl's class comment).
-        return auditLogEntryRepository.findByShareIdOrderByOccurredAtDesc(shareId).stream()
+        return auditLogEntryRepository
+                .findByShareIdAndEventOrderByOccurredAtDesc(shareId, AuditEvents.SHARE_VIEWED_EVENT).stream()
                 .map(AuditLogEntry::getOccurredAt)
                 .toList();
     }
@@ -258,7 +326,6 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'verificationHistory:' + @currentUser.id() + ':' + #credentialId")
     public List<Instant> getCredentialVerificationHistory(UUID credentialId) {
         ownCredential(credentialId);
         // Timestamps only - no verifier identity is ever recorded (same reasoning as

@@ -2,80 +2,102 @@ package com.certichain.certichainbackend.common.service.impl;
 
 import com.certichain.certichainbackend.common.service.EmailService;
 import jakarta.annotation.PostConstruct;
+import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-
-/**
- * Sends via Resend's HTTP API instead of raw SMTP. SMTP (ports 25/465/587) is routinely
- * blackholed by home routers/ISPs as an anti-spam-relay measure - confirmed on this project's
- * own dev network, where every SMTP port timed out but HTTPS worked instantly. An HTTP API
- * sidesteps that class of problem entirely, on any network this app is deployed to.
- */
 @Slf4j
 @Service
 public class EmailServiceImpl implements EmailService {
 
-    private static final URI RESEND_ENDPOINT = URI.create("https://api.resend.com/emails");
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .build();
-
-    private final String apiKey;
+    private final JavaMailSender mailSender;
+    private final TemplateEngine templateEngine;
     private final String fromAddress;
+    private final String frontendUrl;
+    private final String logoUrl;
     private final boolean configured;
 
-    public EmailServiceImpl(@Value("${resend.api-key:}") String apiKey,
-                             @Value("${resend.from:CertiChain <onboarding@resend.dev>}") String fromAddress) {
-        this.apiKey = apiKey;
-        this.fromAddress = fromAddress;
-        this.configured = apiKey != null && !apiKey.isBlank();
+    public EmailServiceImpl(JavaMailSender mailSender, TemplateEngine templateEngine,
+                            @Value("${spring.mail.username:}") String gmailAddress,
+                            @Value("${mail.from:}") String fromAddress,
+                            @Value("${certichain.frontend-url:http://localhost:3000}") String frontendUrl,
+                            @Value("${certichain.email.logo-url:}") String logoUrl) {
+        this.mailSender = mailSender;
+        this.templateEngine = templateEngine;
+        this.fromAddress = fromAddress != null && !fromAddress.isBlank() ? fromAddress : gmailAddress;
+        this.frontendUrl = frontendUrl;
+        this.logoUrl = logoUrl != null && !logoUrl.isBlank() ? logoUrl : frontendUrl.replaceAll("/$","") + "/certichain-shield.svg";
+        this.configured = gmailAddress != null && !gmailAddress.isBlank();
     }
 
     @PostConstruct
     void logConfigState() {
-        if (!configured) {
-            log.warn("RESEND_API_KEY is not set - email notifications are disabled (in-app notifications still work).");
-        }
+        if (!configured) log.warn("GMAIL_ADDRESS is not set - email notifications are disabled (in-app notifications still work).");
+        else log.info("Gmail SMTP configured, from={} logo={}", fromAddress, logoUrl);
     }
 
     @Override
     public void send(String to, String subject, String body) {
-        if (!configured) {
-            return; // Nothing to call - skip rather than fail on every notify().
-        }
-        // A Resend hiccup notifying a graduate must never fail the credential action that
-        // triggered it - log and move on, the in-app row already landed.
+        sendInternal(to, subject, body, null, null);
+    }
+
+    // Async so the SMTP round-trip never blocks the API request that triggered
+    // the email. Failures are already caught and logged inside each method.
+    @Async
+    public void sendPasswordReset(String to, String resetLink) {
+        if (!configured) return;
         try {
-            String json = """
-                    {"from":"%s","to":"%s","subject":"%s","text":"%s"}
-                    """.formatted(jsonEscape(fromAddress), jsonEscape(to), jsonEscape(subject), jsonEscape(body));
+            Context ctx = new Context();
+            ctx.setVariable("frontendUrl", frontendUrl);
+            ctx.setVariable("logoUrl", logoUrl);
+            ctx.setVariable("preheader", "Reset your CertiChain password — expires in 30 minutes");
+            ctx.setVariable("resetLink", resetLink);
+            String html = templateEngine.process("email/password-reset", ctx);
+            String text = "Reset your CertiChain password\n\nClick the link (expires in 30 minutes):\n" + resetLink + "\n\nIf you didn't request this, ignore this email.";
+            sendMime(to, "Reset your CertiChain password", text, html);
+        } catch (Exception ex) {
+            log.warn("Failed to send password-reset email to {}: {}", to, ex.getMessage());
+        }
+    }
 
-            HttpRequest request = HttpRequest.newBuilder(RESEND_ENDPOINT)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(10))
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
+    @Async
+    public void sendNotification(String to, String type, String message) {
+        String ctaUrl = null; String ctaLabel = null;
+        if (type != null && type.toLowerCase().contains("certificate")) { ctaUrl = frontendUrl + "/graduate"; ctaLabel = "View credentials"; }
+        sendInternal(to, "CertiChain: " + type, message, ctaUrl, ctaLabel);
+    }
 
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 300) {
-                log.warn("Resend rejected email to {}: HTTP {} - {}", to, response.statusCode(), response.body());
-            }
+    private void sendInternal(String to, String subject, String body, String ctaUrl, String ctaLabel) {
+        if (!configured) return;
+        try {
+            Context ctx = new Context();
+            ctx.setVariable("frontendUrl", frontendUrl);
+            ctx.setVariable("logoUrl", logoUrl);
+            ctx.setVariable("preheader", subject);
+            ctx.setVariable("title", subject);
+            ctx.setVariable("message", body);
+            ctx.setVariable("ctaUrl", ctaUrl);
+            ctx.setVariable("ctaLabel", ctaLabel);
+            String html = templateEngine.process("email/notification", ctx);
+            sendMime(to, subject, body, html);
         } catch (Exception ex) {
             log.warn("Failed to send email to {}: {}", to, ex.getMessage());
         }
     }
 
-    /** Minimal escaping for the handful of characters that would otherwise break this
-     * hand-built JSON - a real library is overkill for two string fields. */
-    private String jsonEscape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
+    private void sendMime(String to, String subject, String text, String html) throws Exception {
+        MimeMessage mime = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mime, false, "UTF-8");
+        helper.setFrom(fromAddress);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(text, html);
+        mailSender.send(mime);
     }
 }

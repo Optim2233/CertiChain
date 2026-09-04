@@ -10,7 +10,14 @@ certichain-frontend/Designs/
 hs_err_pid*.log
 replay_pid*.log
 
-# Kilo CLI session state
+# Playwright test output
+certichain-frontend/test-results/
+certichain-frontend/playwright-report/
+
+# IntelliJ editor-tab state (per-machine, not shared config)
+.idea/claudeCodeEditorTabs.xml
+
+# Kilo Code IDE state (per-machine worktrees and agent metadata)
 .kilo/
 
 # Vendored seed-script dependencies (reinstall via npm in scripts/seed)

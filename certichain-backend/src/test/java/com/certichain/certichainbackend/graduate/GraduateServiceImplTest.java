@@ -29,9 +29,14 @@ class GraduateServiceImplTest {
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
 
+    private final com.certichain.certichainbackend.common.service.SupabaseStorageService storageService =
+            mock(com.certichain.certichainbackend.common.service.SupabaseStorageService.class);
+    private final com.certichain.certichainbackend.auth.CurrentUser currentUser =
+            mock(com.certichain.certichainbackend.auth.CurrentUser.class);
+
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, null, null, null, null, null, null,
-            passwordEncoder, null);
+            storageService, passwordEncoder, currentUser);
 
     private Credential pendingCredential(String email) {
         return Credential.builder()
@@ -61,7 +66,7 @@ class GraduateServiceImplTest {
                 "alice@example.com", CredentialStatus.PENDING_CLAIM))
                 .thenReturn(List.of(first, second));
 
-        service.signup("alice@example.com", "password123");
+        service.signup("alice@example.com", "password123", null, null, null);
 
         assertEquals(CredentialStatus.ISSUED, first.getStatus());
         assertEquals(CredentialStatus.ISSUED, second.getStatus());
@@ -81,7 +86,7 @@ class GraduateServiceImplTest {
         when(credentialRepository.findByGraduateEmailAndStatus(anyString(), any()))
                 .thenReturn(List.of());
 
-        service.signup("alice@example.com", "password123");
+        service.signup("alice@example.com", "password123", null, null, null);
 
         org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
         org.mockito.Mockito.verify(userRepository).save(saved.capture());
@@ -94,13 +99,13 @@ class GraduateServiceImplTest {
         when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
 
         assertThrows(ValidationException.class,
-                () -> service.signup("taken@example.com", "password123"));
+                () -> service.signup("taken@example.com", "password123", null, null, null));
     }
 
     @Test
     void blankCredentialsAreRejected() {
-        assertThrows(ValidationException.class, () -> service.signup("", "password123"));
-        assertThrows(ValidationException.class, () -> service.signup("alice@example.com", "  "));
+        assertThrows(ValidationException.class, () -> service.signup("", "password123", null, null, null));
+        assertThrows(ValidationException.class, () -> service.signup("alice@example.com", "  ", null, null, null));
     }
 
     @Test
@@ -110,5 +115,57 @@ class GraduateServiceImplTest {
 
         assertEquals(3, service.checkPendingCredentials("alice@example.com"));
         org.mockito.Mockito.verify(userRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    // --- profile ---
+
+    private User meWith(String first, String last, String phone, String img) {
+        UUID id = UUID.randomUUID();
+        when(currentUser.id()).thenReturn(id);
+        User u = User.builder().id(id).email("me@x.com").firstName(first).lastName(last)
+                .phone(phone).profileImageUrl(img).build();
+        when(userRepository.findById(id)).thenReturn(java.util.Optional.of(u));
+        return u;
+    }
+
+    @Test
+    void updateProfileTrimsAndPersistsNameAndPhone() {
+        User u = meWith(null, null, null, null);
+
+        GraduateProfileResponse r = service.updateOwnProfile("  Ada ", " Lovelace ", " +1 555 ", null, null);
+
+        assertEquals("Ada", u.getFirstName());
+        assertEquals("Lovelace", u.getLastName());
+        assertEquals("+1 555", u.getPhone());
+        assertEquals("Ada", r.firstName());
+    }
+
+    @Test
+    void blankProfileImageUrlClearsAnExistingPhoto() {
+        User u = meWith("Ada", "L", null, "https://old/pic.jpg");
+
+        service.updateOwnProfile(null, null, null, "", null);
+
+        assertEquals(null, u.getProfileImageUrl());
+    }
+
+    @Test
+    void uploadedFileRoutesToStorageAndStoresTheReturnedUrl() {
+        User u = meWith("Ada", "L", null, null);
+        org.springframework.web.multipart.MultipartFile file =
+                mock(org.springframework.web.multipart.MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(storageService.uploadImage(anyString(), any())).thenReturn("https://cdn/new.png");
+
+        service.updateOwnProfile(null, null, null, null, file);
+
+        assertEquals("https://cdn/new.png", u.getProfileImageUrl());
+    }
+
+    @Test
+    void nonHttpProfileImageUrlIsRejected() {
+        meWith(null, null, null, null);
+        assertThrows(ValidationException.class,
+                () -> service.updateOwnProfile(null, null, null, "ftp://x/y.png", null));
     }
 }
