@@ -804,6 +804,164 @@
     "verifyAnother": "Verify another",
     "shareFooter": "CertiChain is a blockchain-backed credential network."
   },
+  "landing": {
+    "nav": {
+      "home": "Home",
+      "howItWorks": "How It Works",
+      "features": "Features",
+      "institutions": "Institutions",
+      "verifyCredential": "Verify Credential",
+      "contact": "Contact",
+      "loginRegister": "Login / Register"
+    },
+    "hero": {
+      "headline": "Credentials You Can <trust>Trust.</trust> Proof That Moves With You.",
+      "subtitle": "A secure digital credential platform for institutions, graduates, and verifiers. Issue, manage, and verify academic achievements with confidence.",
+      "verifyCta": "Verify a Credential",
+      "exploreCta": "Explore the Platform",
+      "trustSecure": "Secure",
+      "trustSecureSub": "Digitally Signed",
+      "trustTrusted": "Trusted",
+      "trustTrustedSub": "Accredited Institutions",
+      "trustInstant": "Instant",
+      "trustInstantSub": "Real-time Verification",
+      "card": {
+        "label": "Verified Credential",
+        "verified": "VERIFIED",
+        "degree": "Bachelor of Science in Information Technology",
+        "graduate": "Sample Graduate",
+        "university": "University of Information Technology",
+        "graduated": "Graduated: May 2026",
+        "credentialId": "Credential ID: CRD-2026-000124",
+        "checkSigned": "Digitally Signed",
+        "checkAccredited": "Institution Accredited",
+        "checkValid": "Credential Valid"
+      }
+    },
+    "roles": {
+      "getStarted": "Get Started",
+      "title": "Who are you?",
+      "subtitle": "Choose your role to access the right portal.",
+      "institution": {
+        "title": "Institution",
+        "desc": "Issue, manage and verify certificates for your graduates.",
+        "cta": "Enter Portal"
+      },
+      "graduate": {
+        "title": "Graduate",
+        "desc": "View, manage and share your digital credentials securely.",
+        "cta": "Open My Wallet",
+        "badge": "Secure Wallet"
+      },
+      "verifier": {
+        "title": "Verifier",
+        "desc": "Verify credentials instantly and ensure authenticity with confidence.",
+        "cta": "Verify Credential"
+      },
+      "authority": {
+        "title": "Accreditation Authority",
+        "desc": "Review, accredit and maintain the trust registry.",
+        "cta": "Authority Portal"
+      }
+    },
+    "how": {
+      "kicker": "How It Works",
+      "title": "Simple. Secure. Trusted.",
+      "step1": {
+        "label": "Institution Issues",
+        "desc": "Institutions create and digitally sign credentials."
+      },
+      "step2": {
+        "label": "Graduate Receives",
+        "desc": "Graduates receive and store their credentials in a wallet."
+      },
+      "step3": {
+        "label": "Graduate Shares",
+        "desc": "Graduates share credentials with selective disclosure."
+      },
+      "step4": {
+        "label": "Verifier Checks",
+        "desc": "Verifiers check authenticity and credential status."
+      },
+      "step5": {
+        "label": "Verified",
+        "desc": "Trust is established. Credential is verified."
+      }
+    },
+    "instant": {
+      "kicker": "Verify Any Credential",
+      "title": "Instant Verification",
+      "subtitle": "Enter a credential ID or scan a QR code to verify authenticity in real-time.",
+      "tabId": "Credential ID",
+      "tabQr": "Scan QR Code",
+      "placeholder": "Enter Credential ID (e.g. CRD-2026-000124)",
+      "verifyNow": "Verify Now",
+      "qrContinue": "Continue to QR scanner",
+      "howItWorks": "How verification works",
+      "verified": "CREDENTIAL VERIFIED",
+      "verifiedSub": "Authentic · Valid · Trusted"
+    },
+    "features": {
+      "kicker": "Verify Any Credential",
+      "title": "Everything you need for trusted credentials",
+      "signatures": {
+        "title": "Digital Signatures",
+        "desc": "Cryptographically sign credentials to ensure authenticity and integrity."
+      },
+      "disclosure": {
+        "title": "Selective Disclosure",
+        "desc": "Share only the necessary information while keeping the rest private."
+      },
+      "qr": {
+        "title": "QR Verification",
+        "desc": "Verify credentials instantly using QR codes anywhere, anytime."
+      },
+      "trust": {
+        "title": "Trust Registry",
+        "desc": "All institutions are verified and managed by the authority."
+      },
+      "revocation": {
+        "title": "Revocation",
+        "desc": "Revoke or suspend credentials when necessary."
+      },
+      "records": {
+        "title": "Activity Records",
+        "desc": "Issue verifiable activity records as digital credentials."
+      }
+    },
+    "stats": {
+      "verified": "Certificates Verified",
+      "institutions": "Trusted Institutions",
+      "signed": "Digitally Signed",
+      "availability": "System Availability"
+    },
+    "inst": {
+      "kicker": "Trusted Institutions",
+      "title": "Our Accredited Institutions",
+      "empty": "No institutions have been accredited yet.",
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "cta": {
+      "title": "Your Achievement Deserves Proof.",
+      "subtitle": "Issue it. Own it. Share it. Verify it.",
+      "verify": "Verify a Credential",
+      "portal": "Access Your Portal"
+    },
+    "footer": {
+      "tagline": "Building a trusted future through secure digital credentials.",
+      "platform": "Platform",
+      "howItWorks": "How It Works",
+      "features": "Features",
+      "institutions": "Institutions",
+      "verify": "Verify Credential",
+      "accounts": "Accounts",
+      "login": "Log In",
+      "register": "Register Your Institution",
+      "registerGraduate": "Create a Graduate Account",
+      "copyright": "© 2026 CertiChain. All rights reserved."
+    }
+  },
   "error": {
     "pageTitle": "Couldn't load this page",
     "pageSub": "Something went wrong fetching your data. Retrying usually fixes it.",

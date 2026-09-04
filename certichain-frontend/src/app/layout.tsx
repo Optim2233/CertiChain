@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${manrope.variable} ${ibmPlexSans.variable} ${notoSansMyanmar.variable}`}>
+    <html lang="en" className={`scroll-smooth ${manrope.variable} ${ibmPlexSans.variable} ${notoSansMyanmar.variable}`}>
       {/* suppressHydrationWarning: password-manager / form-fill extensions inject
           attributes into inputs (and thus mutate the tree) before React hydrates.
           Only suppresses attribute diffs directly on <body>, not deeper. */}
