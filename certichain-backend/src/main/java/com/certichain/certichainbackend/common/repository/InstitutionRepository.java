@@ -13,7 +13,12 @@ import java.util.List;
 import java.util.UUID;
 
 public interface InstitutionRepository extends JpaRepository<Institution, UUID> {
+
     Page<Institution> findByStatus(InstitutionStatus status, Pageable pageable);
+
+    List<Institution> findByStatusAndDekWrappedIsNull(InstitutionStatus status);
+
+    List<Institution> findByDekWrappedIsNotNull();
 
     @Query("SELECT i FROM Institution i WHERE lower(i.name) LIKE lower(concat('%', :q, '%'))")
     Page<Institution> searchByName(@Param("q") String q, Pageable pageable);

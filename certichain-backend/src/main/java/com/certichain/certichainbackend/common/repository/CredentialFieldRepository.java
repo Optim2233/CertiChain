@@ -11,5 +11,6 @@ public interface CredentialFieldRepository extends JpaRepository<CredentialField
     List<CredentialField> findByCredentialIdOrderByMerkleIndex(UUID credentialId);
     List<CredentialField> findByCredentialIdIn(Collection<UUID> credentialIds);
     List<CredentialField> findByCredentialIdInAndFieldName(Collection<UUID> credentialIds, String fieldName);
+    List<CredentialField> findByFieldValueIvIsNull();
     void deleteByCredentialId(UUID credentialId);
 }
