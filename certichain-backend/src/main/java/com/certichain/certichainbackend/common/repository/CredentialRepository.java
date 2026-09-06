@@ -39,12 +39,18 @@ public interface CredentialRepository extends JpaRepository<Credential, UUID> {
 
     List<Credential> findByGraduateEmailAndStatus(String graduateEmail, CredentialStatus status);
 
+    /** Encrypted-email lookups - pass {@code PiiCryptoService.emailHmac(normalizedEmail)}. */
+    List<Credential> findByGraduateEmailHmacAndStatus(String graduateEmailHmac, CredentialStatus status);
+
     // Dedup guard: a matching non-revoked merkle_root means this exact field set was
     // already issued by this institution. Backed by uq_credential_institution_merkle_active.
     boolean existsByInstitutionIdAndMerkleRootAndStatusNot(
             UUID institutionId, String merkleRoot, CredentialStatus status);
 
     int countByGraduateEmailAndStatus(String graduateEmail, CredentialStatus status);
+
+    /** Encrypted-email lookups - pass {@code PiiCryptoService.emailHmac(normalizedEmail)}. */
+    int countByGraduateEmailHmacAndStatus(String graduateEmailHmac, CredentialStatus status);
 
     int countByInstitutionId(UUID institutionId);
 

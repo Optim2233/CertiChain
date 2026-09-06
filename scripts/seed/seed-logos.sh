@@ -35,8 +35,10 @@ for pair in $ROWS; do
   curl -s -c "$TMP/j" -X POST "$BASE/api/auth/login" \
     -H 'Content-Type: application/json' \
     -d "{\"email\":\"$email\",\"password\":\"$PW\"}" >/dev/null
+  # ponytail: no ;type= suffix - mingw curl 8.x fails to read the file with it (HTTP 000);
+  # curl sniffs image/png from the .png name and the backend validates the extension anyway.
   code="$(curl -s -o /dev/null -w '%{http_code}' -b "$TMP/j" \
-    -X PUT "$BASE/api/institution/me" -F "profileImage=@${logo};type=image/png")"
+    -X PUT "$BASE/api/institution/me" -F "profileImage=@${logo}")"
   if [[ "$code" == "200" ]]; then
     echo "ok    $email <- $domain"; ok=$((ok+1))
   else

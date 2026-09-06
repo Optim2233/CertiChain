@@ -54,7 +54,8 @@ class GraduateSharesAndDisputesTest {
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, credentialFieldRepository, shareRepository,
             shareFieldSelectionRepository, disputeFlagRepository, auditLogEntryRepository,
-            auditLogService, null, null, currentUser, null);
+            auditLogService, null, null, currentUser, null,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     {
         when(currentUser.id()).thenReturn(meId);
@@ -208,6 +209,13 @@ class GraduateSharesAndDisputesTest {
 
         assertEquals(DisputeStatus.OPEN, flag.getStatus());
         assertEquals(meId, flag.getGraduateUserId());
+        // caller gets plaintext back...
+        assertEquals("Wrong GPA", flag.getReason());
+        // ...while the persisted row holds ciphertext
+        org.mockito.ArgumentCaptor<DisputeFlag> saved =
+                org.mockito.ArgumentCaptor.forClass(DisputeFlag.class);
+        verify(disputeFlagRepository).save(saved.capture());
+        org.junit.jupiter.api.Assertions.assertNotEquals("Wrong GPA", saved.getValue().getReason());
     }
 
     // --- empty-collection guards (empty IN () is a SQL error) ---

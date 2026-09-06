@@ -10,6 +10,9 @@ certichain-frontend/Designs/
 hs_err_pid*.log
 replay_pid*.log
 
+# Ad-hoc local run logs (dev servers, backfill runs) - never commit
+*.log
+
 # Playwright test output
 certichain-frontend/test-results/
 certichain-frontend/playwright-report/

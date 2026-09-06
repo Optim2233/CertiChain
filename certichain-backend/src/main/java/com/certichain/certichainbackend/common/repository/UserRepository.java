@@ -12,5 +12,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
+    /** Encrypted-email lookups - pass {@code PiiCryptoService.emailHmac(normalizedEmail)}. */
+    Optional<User> findByEmailHmac(String emailHmac);
+
+    boolean existsByEmailHmac(String emailHmac);
+
     List<User> findByInstitutionId(UUID institutionId);
 }

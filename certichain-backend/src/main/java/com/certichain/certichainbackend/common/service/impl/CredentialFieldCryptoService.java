@@ -4,6 +4,7 @@ import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.Institution;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.service.EncryptedPayload;
+import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -104,6 +105,21 @@ public class CredentialFieldCryptoService {
             }
         });
         return titles;
+    }
+
+    /** The institution's unwrapped DEK - shared with PiiCryptoService for institution-scoped PII. */
+    public SecretKey institutionDek(UUID institutionId) {
+        return unwrapDek(institutionId);
+    }
+
+    /** Mint + KEK-wrap a fresh DEK (apply-time; approve()/reinstate() keep mint-if-unset). */
+    public SecretKey generateDek() {
+        return envelopeEncryptionService.generateDek();
+    }
+
+    /** KEK-wrap a DEK for storage. */
+    public EncryptedPayload wrapDek(SecretKey dek) {
+        return envelopeEncryptionService.encrypt(dek.getEncoded(), envelopeEncryptionService.kek());
     }
 
     private SecretKey unwrapDek(UUID institutionId) {

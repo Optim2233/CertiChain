@@ -31,7 +31,8 @@ class BulkVerifyVigorousTest {
     private final CredentialFieldCryptoService credentialFieldCryptoService = passthroughCrypto();
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository, mock(com.certichain.certichainbackend.common.repository.ShareRepository.class),
-            mock(com.certichain.certichainbackend.common.repository.ShareFieldSelectionRepository.class), merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService);
+            mock(com.certichain.certichainbackend.common.repository.ShareFieldSelectionRepository.class), merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     private static CredentialFieldCryptoService passthroughCrypto() {
         CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);

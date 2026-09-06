@@ -47,4 +47,16 @@ public record CredentialListItem(
                 institutionMedalPosition, institutionMedalIcon, institutionMedalSize,
                 institutionWatermarkIcon);
     }
+
+    /** Copy with a decrypted graduate email (same ciphertext-straight-from-the-DB problem as title). */
+    public CredentialListItem withGraduateEmail(String replacement) {
+        return new CredentialListItem(id, type, title, institutionName, replacement, status,
+                revokeReason, merkleRoot, signature, issuedAt, expiresAt,
+                institutionBrandColor, institutionSecondaryBrandColor, institutionLogoUrl,
+                institutionAccentPattern, institutionAccentColor, institutionWatermarkOpacity,
+                institutionPatternScale, institutionCardRadius, institutionTitleFont,
+                institutionLogoShape, institutionMedalStyle, institutionMedalShape,
+                institutionMedalPosition, institutionMedalIcon, institutionMedalSize,
+                institutionWatermarkIcon);
+    }
 }

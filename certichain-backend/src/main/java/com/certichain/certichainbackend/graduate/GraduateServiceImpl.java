@@ -26,9 +26,11 @@ import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,30 +59,33 @@ public class GraduateServiceImpl implements GraduateService {
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
     private final CredentialFieldCryptoService credentialFieldCryptoService;
+    private final PiiCryptoService piiCryptoService;
 
     @Override
     public int checkPendingCredentials(String email) {
-        String norm = email == null ? null : email.trim().toLowerCase();
+        String norm = PiiCryptoService.normalizeEmail(email);
         requireText(norm, "email");
         // Pre-signup preview only - deliberately creates nothing.
-        return credentialRepository.countByGraduateEmailAndStatus(norm, CredentialStatus.PENDING_CLAIM);
+        return credentialRepository.countByGraduateEmailHmacAndStatus(
+                piiCryptoService.emailHmac(norm), CredentialStatus.PENDING_CLAIM);
     }
 
     @Override
     @Transactional
     public void signup(String email, String password, String firstName, String lastName, String phone) {
-        String normEmail = email == null ? null : email.trim().toLowerCase();
+        String normEmail = PiiCryptoService.normalizeEmail(email);
         requireText(normEmail, "email");
         requireText(password, "password");
-        if (userRepository.existsByEmail(normEmail)) {
+        if (userRepository.existsByEmailHmac(piiCryptoService.emailHmac(normEmail))) {
             throw new ValidationException("Email already registered");
         }
 
         User user = userRepository.save(User.builder()
-                .email(normEmail)
-                .firstName(firstName == null || firstName.isBlank() ? null : firstName.trim())
-                .lastName(lastName == null || lastName.isBlank() ? null : lastName.trim())
-                .phone(phone == null || phone.isBlank() ? null : phone.trim())
+                .email(piiCryptoService.encryptUserField(normEmail))
+                .emailHmac(piiCryptoService.emailHmac(normEmail))
+                .firstName(piiCryptoService.encryptUserField(trimToNull(firstName)))
+                .lastName(piiCryptoService.encryptUserField(trimToNull(lastName)))
+                .phone(piiCryptoService.encryptUserField(trimToNull(phone)))
                 .passwordHash(passwordEncoder.encode(password))
                 .role(Role.GRADUATE)
                 .createdAt(Instant.now())
@@ -90,9 +95,9 @@ public class GraduateServiceImpl implements GraduateService {
         // Claim everything already issued to this email. Same transaction as the account
         // creation, so a half-claimed account can't exist.
         // Graduate email stored normalized in InstitutionServiceImpl.issue().
-        String searchEmail = normEmail;
         List<Credential> pending = credentialRepository
-                .findByGraduateEmailAndStatus(searchEmail, CredentialStatus.PENDING_CLAIM);
+                .findByGraduateEmailHmacAndStatus(piiCryptoService.emailHmac(normEmail),
+                        CredentialStatus.PENDING_CLAIM);
         for (Credential credential : pending) {
             credential.setGraduateUserId(user.getId());
             credential.setStatus(CredentialStatus.ISSUED);
@@ -102,7 +107,7 @@ public class GraduateServiceImpl implements GraduateService {
 
     @Override
     public GraduateProfileResponse getOwnProfile() {
-        return GraduateProfileResponse.from(loadCurrentUser());
+        return decryptedProfile(loadCurrentUser());
     }
 
     @Override
@@ -115,17 +120,17 @@ public class GraduateServiceImpl implements GraduateService {
         String fn = trimToNull(firstName);
         if (fn != null || firstName != null) {
             if (fn != null && fn.length() > 100) throw new ValidationException("first name too long (max 100)");
-            user.setFirstName(fn);
+            user.setFirstName(piiCryptoService.encryptUserField(fn));
         }
         String ln = trimToNull(lastName);
         if (ln != null || lastName != null) {
             if (ln != null && ln.length() > 100) throw new ValidationException("last name too long (max 100)");
-            user.setLastName(ln);
+            user.setLastName(piiCryptoService.encryptUserField(ln));
         }
         String ph = trimToNull(phone);
         if (ph != null || phone != null) {
             if (ph != null && ph.length() > 50) throw new ValidationException("phone too long (max 50)");
-            user.setPhone(ph);
+            user.setPhone(piiCryptoService.encryptUserField(ph));
         }
 
         if (profileImage != null && !profileImage.isEmpty()) {
@@ -141,7 +146,17 @@ public class GraduateServiceImpl implements GraduateService {
             user.setProfileImageUrl(trimmed);
         }
 
-        return GraduateProfileResponse.from(user);
+        return decryptedProfile(user);
+    }
+
+    /** Decrypt-on-read copy so ciphertext on the managed entity is never flushed as plaintext. */
+    private GraduateProfileResponse decryptedProfile(User user) {
+        return new GraduateProfileResponse(
+                piiCryptoService.decryptUserField(user.getEmail()),
+                piiCryptoService.decryptUserField(user.getFirstName()),
+                piiCryptoService.decryptUserField(user.getLastName()),
+                piiCryptoService.decryptUserField(user.getPhone()),
+                user.getProfileImageUrl());
     }
 
     private User loadCurrentUser() {
@@ -166,15 +181,33 @@ public class GraduateServiceImpl implements GraduateService {
         }
         // The join in findTimelineByGraduateUserId reads the "title" field_value straight from
         // the DB, so it comes back as ciphertext - swap in the decrypted titles here.
+        // Same for graduateEmail (KEK envelope): decrypt once, the timeline is one user's own rows.
         List<UUID> credentialIds = items.stream().map(CredentialListItem::id).toList();
         Map<UUID, UUID> credentialToInstitution = credentialRepository.findAllById(credentialIds).stream()
                 .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
-        Map<UUID, String> titles = credentialFieldCryptoService.decryptedTitlesByCredential(
-                credentialToInstitution,
-                credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
-        return items.stream()
-                .map(item -> titles.containsKey(item.id()) ? item.withTitle(titles.get(item.id())) : item)
-                .toList();
+        // Own email is best-effort here: it must never take down the title path.
+        String ownEmail = null;
+        try {
+            ownEmail = piiCryptoService.decryptUserField(loadCurrentUser().getEmail());
+        } catch (RuntimeException ignored) {
+        }
+        final String emailForItems = ownEmail;
+        try {
+            Map<UUID, String> titles = credentialFieldCryptoService.decryptedTitlesByCredential(
+                    credentialToInstitution,
+                    credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
+            return items.stream()
+                    .map(item -> {
+                        CredentialListItem withTitle = titles.containsKey(item.id())
+                                ? item.withTitle(titles.get(item.id())) : item;
+                        return withTitle.withGraduateEmail(emailForItems);
+                    })
+                    .toList();
+        } catch (RuntimeException e) {
+            // ponytail: one bad DEK/title must not 500 the whole timeline; fail closed to
+            // null titles (never the raw join value, which is ciphertext straight from the DB).
+            return items.stream().map(item -> item.withTitle(null).withGraduateEmail(null)).toList();
+        }
     }
 
     @Override
@@ -277,25 +310,33 @@ public class GraduateServiceImpl implements GraduateService {
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "graduate", allEntries = true)
+    // A new flag must show on the institution's table immediately, not after the 5-min TTL.
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "graduate", allEntries = true),
+            @CacheEvict(cacheNames = "institution", allEntries = true)})
     public DisputeFlag flagCredential(UUID credentialId, String reason) {
         requireText(reason, "reason");
-        ownCredential(credentialId);
+        Credential credential = ownCredential(credentialId);
         // OPEN doesn't change what verifiers see - only the institution's resolution does.
-        return disputeFlagRepository.save(DisputeFlag.builder()
+        DisputeFlag saved = disputeFlagRepository.save(DisputeFlag.builder()
                 .credentialId(credentialId)
                 .graduateUserId(currentUser.id())
-                .reason(reason)
+                .reason(piiCryptoService.encryptInstitutionField(
+                        reason.trim(), credential.getInstitutionId()))
                 .status(DisputeStatus.OPEN)
                 .createdAt(Instant.now())
                 .build());
+        return piiCryptoService.decryptedFlagCopy(saved, credential.getInstitutionId());
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'flags:' + @currentUser.id() + ':' + #credentialId")
+    // Not cached: returns decrypted copies, and plaintext PII must not sit in Redis.
     public List<DisputeFlag> getCredentialFlags(UUID credentialId) {
-        ownCredential(credentialId);
-        return disputeFlagRepository.findByCredentialId(credentialId);
+        Credential credential = ownCredential(credentialId);
+        UUID instId = credential.getInstitutionId();
+        return disputeFlagRepository.findByCredentialId(credentialId).stream()
+                .map(f -> piiCryptoService.decryptedFlagCopy(f, instId))
+                .toList();
     }
 
     @Override
@@ -309,23 +350,39 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'openDisputes:' + @currentUser.id()")
+    // Not cached: returns decrypted copies, and plaintext PII must not sit in Redis.
     public List<DisputeFlag> listOpenDisputes() {
         List<UUID> credentialIds = myCredentialIds();
         if (credentialIds.isEmpty()) {
             return List.of();
         }
-        return disputeFlagRepository.findByCredentialIdInAndStatus(credentialIds, DisputeStatus.OPEN);
+        return decryptedFlags(
+                disputeFlagRepository.findByCredentialIdInAndStatus(credentialIds, DisputeStatus.OPEN));
     }
 
     @Override
-    @Cacheable(cacheNames = "graduate", key = "'allDisputes:' + @currentUser.id()")
+    // Not cached: returns decrypted copies, and plaintext PII must not sit in Redis.
     public List<DisputeFlag> listAllDisputes() {
         List<UUID> credentialIds = myCredentialIds();
         if (credentialIds.isEmpty()) {
             return List.of();
         }
-        return disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds);
+        return decryptedFlags(
+                disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds));
+    }
+
+    /** Decrypt-on-read copies (never mutate managed flags - JPA would flush plaintext). */
+    private List<DisputeFlag> decryptedFlags(List<DisputeFlag> flags) {
+        if (flags.isEmpty()) {
+            return flags;
+        }
+        Map<UUID, UUID> instByCredential = credentialRepository.findAllById(flags.stream()
+                        .map(DisputeFlag::getCredentialId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
+        return flags.stream()
+                .map(f -> piiCryptoService.decryptedFlagCopy(
+                        f, instByCredential.get(f.getCredentialId())))
+                .toList();
     }
 
     private List<UUID> myCredentialIds() {

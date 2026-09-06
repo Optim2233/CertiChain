@@ -54,7 +54,8 @@ class VerifierShareAndBulkTest {
 
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository, shareRepository,
-            shareFieldSelectionRepository, merkleService, auditLogService, auditLogEntryRepository, credentialFieldCryptoService);
+            shareFieldSelectionRepository, merkleService, auditLogService, auditLogEntryRepository, credentialFieldCryptoService,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     private static CredentialFieldCryptoService passthroughCrypto() {
         CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);

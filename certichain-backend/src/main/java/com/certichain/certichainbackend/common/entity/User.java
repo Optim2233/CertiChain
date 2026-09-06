@@ -23,6 +23,10 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    /** Hex HMAC-SHA256 of the normalized email - exact-match lookups on encrypted emails. */
+    @Column(name = "email_hmac", length = 64, unique = true)
+    private String emailHmac;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 

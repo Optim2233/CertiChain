@@ -11,6 +11,8 @@ import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.EnvelopeEncryptionServiceImpl;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import javax.crypto.SecretKey;
 import java.util.List;
@@ -68,7 +70,10 @@ class LegacyEncryptionBackfillTest {
         when(institutionRepository.findById(legacyInstitutionId)).thenReturn(Optional.of(withoutDek));
         when(institutionRepository.findById(withDek.getId())).thenReturn(Optional.of(withDek));
         when(credentialRepository.findAllById(any())).thenReturn(List.of(credential));
-        when(credentialFieldRepository.findByFieldValueIvIsNull()).thenReturn(List.of(title));
+        when(credentialFieldRepository.countByFieldValueIvIsNull()).thenReturn(1L);
+        when(credentialFieldRepository.findByFieldValueIvIsNull(any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(title)),
+                        new PageImpl<>(List.of()));
 
         backfill.run();
 

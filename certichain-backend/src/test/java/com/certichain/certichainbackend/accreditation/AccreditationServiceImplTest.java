@@ -10,6 +10,7 @@ import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
+import com.certichain.certichainbackend.support.TestCrypto;
 import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.impl.EnvelopeEncryptionServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -49,10 +50,12 @@ class AccreditationServiceImplTest {
     // to do real AES-GCM work rather than return nulls that would NPE inside encrypt().
     private final EnvelopeEncryptionService envelopeEncryptionService =
             new EnvelopeEncryptionServiceImpl("A".repeat(32));
+    private final com.certichain.certichainbackend.common.service.impl.PiiCryptoService pii =
+            TestCrypto.pii();
 
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
             institutionRepository, null, auditLogService, notificationService, userRepository,
-            institutionDocumentRepository, null, currentUser, envelopeEncryptionService);
+            institutionDocumentRepository, null, currentUser, envelopeEncryptionService, pii);
 
     private Institution institutionWith(InstitutionStatus status) {
         Institution institution = Institution.builder()
@@ -102,7 +105,8 @@ class AccreditationServiceImplTest {
         Institution approved = institutionWith(InstitutionStatus.APPROVED);
         service.suspend(approved.getId(), "Under investigation");
         assertEquals(InstitutionStatus.SUSPENDED, approved.getStatus());
-        assertEquals("Under investigation", approved.getStatusReason());
+        assertEquals("Under investigation",
+                pii.decryptInstitutionField(approved.getStatusReason(), approved.getId()));
     }
 
     @Test
@@ -147,7 +151,8 @@ class AccreditationServiceImplTest {
         service.requestInfo(institution.getId(), "Please attach the ministry letter");
 
         assertEquals(InstitutionStatus.PENDING, institution.getStatus());
-        assertEquals("Please attach the ministry letter", institution.getStatusReason());
+        assertEquals("Please attach the ministry letter", pii.decryptInstitutionField(
+                institution.getStatusReason(), institution.getId()));
         assertEquals(null, institution.getDecidedAt());
         verify(auditLogService, times(1))
                 .log(eq("Information requested"), any(), eq(institution.getId()), isNull());

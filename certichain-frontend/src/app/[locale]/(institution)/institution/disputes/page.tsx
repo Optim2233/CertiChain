@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useRouter } from "@/i18n/navigation"
 import { useDisputes, useDismissDispute } from "@/features/institution"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { translateDisputeReason } from "@/shared/lib/dispute-reason"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string }> = {
   OPEN: { bg: "#fff3d6", color: "#a5730f", icon: "schedule" },
@@ -17,7 +18,7 @@ export default function InstitutionDisputesPage() {
   const tc = useTranslations("common")
   const locale = useLocale()
   const router = useRouter()
-  const { data, isLoading } = useDisputes()
+  const { data, isLoading, isError, refetch } = useDisputes()
   const disputes = data?.data ?? []
   const dismiss = useDismissDispute()
 
@@ -83,6 +84,13 @@ export default function InstitutionDisputesPage() {
         </div>
         {isLoading ? (
           <TableSkeleton columns="2fr 1.8fr 2fr 1fr 1.2fr 1.4fr" />
+        ) : isError ? (
+          <div className="flex items-center gap-3 p-6 text-sm text-[#44474e]">
+            <span>{tc("errorLabel")}</span>
+            <button type="button" onClick={() => refetch()} className="font-semibold underline" style={{ color: "#02275A" }}>
+              {tc("retry")}
+            </button>
+          </div>
         ) : disputes.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">{t("noDisputes")}</p>
         ) : (
@@ -98,7 +106,7 @@ export default function InstitutionDisputesPage() {
                     </span>
                   </div>
                   <span className="text-[13px] text-[#44474e]">{d.graduateEmail ?? "—"}</span>
-                  <span className="text-[13px] text-[#44474e]">{d.reason}</span>
+                  <span className="text-[13px] text-[#44474e]">{translateDisputeReason(d.reason, t)}</span>
                   <span className="text-[13px] text-[#44474e]">{new Date(d.createdAt).toLocaleDateString(locale)}</span>
                   <span className="inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: style.bg, color: style.color }}>
                     <span className="material-symbols-outlined text-[14px]">{style.icon}</span>

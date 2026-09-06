@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useAllDisputes, useFlagCredential, useTimeline } from "@/features/graduate"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
+import { translateDisputeReason } from "@/shared/lib/dispute-reason"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; key: "underReview" | "upheld" | "dismissed" }> = {
   OPEN: { bg: "#fff3d6", color: "#a5730f", icon: "schedule", key: "underReview" },
@@ -16,7 +17,7 @@ export default function GraduateDisputesPage() {
   const t = useTranslations("graduate")
   const tc = useTranslations("common")
   const locale = useLocale()
-  const { data, isLoading } = useAllDisputes()
+  const { data, isLoading, isError, refetch } = useAllDisputes()
   const disputes = data?.data ?? []
   const { data: timelineData } = useTimeline()
   const credentials = timelineData?.data ?? []
@@ -103,6 +104,13 @@ export default function GraduateDisputesPage() {
         </div>
         {isLoading ? (
           <TableSkeleton columns="2.5fr 2fr 1.3fr 1.3fr" />
+        ) : isError ? (
+          <div className="flex items-center gap-3 p-6 text-sm text-[#44474e]">
+            <span>{tc("errorLabel")}</span>
+            <button type="button" onClick={() => refetch()} className="font-semibold underline" style={{ color: "#02275A" }}>
+              {tc("retry")}
+            </button>
+          </div>
         ) : disputes.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">{t("noDisputes")}</p>
         ) : (
@@ -115,7 +123,7 @@ export default function GraduateDisputesPage() {
                   <span className="text-sm font-semibold">
                     {cred ? (cred.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord")) : tc("credential")}
                   </span>
-                  <span className="text-[13px] text-[#44474e]">{d.reason}</span>
+                  <span className="text-[13px] text-[#44474e]">{translateDisputeReason(d.reason, t)}</span>
                   <span className="text-[13px] text-[#44474e]">{new Date(d.createdAt).toLocaleDateString(locale)}</span>
                   <span>
                     <span

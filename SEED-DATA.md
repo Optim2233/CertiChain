@@ -7,8 +7,13 @@ whatever loads it (SQL script, API calls, or manual entry). Passwords here are t
 **Loaders** (`BASE=http://localhost:8081`, run against a wiped DB — see §Load order):
 - `scripts/seed/seed-institutions.sh` — applies all 27 via `POST /api/institution/apply`,
   then drives each to its target status as the AA. Resolved IDs → `scripts/seed/institution-ids.tsv`.
+  Sends the split model: public rows `institutionType=public` + `governingMinistry` enum +
+  establishment columns; private rows `institutionType=private` + company/DICA/MyCo/TIN +
+  `foundersJson`/`administratorJson`. The legacy `ministry` param still carries the
+  accreditation reference code below — but note the backend stores `governingMinistry` into
+  the `ministry` column for public rows, so the ref code survives only on private rows.
 - `brand_color` / `accent_pattern` aren't settable via `apply` — set by a direct SQL `UPDATE`
-  keyed on `ministry` (see git history of this file / the migration companion).
+  keyed on login email (see `scripts/seed` history / the migration companion).
 - `scripts/seed/seed-logos.sh` — best-effort logo marks for the 8 global/MOOC providers via
   the Google favicon service (`PUT /api/institution/me`, Supabase upload). Udacity's favicon
   404s; all Myanmar institutions + fictional applicants have no fetchable logo and stay on
@@ -46,6 +51,8 @@ whatever loads it (SQL script, API calls, or manual entry). Passwords here are t
   `seed-extra-graduate.sh` → **249 total**.
 - Sample accreditation PDFs — 5 `institution_document` rows across institutions #1
   (×2), #3, #6, #8 (#8's is unverified), via `seed-documents.mjs`.
+- §5 disputes — 3 OPEN flags on UIT credentials of `sunandmoon8484984@gmail.com`, one per
+  canonical reason category, via `seed-disputes.sh`.
 
 - **Accreditation Authority** (seeded by `V3__seed_aa_user.sql`): `aa@certichain.local` / `aa-dev-password`
 - All institution + graduate passwords below: `Certi@2026` unless noted.
@@ -469,7 +476,11 @@ AA row must be re-inserted from V3 afterward.
 3. `scripts/seed/seed-logos.sh` — §1 logos (optional, best-effort).
 4. `scripts/seed/seed-graduates.sh` — §2 (the 47 registered).
 5. `scripts/seed/gen-credential-assignments.py` then `scripts/seed/seed-credentials.sh` — §3.
-6. Shares (§4), disputes (§5) — TBD.
+6. Shares (§4 — TBD), `scripts/seed/seed-disputes.sh` — §5: files 3 flags on UIT
+   credentials held by `sunandmoon8484984@gmail.com`, one per canonical reason category
+   (`Incorrect details: wrong date of issuance`, `Not my credential`,
+   `Other: name spelling does not match NRC`). Idempotent: skips credentials that
+   already carry an OPEN flag. Run last (needs §3 credentials).
 
 Partial re-seed of §3 only: `TRUNCATE audit_log_entry, share_field_selection, share,
 dispute_flag, credential_field, credential RESTART IDENTITY CASCADE` then rerun steps 5.

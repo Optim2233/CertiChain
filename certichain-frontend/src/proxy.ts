@@ -52,5 +52,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Static assets (public/*) carry a file extension and need neither locale
+  // handling nor the auth check - and next-intl would 404 them as unknown
+  // routes (e.g. /images/roles/graduate.jpg, /certichain-shield.svg).
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useTimeline, useAllDisputes, useShares } from "@/features/graduate"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { credentialTitle } from "@/shared/components/credential-card"
+import { translateDisputeReason } from "@/shared/lib/dispute-reason"
 
 const FILTERS = [
   { key: "all", labelKey: "all" },
@@ -60,7 +61,7 @@ export default function GraduateTimelinePage() {
     ...disputes.map((d) => ({
       key: "disputes",
       date: new Date(d.createdAt).toLocaleDateString(locale),
-      title: t("disputeFiled", { reason: d.reason }),
+      title: t("disputeFiled", { reason: translateDisputeReason(d.reason, t) }),
       sub: d.status === "OPEN" ? tc("underReview") : d.status === "UPHELD" ? tc("upheld") : tc("dismissed"),
       icon: "flag",
       dotBg: "#d5e3ff",

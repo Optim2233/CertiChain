@@ -35,6 +35,8 @@ class RevokeBatchTest {
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
+    private final com.certichain.certichainbackend.common.service.impl.PiiCryptoService pii =
+            com.certichain.certichainbackend.support.TestCrypto.pii();
 
     private final UUID institutionId = UUID.randomUUID();
     private final UUID actorId = UUID.randomUUID();
@@ -42,7 +44,7 @@ class RevokeBatchTest {
 
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
             null, null, null, credentialRepository, null, null, null, null,
-            auditLogService, notificationService, null, null, currentUser, null);
+            auditLogService, notificationService, null, null, currentUser, null, pii);
 
     private Credential member(CredentialStatus status) {
         return Credential.builder()
@@ -77,7 +79,8 @@ class RevokeBatchTest {
         assertEquals(1, result.alreadyRevoked());
         for (Credential cred : List.of(a, b)) {
             assertEquals(CredentialStatus.REVOKED, cred.getStatus());
-            assertEquals("policy change", cred.getRevokeReason());
+            assertEquals("policy change",
+                    pii.decryptInstitutionField(cred.getRevokeReason(), institutionId));
             assertNotNull(cred.getRevokedAt());
         }
         verify(auditLogService, times(2))

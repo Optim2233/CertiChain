@@ -19,6 +19,7 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import com.certichain.certichainbackend.common.service.NotificationService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -55,6 +56,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final CredentialRepository credentialRepository;
     private final CurrentUser currentUser;
     private final EnvelopeEncryptionService envelopeEncryptionService;
+    private final PiiCryptoService piiCryptoService;
 
     @Override
     // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
@@ -67,13 +69,15 @@ public class AccreditationServiceImpl implements AccreditationService {
 
         if (hasQuery) {
             String term = q.strip();
-            return hasStatus
+            return (hasStatus
                     ? institutionRepository.searchByNameAndStatus(term, parsed, pageRequest)
-                    : institutionRepository.searchByName(term, pageRequest);
+                    : institutionRepository.searchByName(term, pageRequest))
+                    .map(piiCryptoService::decryptedCopy);
         }
-        return hasStatus
+        return (hasStatus
                 ? institutionRepository.findByStatus(parsed, pageRequest)
-                : institutionRepository.findAll(pageRequest);
+                : institutionRepository.findAll(pageRequest))
+                .map(piiCryptoService::decryptedCopy);
     }
 
     @Override
@@ -83,9 +87,9 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
-    @Cacheable(cacheNames = "accreditation", key = "'institution:' + #id")
+    // Not cached: returns decrypted PII, and plaintext PII must not sit in Redis.
     public InstitutionDetailResponse getInstitution(UUID id) {
-        Institution i = load(id);
+        Institution i = piiCryptoService.decryptedCopy(load(id));
         User contact = userRepository.findByInstitutionId(id).stream()
                 .min(Comparator.comparing(User::getCreatedAt))   // oldest = the registrant
                 .orElse(null);
@@ -94,11 +98,23 @@ public class AccreditationServiceImpl implements AccreditationService {
                 i.getAppliedAt(), i.getDecidedAt(), i.getPublicKey(), i.getKeyAlgorithm(),
                 i.getKeyGeneratedAt(), i.getPhone(), i.getWebsite(), i.getProfileImageUrl(),
                 i.getBrandColor(), i.getAccentPattern(), i.getUpdatedAt(), i.getVersion(),
-                contact == null ? null : contact.getEmail(),
-                contact == null ? null : contact.getCreatedAt());
-    }
-
-    @Override
+                contact == null ? null : piiCryptoService.decryptUserField(contact.getEmail()),
+                contact == null ? null : contact.getCreatedAt(),
+                i.getInstitutionType(), i.getInstitutionNameMm(), i.getInstitutionCategory(),
+                i.getStateRegion(), i.getDistrict(), i.getTownship(), i.getWard(),
+                i.getStreet(), i.getPostalCode(),
+                i.getYearEstablished(), i.getEstablishmentDocType(), i.getEstablishmentDocTitle(),
+                i.getEstablishmentDocRef(),
+                i.getEstablishmentDocIssueDate() == null ? null : i.getEstablishmentDocIssueDate().toString(),
+                i.getEstablishmentDocUrl(),
+                i.getCompanyName(), i.getDicaCertificateNumber(), i.getMycoRegistrationNumber(),
+                i.getTinNumber(),
+                i.getIncorporationDate() == null ? null : i.getIncorporationDate().toString(),
+                i.getOwnershipStructure(), i.getInvestmentAmount(), i.getForeignInvolvement(),
+                i.getMicPermitNumber(),
+                i.getDicaCertificateUrl(), i.getTaxClearanceUrl(), i.getMicPermitUrl(),
+                i.getFounders(), i.getAdministrator());
+    }    @Override
     @Transactional
     @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void approve(UUID id) {
@@ -135,7 +151,7 @@ public class AccreditationServiceImpl implements AccreditationService {
         if (institution.getStatus() != InstitutionStatus.PENDING) {
             throw new ValidationException("Information can only be requested on a PENDING application");
         }
-        institution.setStatusReason(note);
+        institution.setStatusReason(piiCryptoService.encryptInstitutionField(note.trim(), id));
         audit("Information requested", id);
     }
 
@@ -165,6 +181,15 @@ public class AccreditationServiceImpl implements AccreditationService {
         Institution institution = transition(id, InstitutionStatus.APPROVED, null,
                 InstitutionStatus.SUSPENDED);
         institution.setStatusReason(null);
+        // Pre-encryption institutions suspended before their first DEK mint would
+        // otherwise stay DEK-less forever (approve() is the only minter).
+        if (institution.getDekWrapped() == null) {
+            SecretKey dek = envelopeEncryptionService.generateDek();
+            EncryptedPayload wrapped = envelopeEncryptionService.encrypt(
+                    dek.getEncoded(), envelopeEncryptionService.kek());
+            institution.setDekWrapped(wrapped.ciphertext());
+            institution.setDekIv(wrapped.iv());
+        }
         audit("Institution reinstated", id);
     }
 
@@ -194,7 +219,8 @@ public class AccreditationServiceImpl implements AccreditationService {
                 .distinct()
                 .toList();
         Map<UUID, String> emailsById = userRepository.findAllById(actorIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getEmail));
+                .collect(Collectors.toMap(User::getId,
+                        u -> piiCryptoService.decryptUserField(u.getEmail())));
 
         return entries.map(entry -> new AuditLogEntryResponse(
                 entry.getId(),
@@ -216,7 +242,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     }
 
     @Override
-    @Cacheable(cacheNames = "accreditation", key = "'document:' + #institutionId + ':' + #documentId")
+    // Not cached: returns a decrypted copy, and plaintext PII must not sit in Redis.
     public InstitutionDocument getDocument(UUID institutionId, UUID documentId) {
         InstitutionDocument document = institutionDocumentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
@@ -225,14 +251,38 @@ public class AccreditationServiceImpl implements AccreditationService {
         if (!document.getInstitutionId().equals(institutionId)) {
             throw new ResourceNotFoundException("Document not found");
         }
-        return document;
+        // Detached copy with file_data decrypted - never mutate the managed row's bytes.
+        return InstitutionDocument.builder()
+                .id(document.getId()).institutionId(document.getInstitutionId())
+                .fileName(document.getFileName())
+                .fileData(decryptDocumentBytes(document))
+                .fileUrl(document.getFileUrl()).verified(document.isVerified())
+                .uploadedAt(document.getUploadedAt())
+                .build();
+    }
+
+    private byte[] decryptDocumentBytes(InstitutionDocument document) {
+        byte[] data = document.getFileData();
+        if (data == null || data.length == 0 || document.getFileUrl() != null) {
+            return data; // Supabase-backed rows store empty bytes + URL - nothing to decrypt
+        }
+        try {
+            return piiCryptoService.decryptBytes(data, document.getInstitutionId());
+        } catch (RuntimeException e) {
+            return data; // pre-backfill plaintext PDF - serve as-is until encrypted
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void verifyDocument(UUID institutionId, UUID documentId) {
-        InstitutionDocument document = getDocument(institutionId, documentId);
+        // Managed row, not the decrypted copy from getDocument() - the flag must persist.
+        InstitutionDocument document = institutionDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+        if (!document.getInstitutionId().equals(institutionId)) {
+            throw new ResourceNotFoundException("Document not found");
+        }
         // One-way action: verifying twice would silently no-op the second click, which
         // would hide a stale-UI bug rather than surface it.
         if (document.isVerified()) {
@@ -262,7 +312,7 @@ public class AccreditationServiceImpl implements AccreditationService {
 
         institution.setStatus(to);
         if (reason != null) {
-            institution.setStatusReason(reason);
+            institution.setStatusReason(piiCryptoService.encryptInstitutionField(reason.trim(), id));
         }
         institution.setDecidedAt(Instant.now());
         return institution;

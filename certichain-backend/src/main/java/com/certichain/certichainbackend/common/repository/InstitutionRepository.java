@@ -18,6 +18,8 @@ public interface InstitutionRepository extends JpaRepository<Institution, UUID> 
 
     List<Institution> findByStatusAndDekWrappedIsNull(InstitutionStatus status);
 
+    List<Institution> findByDekWrappedIsNull();
+
     List<Institution> findByDekWrappedIsNotNull();
 
     @Query("SELECT i FROM Institution i WHERE lower(i.name) LIKE lower(concat('%', :q, '%'))")

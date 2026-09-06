@@ -15,6 +15,15 @@ Schema source files:
 `verifier` has no JSON-body write endpoints (file uploads only) — nothing to
 document there.
 
+> Encryption is response-transparent: PII is envelope-encrypted at rest (AES-256-GCM)
+> and decrypted server-side before serving, so no contract changes — the frontend keeps
+> reading plaintext. Covered: `credential_field.field_value` (per-institution DEK, V21/V22),
+> user profile + emails (KEK-direct, HMAC blind index for exact-match lookup), institution
+> PII + founders/admin JSON (institution DEK), dispute text, notification bodies, legacy
+> PDF bytes. Env: `ENCRYPTION_KEK` (32 bytes) + `ENCRYPTION_HMAC_KEY` (≥32 bytes),
+> one-time `BACKFILL_PII_ENCRYPTION=true` for pre-existing rows. Emailed links/logo use
+> `EMAIL_PUBLIC_BASE_URL` (defaults to `FRONTEND_URL`).
+
 ---
 
 ## Auth (`/api/auth/*`)
@@ -48,7 +57,7 @@ document there.
 { email: string (email format) }
 ```
 
-### `POST /api/graduate/signup`  ⚠️ gap
+### `POST /api/graduate/signup`  ✅ wired (persisted + encrypted)
 ```
 {
   email: string (email format),
@@ -58,10 +67,8 @@ document there.
   phone: string (min 6)
 }
 ```
-**Backend status:** `GraduateController.signup()` takes a loose
-`Map<String,String> body` — confirm `GraduateServiceImpl` reads
-`firstName`/`lastName`/`phone` out of it. If not, they're silently dropped.
-Needs matching columns wherever graduate profile data lives.
+**Backend status:** `GraduateServiceImpl.signup()` reads all five fields; names/phone are
+KEK-envelope-encrypted at rest, email indexed via HMAC blind index.
 
 ### `POST /api/graduate/shares`
 ```
@@ -82,29 +89,15 @@ Needs matching columns wherever graduate profile data lives.
 
 ## Institution (`/api/institution/*`)
 
-### `POST /api/institution/apply`  ⚠️ gap — `multipart/form-data`
-Non-file fields:
-```
-{
-  name: string (min 1),
-  ministry: string (min 1),
-  email: string (email format),
-  password: string (min 8),
-  phone: string (min 6),
-  website: string (url format)
-}
-```
-Plus one or more `documents` file parts.
-
-**Backend status:** `InstitutionController.apply()` only reads
-`name, ministry, email, password, documents` via `@RequestParam`. `phone`
-and `website` are silently dropped (Spring ignores unknown multipart
-parts). Needs: `institutions` table columns, `Institution` entity fields,
-`InstitutionService.apply(...)` signature update. See the doc comment on
-`InstitutionService.apply()` — email/password were already a deliberate,
-team-confirmed deviation from `02-institution.md`'s documented request body;
-phone/website likely need the same treatment (confirm the doc should also
-be updated).
+### `POST /api/institution/apply`  ✅ wired (split model since V18)
+Non-file fields: `name`, `ministry` (legacy alias → `governingMinistry`), `email`,
+`password`, `phone`, `website`, plus the split-model params — `institutionType`,
+`institutionNameMm`, `institutionCategory`, address ×6, `governingMinistry`,
+`yearEstablished`, establishment-doc ×4, business ×7, `foundersJson`,
+`administratorJson`. Plus file parts (`establishmentDocFile`, `dicaCertificate`,
+`taxClearance`, `micPermit`, `documents[]`).
+**Backend status:** `InstitutionController.apply()` reads all of the above;
+PII is institution-DEK-encrypted at rest (DEK minted at apply time).
 
 ### `POST /api/institution/credentials`
 ```
@@ -172,9 +165,6 @@ No body.
 
 ## Open gaps (also tracked in `FRONTEND-BACKEND-GAPS.md`)
 
-1. Institution `phone` + `website` — sent, not accepted/persisted.
-2. Graduate `firstName` + `lastName` + `phone` — sent, likely not
-   read/persisted (confirm against `GraduateServiceImpl`).
-
-Everything else above already round-trips correctly against the current
-controllers as of this doc.
+None — the two historical gaps above are closed. Remaining known item: graduate
+notification preferences (frontend toggles are session-only; no endpoint yet —
+see `FRONTEND-BACKEND-GAPS.md` gap 3).

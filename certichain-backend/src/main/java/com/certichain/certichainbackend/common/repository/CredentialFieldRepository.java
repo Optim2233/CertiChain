@@ -1,6 +1,8 @@
 package com.certichain.certichainbackend.common.repository;
 
 import com.certichain.certichainbackend.common.entity.CredentialField;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
@@ -12,5 +14,7 @@ public interface CredentialFieldRepository extends JpaRepository<CredentialField
     List<CredentialField> findByCredentialIdIn(Collection<UUID> credentialIds);
     List<CredentialField> findByCredentialIdInAndFieldName(Collection<UUID> credentialIds, String fieldName);
     List<CredentialField> findByFieldValueIvIsNull();
+    long countByFieldValueIvIsNull();
+    Page<CredentialField> findByFieldValueIvIsNull(Pageable pageable);
     void deleteByCredentialId(UUID credentialId);
 }

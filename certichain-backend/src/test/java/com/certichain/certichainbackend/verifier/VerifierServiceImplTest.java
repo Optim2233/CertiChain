@@ -47,7 +47,8 @@ class VerifierServiceImplTest {
 
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
-            null, null, merkleService, auditLogService, null, credentialFieldCryptoService);
+            null, null, merkleService, auditLogService, null, credentialFieldCryptoService,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     {
         when(credentialFieldCryptoService.decrypted(anyList(), any()))

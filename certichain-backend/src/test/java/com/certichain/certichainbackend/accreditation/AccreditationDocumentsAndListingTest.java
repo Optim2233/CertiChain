@@ -31,10 +31,12 @@ class AccreditationDocumentsAndListingTest {
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final InstitutionDocumentRepository documentRepository = mock(InstitutionDocumentRepository.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
+    private final com.certichain.certichainbackend.common.service.impl.PiiCryptoService pii =
+            com.certichain.certichainbackend.support.TestCrypto.pii();
 
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
             institutionRepository, null, auditLogService, null, null,
-            documentRepository, null, currentUser, null);
+            documentRepository, null, currentUser, null, pii);
 
     @Test
     void listInstitutionsRejectsUnknownStatus() {
@@ -75,8 +77,7 @@ class AccreditationDocumentsAndListingTest {
     }
 
     @Test
-    void verifyDocumentMarksVerifiedAndAudits() {
-        UUID instId = UUID.randomUUID();
+    void verifyDocumentMarksVerifiedAndAudits() {        UUID instId = UUID.randomUUID();
         UUID docId = UUID.randomUUID();
         UUID actor = UUID.randomUUID();
         when(currentUser.id()).thenReturn(actor);
@@ -89,5 +90,21 @@ class AccreditationDocumentsAndListingTest {
 
         assertEquals(true, doc.isVerified());
         verify(auditLogService).log(eq(AuditEvents.DOCUMENT_VERIFIED_EVENT), eq(actor), eq(instId), isNull());
+    }
+
+    @Test
+    void getDocumentDecryptsInlineBytes() {
+        UUID instId = UUID.randomUUID();
+        UUID docId = UUID.randomUUID();
+        byte[] pdf = "%PDF-1.4 seeded".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] enc = pii.encryptBytes(pdf, instId);
+        when(documentRepository.findById(docId)).thenReturn(Optional.of(InstitutionDocument.builder()
+                .id(docId).institutionId(instId).fileName("license.pdf")
+                .fileData(enc)
+                .uploadedAt(Instant.now()).build()));
+
+        InstitutionDocument got = service.getDocument(instId, docId);
+
+        org.junit.jupiter.api.Assertions.assertArrayEquals(pdf, got.getFileData());
     }
 }

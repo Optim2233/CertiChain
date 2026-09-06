@@ -1,0 +1,897 @@
+{
+  "version": "2.17",
+  "children": [
+    {
+      "type": "frame",
+      "id": "h5yWbt",
+      "x": 0,
+      "y": 60,
+      "name": "Modern Template",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#02275A",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 48,
+      "children": [
+        {
+          "type": "frame",
+          "id": "s1f2W",
+          "name": "Medal",
+          "width": 72,
+          "height": 72,
+          "fill": "#02275A",
+          "cornerRadius": 36,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "p6VHlM",
+              "x": 0,
+              "y": 0,
+              "name": "Medal Initials",
+              "fill": "#c9a85c",
+              "content": "CERT",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "bold"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "n77WIe",
+          "name": "Header",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "text",
+              "id": "ZOKKW",
+              "name": "Institution Name",
+              "fill": "#ffffff",
+              "content": "University of CertiChain",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "Trk7P",
+              "name": "Accredited Label",
+              "fill": "#a8c8ff",
+              "content": "Accredited Institution",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DO8Lh",
+          "name": "Verified Badge",
+          "width": 100,
+          "fill": "#10b98133",
+          "cornerRadius": 999,
+          "gap": 8,
+          "padding": [
+            6,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "WoVQb",
+              "name": "Badge Text",
+              "fill": "#7ee6c5",
+              "content": "✓ Verified",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "bold"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "t47zI",
+          "name": "Title Area",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "text",
+              "id": "B3U2y",
+              "name": "Certificate Title",
+              "fill": "#ffffff",
+              "content": "Bachelor of Science in Computer Science",
+              "fontFamily": "Playfair Display",
+              "fontSize": 28,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "PdLpH",
+              "name": "Issued To",
+              "fill": "#d5e3ff",
+              "content": "Issued to: Jane Doe",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "H85sg",
+          "name": "Details",
+          "width": "fill_container",
+          "height": 60,
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "A1UPdf",
+              "name": "Date Block",
+              "width": 120,
+              "height": 40,
+              "layout": "vertical",
+              "gap": 4
+            },
+            {
+              "type": "text",
+              "id": "cTWOD",
+              "name": "Date Label",
+              "fill": "#a8c8ff",
+              "content": "ISSUED",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "o4dEox",
+              "name": "Date Value",
+              "fill": "#ffffff",
+              "content": "June 15, 2026",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "F41Ekk",
+              "name": "ID Block",
+              "width": 120,
+              "height": 40,
+              "layout": "vertical",
+              "gap": 4
+            },
+            {
+              "type": "text",
+              "id": "P9KFNb",
+              "name": "ID Label",
+              "fill": "#a8c8ff",
+              "content": "CREDENTIAL ID",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "qxcTP",
+              "name": "ID Value",
+              "fill": "#ffffff",
+              "content": "a1b2c3d4-e5f6-7890",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Y8F5gh",
+          "name": "QR Block",
+          "width": 56,
+          "height": 56,
+          "fill": "#ffffff",
+          "cornerRadius": 4,
+          "children": [
+            {
+              "type": "text",
+              "id": "sDHHZ",
+              "name": "QR Placeholder",
+              "fill": "#02275A",
+              "content": "QR",
+              "fontFamily": "Inter",
+              "fontSize": 8,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cEI46",
+          "name": "Watermark",
+          "width": 800,
+          "height": 600,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "pKBjN",
+              "x": 220,
+              "y": 150,
+              "name": "Watermark Text",
+              "rotation": -14.999999999999998,
+              "fill": "#ffffff0a",
+              "content": "CERTIFIED",
+              "fontFamily": "Playfair Display",
+              "fontSize": 120,
+              "fontWeight": "bold"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "n6skqm",
+          "name": "Footer",
+          "gap": 16,
+          "padding": [
+            16,
+            0,
+            0,
+            0
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "PGVdX",
+              "name": "Registrar Name",
+              "fill": "#d5e3ff",
+              "content": "Registrar Office",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal",
+              "fontStyle": "italic"
+            },
+            {
+              "type": "text",
+              "id": "JdhyV",
+              "name": "Sign Off",
+              "fill": "#a8c8ff",
+              "content": "Registrar · University of CertiChain",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "v1DN2m",
+      "x": 820,
+      "y": 60,
+      "name": "Classic Template",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#ffffff",
+      "cornerRadius": 2,
+      "layout": "vertical",
+      "gap": 32,
+      "padding": 64,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Kn6W5",
+          "name": "CTitle Area",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "HOatc",
+              "name": "CDegree Type",
+              "fill": "#6b7280",
+              "content": "CERTIFICATE OF ACHIEVEMENT",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "U1m0ZP",
+              "name": "CTitle",
+              "fill": "#02275A",
+              "content": "Bachelor of Science in Computer Science",
+              "fontFamily": "Playfair Display",
+              "fontSize": 30,
+              "fontWeight": "bold"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EgyaX",
+          "name": "CBody",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "tOI5c",
+              "name": "CIssued To",
+              "fill": "#1f2937",
+              "content": "Issued to: Jane Doe",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "v6o24L",
+              "name": "CDate",
+              "fill": "#4b5563",
+              "content": "June 15, 2026",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "noYcD",
+          "name": "CID",
+          "layout": "vertical",
+          "gap": 4,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "x8qzoK",
+              "name": "CID Label",
+              "fill": "#9ca3af",
+              "content": "Credential ID",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "eLzXB",
+              "name": "CID Value",
+              "fill": "#9ca3af",
+              "content": "a1b2c3d4-e5f6-7890",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "P1tD4Z",
+          "name": "CSignature",
+          "width": "fill_container",
+          "height": 40,
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "B0WFC",
+              "name": "CLine",
+              "width": 200,
+              "height": 1,
+              "fill": "#4b5563"
+            },
+            {
+              "type": "text",
+              "id": "PPVey",
+              "name": "CRegistrar",
+              "fill": "#4b5563",
+              "content": "Registrar Signature",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "WcIy2",
+          "name": "CFooter",
+          "layout": "vertical",
+          "gap": 4,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "LXhHI",
+              "name": "CInstitution Name",
+              "fill": "#02275A",
+              "content": "University of CertiChain",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "m1Cswl",
+              "name": "CInstitution Label",
+              "fill": "#6b7280",
+              "content": "Accredited Institution",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "fqpvo",
+      "x": 1640,
+      "y": 60,
+      "name": "Rich Template",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#ffffff",
+      "cornerRadius": 2,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "dz6R6",
+          "name": "RHero",
+          "width": "fill_container",
+          "fill": "#02275A",
+          "layout": "vertical",
+          "padding": [
+            32,
+            40,
+            24,
+            40
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "LLYMC",
+              "name": "RTopBar",
+              "width": "fill_container",
+              "height": 25,
+              "justifyContent": "space_between",
+              "alignItems": "center"
+            },
+            {
+              "type": "text",
+              "id": "KU0gg",
+              "name": "RInstitution",
+              "fill": "#ffffff",
+              "content": "University of CertiChain",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "o9ngGC",
+              "name": "RBadge",
+              "width": "fill_container",
+              "height": 25,
+              "fill": "#10b98133",
+              "cornerRadius": 999,
+              "gap": 6,
+              "padding": [
+                4,
+                10
+              ],
+              "alignItems": "center"
+            },
+            {
+              "type": "text",
+              "id": "wkYn5",
+              "name": "RBadgeText",
+              "fill": "#7ee6c5",
+              "content": "✓ Accredited",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "bold"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "woBCR",
+          "name": "RTitleBlock",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            32,
+            40,
+            24,
+            40
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "iXQYI",
+              "name": "RDegreeType",
+              "fill": "#0462BA",
+              "content": "CERTIFICATE OF ACHIEVEMENT",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "ZxAgF",
+              "name": "RTitle",
+              "fill": "#02275A",
+              "content": "Bachelor of Science in Computer Science",
+              "fontFamily": "Playfair Display",
+              "fontSize": 26,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "text",
+              "id": "d4tua",
+              "name": "RIssuedTo",
+              "fill": "#1f2937",
+              "content": "Issued to: Jane Doe",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "G71gz",
+          "name": "RFields",
+          "width": "fill_container",
+          "layout": "vertical",
+          "padding": [
+            0,
+            40,
+            24,
+            40
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "YzM5c",
+              "name": "RFieldRow1",
+              "width": "fill_container",
+              "height": 50,
+              "gap": 24,
+              "padding": [
+                8,
+                0
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "MX0cP",
+              "name": "RFieldDate",
+              "width": "fill_container",
+              "height": 40,
+              "layout": "vertical",
+              "gap": 2
+            },
+            {
+              "type": "text",
+              "id": "ml0Sg",
+              "name": "RFieldDateLabel",
+              "fill": "#9ca3af",
+              "content": "Issue Date",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "pRVQt",
+              "name": "RFieldDateVal",
+              "fill": "#1f2937",
+              "content": "June 15, 2026",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "MVzZT",
+              "name": "RFieldGPA",
+              "width": "fill_container",
+              "height": 40,
+              "layout": "vertical",
+              "gap": 2
+            },
+            {
+              "type": "text",
+              "id": "uZeiz",
+              "name": "RFieldGPALabel",
+              "fill": "#9ca3af",
+              "content": "GPA",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "safZW",
+              "name": "RFieldGPAVal",
+              "fill": "#1f2937",
+              "content": "3.9 / 4.0",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "AznWi",
+              "name": "RFieldID",
+              "width": "fill_container",
+              "height": 40,
+              "layout": "vertical",
+              "gap": 2
+            },
+            {
+              "type": "text",
+              "id": "h9gN6y",
+              "name": "RFieldIDLabel",
+              "fill": "#9ca3af",
+              "content": "Student ID",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "R3jLW8",
+              "name": "RFieldIDVal",
+              "fill": "#1f2937",
+              "content": "STU-2026-0042",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "ONR41",
+              "name": "RFieldHonors",
+              "width": "fill_container",
+              "height": 40,
+              "layout": "vertical",
+              "gap": 2
+            },
+            {
+              "type": "text",
+              "id": "aEw3A",
+              "name": "RFieldHonorsLabel",
+              "fill": "#9ca3af",
+              "content": "Honors",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "DAd7b",
+              "name": "RFieldHonorsVal",
+              "fill": "#1f2937",
+              "content": "Magna Cum Laude",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "bold"
+            },
+            {
+              "type": "frame",
+              "id": "Puaxl",
+              "name": "RDivider",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "#e5e7eb"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "XcMlx",
+          "name": "RMetaRow",
+          "padding": [
+            16,
+            40
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "GplpG",
+              "name": "RCredID",
+              "fill": "#9ca3af",
+              "content": "Cred ID: a1b2c3d4",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "n2Kblt",
+              "name": "RExpires",
+              "fill": "#9ca3af",
+              "content": "Expires: June 2028",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "rFMwV",
+          "name": "RFooter",
+          "padding": [
+            20,
+            40
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "I1pVg",
+              "name": "RQR",
+              "width": 48,
+              "height": 48,
+              "fill": "#f3f4f6",
+              "cornerRadius": 4
+            },
+            {
+              "type": "text",
+              "id": "gW2Sp",
+              "name": "RRegistrar",
+              "fill": "#6b7280",
+              "content": "Registrar Office",
+              "fontFamily": "Inter",
+              "fontSize": 10,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Fuj8t",
+      "x": 0,
+      "y": -80,
+      "name": "Template Selector",
+      "width": 2440,
+      "height": 70,
+      "gap": 16,
+      "padding": 24,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "ms4Ps",
+          "name": "SelLabel",
+          "fill": "#4b5563",
+          "content": "Select Template:",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "bold"
+        },
+        {
+          "type": "frame",
+          "id": "Rr14m",
+          "name": "SelModern",
+          "width": 70,
+          "height": 27,
+          "fill": "#02275A",
+          "cornerRadius": 8,
+          "gap": 8,
+          "padding": [
+            6,
+            16
+          ],
+          "alignItems": "center"
+        },
+        {
+          "type": "text",
+          "id": "lEZAS",
+          "name": "SelModernLabel",
+          "fill": "#ffffff",
+          "content": "Modern",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "bold"
+        },
+        {
+          "type": "frame",
+          "id": "bs5qJ",
+          "name": "SelClassic",
+          "width": 70,
+          "height": 27,
+          "fill": "#f3f4f6",
+          "cornerRadius": 8,
+          "gap": 8,
+          "padding": [
+            6,
+            16
+          ],
+          "alignItems": "center"
+        },
+        {
+          "type": "text",
+          "id": "n0g7o",
+          "name": "SelClassicLabel",
+          "fill": "#4b5563",
+          "content": "Classic",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "bold"
+        },
+        {
+          "type": "frame",
+          "id": "i9i3IO",
+          "name": "SelRich",
+          "width": 70,
+          "height": 27,
+          "fill": "#f3f4f6",
+          "cornerRadius": 8,
+          "gap": 8,
+          "padding": [
+            6,
+            16
+          ],
+          "alignItems": "center"
+        },
+        {
+          "type": "text",
+          "id": "QWd3m",
+          "name": "SelRichLabel",
+          "fill": "#4b5563",
+          "content": "Rich",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "bold"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "a67At5",
+      "x": -3242,
+      "y": 25149,
+      "name": "Frame 1",
+      "clip": true,
+      "width": 174,
+      "height": 224,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    }
+  ],
+  "fileToken": "fa2015e6-2d6e-43c7-a648-b3b22402dc97"
+}

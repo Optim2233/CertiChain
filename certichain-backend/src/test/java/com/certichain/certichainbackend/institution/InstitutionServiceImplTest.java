@@ -29,6 +29,8 @@ import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.EnvelopeEncryptionServiceImpl;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
+import com.certichain.certichainbackend.support.TestCrypto;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -40,7 +42,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -70,6 +74,7 @@ class InstitutionServiceImplTest {
             new EnvelopeEncryptionServiceImpl("A".repeat(32));
     private final CredentialFieldCryptoService credentialFieldCryptoService =
             new CredentialFieldCryptoService(envelopeEncryptionService, institutionRepository);
+    private final PiiCryptoService pii = TestCrypto.pii();
 
     private final UUID institutionId = UUID.randomUUID();
     private final UUID actorId = UUID.randomUUID();
@@ -78,7 +83,8 @@ class InstitutionServiceImplTest {
             institutionRepository, institutionDocumentRepository, userRepository, credentialRepository,
             credentialFieldRepository, disputeFlagRepository, auditLogEntryRepository,
             signingService, auditLogService,
-            notificationService, null, passwordEncoder, currentUser, credentialFieldCryptoService);
+            notificationService, null, passwordEncoder, currentUser, credentialFieldCryptoService,
+            pii);
 
     /** Wraps a fresh DEK with the app-wide KEK and stamps it on the institution. */
     private Institution minted(Institution institution) {
@@ -155,7 +161,7 @@ class InstitutionServiceImplTest {
 
     @Test
     void applyRejectsDuplicateEmail() {
-        when(userRepository.existsByEmail("e@x.com")).thenReturn(true);
+        when(userRepository.existsByEmailHmac(pii.emailHmac("e@x.com"))).thenReturn(true);
         assertThrows(ValidationException.class,
                 () -> service.apply(req("UIT", "MoST", "e@x.com", "pw", null, null, null)));
         verify(institutionRepository, never()).save(any());
@@ -163,7 +169,7 @@ class InstitutionServiceImplTest {
 
     @Test
     void applyRejectsOverlongPhoneAndWebsite() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
         assertThrows(ValidationException.class,
                 () -> service.apply(req("UIT", "MoST", "e@x.com", "pw", "1".repeat(51), null, null)));
         assertThrows(ValidationException.class,
@@ -172,7 +178,7 @@ class InstitutionServiceImplTest {
 
     @Test
     void applyCreatesPendingInstitutionThenUser() {
-        when(userRepository.existsByEmail("e@x.com")).thenReturn(false);
+        when(userRepository.existsByEmailHmac(pii.emailHmac("e@x.com"))).thenReturn(false);
         when(passwordEncoder.encode("pw")).thenReturn("hash");
         when(institutionRepository.save(any(Institution.class))).thenAnswer(i -> {
             Institution inst = i.getArgument(0);
@@ -183,8 +189,16 @@ class InstitutionServiceImplTest {
         Institution result = service.apply(req("UIT", "MoST", "e@x.com", "pw", " +855 1 ", " https://uit.edu ", null));
 
         assertEquals(InstitutionStatus.PENDING, result.getStatus());
+        // applicant sees plaintext back...
         assertEquals("+855 1", result.getPhone());
         assertEquals("https://uit.edu", result.getWebsite());
+        // ...while the persisted row holds ciphertext
+        org.mockito.ArgumentCaptor<Institution> savedInst =
+                org.mockito.ArgumentCaptor.forClass(Institution.class);
+        org.mockito.Mockito.verify(institutionRepository, org.mockito.Mockito.atLeastOnce())
+                .save(savedInst.capture());
+        assertNotEquals("+855 1", savedInst.getValue().getPhone());
+        assertTrue(PiiCryptoService.looksEncrypted(savedInst.getValue().getPhone()));
         verify(userRepository).save(any(User.class));
         verify(auditLogService).log(eq("Institution application submitted"), any(), any(), any());
     }
@@ -347,7 +361,8 @@ class InstitutionServiceImplTest {
 
         assertEquals(CredentialStatus.REVOKED, c.getStatus());
         assertEquals(DisputeStatus.UPHELD, d.getStatus());
-        assertEquals("GPA was wrong", d.getResolutionNote());
+        assertEquals("GPA was wrong",
+                pii.decryptInstitutionField(d.getResolutionNote(), c.getInstitutionId()));
         verify(notificationService).notify(any(), eq("Dispute upheld"), anyString());
     }
 

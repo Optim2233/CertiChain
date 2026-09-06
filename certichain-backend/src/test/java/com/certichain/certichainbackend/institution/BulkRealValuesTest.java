@@ -43,7 +43,8 @@ class BulkRealValuesTest {
     private final VerifierServiceImpl verifierService = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
             mock(ShareRepository.class), mock(ShareFieldSelectionRepository.class),
-            merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService);
+            merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     private static CredentialFieldCryptoService passthroughCrypto() {
         CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);

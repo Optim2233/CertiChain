@@ -51,7 +51,8 @@ class GraduateTimelineDecryptTest {
 
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             null, credentialRepository, credentialFieldRepository, null, null, null, null, null,
-            null, null, currentUser, credentialFieldCryptoService);
+            null, null, currentUser, credentialFieldCryptoService,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     /** Wraps a fresh DEK with the app-wide KEK and stamps it on the institution. */
     private Institution minted(Institution institution) {

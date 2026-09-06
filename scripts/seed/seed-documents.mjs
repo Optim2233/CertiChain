@@ -6,14 +6,23 @@
 //
 // Idempotent: skips an institution that already has a document with the same name.
 // DB URL is read from ../../certichain-backend/.env (DATABASE_URL, JDBC form).
-
-import { readFileSync } from "node:fs"
+//
+// ENCRYPTION NOTE: this bypasses the API, so file_data lands as PLAINTEXT. Either run
+// the backend once with BACKFILL_PII_ENCRYPTION=true afterwards (re-run safe, picks up
+// %PDF-magic rows), or re-run seed-documents only before a backfill. New code paths
+// (apply/documents[] fallback) encrypt inline automatically.
+//
+// PDF source: SEED_PDF_PATH env var, else scripts/seed/sample-doc.pdf in the repo,
+// else the legacy absolute path (previous author's machine only).
+import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve } from "node:path"
 import pg from "pg"
 
 const here = dirname(fileURLToPath(import.meta.url))
-const PDF_PATH = "C:/Users/Thura Htet/OneDrive/Documents/institution_license.pdf"
+const LEGACY_PDF_PATH = "C:/Users/Thura Htet/OneDrive/Documents/institution_license.pdf"
+const PDF_PATH = process.env.SEED_PDF_PATH
+  || (existsSync(resolve(here, "sample-doc.pdf")) ? resolve(here, "sample-doc.pdf") : LEGACY_PDF_PATH)
 
 // row number (institution-ids.tsv) -> [filename, ...]. Rows deliberately left out
 // (e.g. #2, #4, #5) keep an empty documents list so the empty state is exercised too.

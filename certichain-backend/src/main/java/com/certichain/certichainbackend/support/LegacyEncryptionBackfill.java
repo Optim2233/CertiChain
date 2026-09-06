@@ -13,8 +13,9 @@ import com.certichain.certichainbackend.common.service.impl.CredentialFieldCrypt
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -36,10 +37,18 @@ import java.util.UUID;
  * ({@code BACKFILL_PREVIOUS_KEK} = the key existing DEKs were wrapped under, only needed for a
  * rotation), then leave it off. Safe to re-run: every pass skips rows it already finished.
  * Signatures survive the field pass because verification hashes decrypted plaintext.
+ *
+ * <p>Chunked + per-institution isolated (no single transaction): each page of legacy
+ * fields and each institution commits independently, one bad row/DEK is quarantined
+ * (counted + logged, never aborts the run), and orphan rows whose credential is gone
+ * are skipped so they can never block progress.
  */
 @Component
 @ConditionalOnProperty(name = "app.backfill.legacy-encryption", havingValue = "true")
 public class LegacyEncryptionBackfill implements CommandLineRunner {
+
+    // ponytail: fixed page size, no config - add one if 500 ever proves wrong.
+    private static final int PAGE_SIZE = 500;
 
     private final InstitutionRepository institutionRepository;
     private final CredentialRepository credentialRepository;
@@ -63,36 +72,50 @@ public class LegacyEncryptionBackfill implements CommandLineRunner {
     }
 
     @Override
-    @Transactional
     public void run(String... args) {
-        int rewrapped = rewrapExistingDekInstitutions();
+        // Dry-run counts first so operators see the scope before any write happens.
+        System.out.println("[backfill] dry-run - DEK-less APPROVED: "
+                + institutionRepository.findByStatusAndDekWrappedIsNull(InstitutionStatus.APPROVED).size()
+                + ", legacy plaintext fields: " + credentialFieldRepository.countByFieldValueIvIsNull());
+        int rewrapped = 0, rewrapErrors = 0;
+        int[] rewrap = rewrapExistingDekInstitutions();
+        rewrapped = rewrap[0];
+        rewrapErrors = rewrap[1];
         int minted = mintMissingDekInstitutions();
-        int encrypted = encryptLegacyPlaintextFields();
+        int[] encrypted = encryptLegacyPlaintextFields();
         System.out.println("[backfill] done - DEKs re-wrapped: " + rewrapped
-                + ", DEKs minted: " + minted + ", plaintext fields encrypted: " + encrypted);
+                + " (errors: " + rewrapErrors + "), DEKs minted: " + minted
+                + ", plaintext fields encrypted: " + encrypted[0]
+                + " (errors: " + encrypted[1] + ", orphans skipped: " + encrypted[2] + ")");
     }
 
-    private int rewrapExistingDekInstitutions() {
+    private int[] rewrapExistingDekInstitutions() {
         if (previousKek == null || previousKek.isBlank()) {
-            return 0;
+            return new int[]{0, 0};
         }
         byte[] currentKekBytes = envelopeEncryptionService.kek().getEncoded();
         byte[] previousKekBytes = previousKek.getBytes(StandardCharsets.UTF_8);
         if (Arrays.equals(currentKekBytes, previousKekBytes)) {
-            return 0;
+            return new int[]{0, 0};
         }
         SecretKey oldKek = new SecretKeySpec(previousKekBytes, "AES");
-        int count = 0;
+        int count = 0, errors = 0;
         for (Institution institution : institutionRepository.findByDekWrappedIsNotNull()) {
-            byte[] dek = envelopeEncryptionService.decrypt(
-                    new EncryptedPayload(institution.getDekWrapped(), institution.getDekIv()), oldKek);
-            EncryptedPayload rewrapped = envelopeEncryptionService.encrypt(dek, envelopeEncryptionService.kek());
-            institution.setDekWrapped(rewrapped.ciphertext());
-            institution.setDekIv(rewrapped.iv());
-            institutionRepository.save(institution);
-            count++;
+            try {
+                byte[] dek = envelopeEncryptionService.decrypt(
+                        new EncryptedPayload(institution.getDekWrapped(), institution.getDekIv()), oldKek);
+                EncryptedPayload rewrapped = envelopeEncryptionService.encrypt(dek, envelopeEncryptionService.kek());
+                institution.setDekWrapped(rewrapped.ciphertext());
+                institution.setDekIv(rewrapped.iv());
+                institutionRepository.save(institution);
+                count++;
+            } catch (RuntimeException e) {
+                errors++;
+                System.err.println("[backfill] rewrap FAILED for institution "
+                        + institution.getId() + ": " + e.getMessage());
+            }
         }
-        return count;
+        return new int[]{count, errors};
     }
 
     private int mintMissingDekInstitutions() {
@@ -118,34 +141,62 @@ public class LegacyEncryptionBackfill implements CommandLineRunner {
         return true;
     }
 
-    private int encryptLegacyPlaintextFields() {
-        List<CredentialField> legacy = credentialFieldRepository.findByFieldValueIvIsNull();
-        if (legacy.isEmpty()) {
-            return 0;
-        }
-        Map<UUID, UUID> credentialOwner = new HashMap<>();
-        for (Credential credential : credentialRepository.findAllById(
-                legacy.stream().map(CredentialField::getCredentialId).toList())) {
-            credentialOwner.put(credential.getId(), credential.getInstitutionId());
-        }
-        Map<UUID, List<CredentialField>> byInstitution = new HashMap<>();
-        for (CredentialField field : legacy) {
-            UUID owner = credentialOwner.get(field.getCredentialId());
-            if (owner != null) {
-                byInstitution.computeIfAbsent(owner, k -> new ArrayList<>()).add(field);
+    private int[] encryptLegacyPlaintextFields() {
+        int encrypted = 0, errors = 0, orphans = 0;
+        // Always page 0: each committed page leaves the NULL-IV result set, so page 0
+        // is the next unprocessed chunk. Resumable - a restart re-reads what's left.
+        while (true) {
+            Page<CredentialField> page =
+                    credentialFieldRepository.findByFieldValueIvIsNull(PageRequest.of(0, PAGE_SIZE));
+            List<CredentialField> legacy = page.getContent();
+            if (legacy.isEmpty()) {
+                break;
+            }
+            Map<UUID, UUID> credentialOwner = new HashMap<>();
+            for (Credential credential : credentialRepository.findAllById(
+                    legacy.stream().map(CredentialField::getCredentialId).toList())) {
+                credentialOwner.put(credential.getId(), credential.getInstitutionId());
+            }
+            Map<UUID, List<CredentialField>> byInstitution = new HashMap<>();
+            for (CredentialField field : legacy) {
+                UUID owner = credentialOwner.get(field.getCredentialId());
+                if (owner != null) {
+                    byInstitution.computeIfAbsent(owner, k -> new ArrayList<>()).add(field);
+                } else {
+                    orphans++;
+                    System.err.println("[backfill] orphan field skipped (credential gone): " + field.getId());
+                }
+            }
+            for (Map.Entry<UUID, List<CredentialField>> entry : byInstitution.entrySet()) {
+                try {
+                    Institution owner = institutionRepository.findById(entry.getKey())
+                            .orElseThrow(() -> new IllegalStateException("Institution not found: " + entry.getKey()));
+                    mintIfMissing(owner);
+                    List<CredentialField> ok = new ArrayList<>();
+                    for (CredentialField field : entry.getValue()) {
+                        try {
+                            credentialFieldCryptoService.encryptForStorage(field, owner.getId());
+                            ok.add(field);
+                        } catch (RuntimeException e) {
+                            errors++;
+                            System.err.println("[backfill] encrypt FAILED for field "
+                                    + field.getId() + ": " + e.getMessage());
+                        }
+                    }
+                    credentialFieldRepository.saveAll(ok);
+                    encrypted += ok.size();
+                } catch (RuntimeException e) {
+                    errors += entry.getValue().size();
+                    System.err.println("[backfill] institution chunk FAILED for "
+                            + entry.getKey() + ": " + e.getMessage());
+                }
+            }
+            if (byInstitution.isEmpty()) {
+                // Nothing on this page is processable (all orphans, which never leave
+                // the NULL-IV set) - stop rather than re-fetching the same page forever.
+                break;
             }
         }
-        int count = 0;
-        for (Map.Entry<UUID, List<CredentialField>> entry : byInstitution.entrySet()) {
-            Institution owner = institutionRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new IllegalStateException("Institution not found: " + entry.getKey()));
-            mintIfMissing(owner);
-            for (CredentialField field : entry.getValue()) {
-                credentialFieldCryptoService.encryptForStorage(field, owner.getId());
-            }
-            credentialFieldRepository.saveAll(entry.getValue());
-            count += entry.getValue().size();
-        }
-        return count;
+        return new int[]{encrypted, errors, orphans};
     }
 }

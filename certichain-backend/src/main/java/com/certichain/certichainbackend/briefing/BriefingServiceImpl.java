@@ -15,6 +15,7 @@ import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class BriefingServiceImpl implements BriefingService {
     private final ShareRepository shareRepository;
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
+    private final PiiCryptoService piiCryptoService;
 
     @Override
     public Briefing getBriefing() {
@@ -67,7 +69,8 @@ public class BriefingServiceImpl implements BriefingService {
 
         List<BriefingItem> items = new ArrayList<>();
         for (Notification n : discrete) {
-            items.add(new BriefingItem("notification", n.getType(), n.getMessage(), 1, n.getCreatedAt()));
+            items.add(new BriefingItem("notification", n.getType(),
+                    piiCryptoService.decryptUserField(n.getMessage()), 1, n.getCreatedAt()));
         }
         int moreCount = (int) Math.max(0, discreteTotal - discrete.size());
 

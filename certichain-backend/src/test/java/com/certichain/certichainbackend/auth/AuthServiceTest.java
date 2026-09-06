@@ -8,6 +8,8 @@ import com.certichain.certichainbackend.common.exception.ValidationException;
 import com.certichain.certichainbackend.common.repository.PasswordResetTokenRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.EmailService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
+import com.certichain.certichainbackend.support.TestCrypto;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,12 +38,13 @@ class AuthServiceTest {
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final PasswordResetTokenRepository resetTokenRepository = mock(PasswordResetTokenRepository.class);
     private final EmailService emailService = mock(EmailService.class);
+    private final PiiCryptoService pii = TestCrypto.pii();
 
     private final AuthService service = new AuthService(
-            userRepository, passwordEncoder, resetTokenRepository, emailService);
+            userRepository, passwordEncoder, resetTokenRepository, emailService, pii);
 
     {
-        ReflectionTestUtils.setField(service, "frontendUrl", "http://localhost:3000");
+        ReflectionTestUtils.setField(service, "emailBaseUrl", "http://localhost:3000");
     }
 
     private User user(String email, String hash) {
@@ -55,7 +58,7 @@ class AuthServiceTest {
     @Test
     void authenticateSucceedsWithRightPassword() {
         User u = user("a@x.com", "hash");
-        when(userRepository.findByEmail("a@x.com")).thenReturn(Optional.of(u));
+        when(userRepository.findByEmailHmac(pii.emailHmac("a@x.com"))).thenReturn(Optional.of(u));
         when(passwordEncoder.matches("pw", "hash")).thenReturn(true);
 
         AuthService.AuthResult result = service.authenticate("a@x.com", "pw");
@@ -66,12 +69,12 @@ class AuthServiceTest {
 
     @Test
     void wrongPasswordAndUnknownEmailGiveTheSameError() {
-        when(userRepository.findByEmail("a@x.com")).thenReturn(Optional.of(user("a@x.com", "hash")));
+        when(userRepository.findByEmailHmac(pii.emailHmac("a@x.com"))).thenReturn(Optional.of(user("a@x.com", "hash")));
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
         ValidationException wrongPw = assertThrows(ValidationException.class,
                 () -> service.authenticate("a@x.com", "bad"));
 
-        when(userRepository.findByEmail("ghost@x.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHmac(pii.emailHmac("ghost@x.com"))).thenReturn(Optional.empty());
         ValidationException noUser = assertThrows(ValidationException.class,
                 () -> service.authenticate("ghost@x.com", "pw"));
 
@@ -82,7 +85,7 @@ class AuthServiceTest {
 
     @Test
     void signupStoresHashNotPlaintext() {
-        when(userRepository.findByEmail("new@x.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHmac(pii.emailHmac("new@x.com"))).thenReturn(Optional.empty());
         when(passwordEncoder.encode("secret12")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(i -> {
             User u = i.getArgument(0);
@@ -100,7 +103,7 @@ class AuthServiceTest {
 
     @Test
     void signupRejectsDuplicateEmail() {
-        when(userRepository.findByEmail("taken@x.com")).thenReturn(Optional.of(user("taken@x.com", "h")));
+        when(userRepository.existsByEmailHmac(pii.emailHmac("taken@x.com"))).thenReturn(true);
         assertThrows(RuntimeException.class,
                 () -> service.signup("taken@x.com", "secret12", Role.GRADUATE, null));
         verify(userRepository, never()).save(any());
@@ -142,7 +145,7 @@ class AuthServiceTest {
 
     @Test
     void requestResetForUnknownEmailIsSilentNoOp() {
-        when(userRepository.findByEmail("ghost@x.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHmac(pii.emailHmac("ghost@x.com"))).thenReturn(Optional.empty());
 
         service.requestPasswordReset("ghost@x.com");
 
@@ -153,7 +156,7 @@ class AuthServiceTest {
     @Test
     void requestResetSendsHashedTokenAndEmailsLink() {
         User u = user("a@x.com", "h");
-        when(userRepository.findByEmail("a@x.com")).thenReturn(Optional.of(u));
+        when(userRepository.findByEmailHmac(pii.emailHmac("a@x.com"))).thenReturn(Optional.of(u));
         when(resetTokenRepository.countByUserIdAndCreatedAtAfter(eq(u.getId()), any())).thenReturn(0L);
 
         service.requestPasswordReset("a@x.com");
@@ -168,7 +171,7 @@ class AuthServiceTest {
     @Test
     void requestResetRateLimitsAfterThreeInWindow() {
         User u = user("a@x.com", "h");
-        when(userRepository.findByEmail("a@x.com")).thenReturn(Optional.of(u));
+        when(userRepository.findByEmailHmac(pii.emailHmac("a@x.com"))).thenReturn(Optional.of(u));
         when(resetTokenRepository.countByUserIdAndCreatedAtAfter(eq(u.getId()), any())).thenReturn(3L);
 
         assertThrows(ValidationException.class, () -> service.requestPasswordReset("a@x.com"));
@@ -235,5 +238,40 @@ class AuthServiceTest {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, () -> service.findByUserId(id));
+    }
+
+    // --- encrypted-email blind index ---
+
+    @Test
+    void loginIsCaseInsensitiveViaHmacIndex() {
+        User u = user("a@x.com", "hash");
+        when(userRepository.findByEmailHmac(pii.emailHmac("a@x.com"))).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("pw", "hash")).thenReturn(true);
+
+        AuthService.AuthResult result = service.authenticate("A@X.COM", "pw");
+
+        assertEquals(u.getId(), result.userId());
+        assertEquals("a@x.com", result.email());
+    }
+
+    @Test
+    void signupStoresCiphertextEmailPlusHmac() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode("secret12")).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            u.setId(UUID.randomUUID());
+            return u;
+        });
+
+        AuthService.AuthResult result = service.signup("New@X.Com", "secret12", Role.GRADUATE, null);
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        // normalized to lowercase, encrypted at rest, indexed by deterministic HMAC
+        assertEquals("new@x.com", result.email());
+        org.junit.jupiter.api.Assertions.assertNotEquals("new@x.com", saved.getValue().getEmail());
+        assertEquals(pii.emailHmac("new@x.com"), saved.getValue().getEmailHmac());
+        assertEquals("new@x.com", pii.decryptUserField(saved.getValue().getEmail()));
     }
 }

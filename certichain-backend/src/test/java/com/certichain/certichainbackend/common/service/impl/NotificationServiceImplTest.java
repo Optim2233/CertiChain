@@ -6,6 +6,8 @@ import com.certichain.certichainbackend.common.enums.Role;
 import com.certichain.certichainbackend.common.repository.NotificationRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.EmailService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
+import com.certichain.certichainbackend.support.TestCrypto;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -31,7 +33,7 @@ class NotificationServiceImplTest {
     private final EmailService emailService = mock(EmailService.class);
 
     private final NotificationServiceImpl service = new NotificationServiceImpl(
-            notificationRepository, userRepository, emailService);
+            notificationRepository, userRepository, emailService, TestCrypto.pii());
 
     @Test
     void nullRecipientIsASilentNoOp() {

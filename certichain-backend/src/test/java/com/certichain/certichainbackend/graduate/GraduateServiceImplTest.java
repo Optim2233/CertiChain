@@ -7,6 +7,8 @@ import com.certichain.certichainbackend.common.enums.CredentialType;
 import com.certichain.certichainbackend.common.exception.ValidationException;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
+import com.certichain.certichainbackend.support.TestCrypto;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -33,12 +35,13 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
             mock(com.certichain.certichainbackend.common.service.SupabaseStorageService.class);
     private final com.certichain.certichainbackend.auth.CurrentUser currentUser =
             mock(com.certichain.certichainbackend.auth.CurrentUser.class);
+    private final PiiCryptoService pii = TestCrypto.pii();
 
     // null credentialFieldCryptoService: none of these tests touch getCredentialFields(),
     // the only method that calls it.
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, null, null, null, null, null, null,
-            storageService, passwordEncoder, currentUser, null);
+            storageService, passwordEncoder, currentUser, null, pii);
 
     private Credential pendingCredential(String email) {
         return Credential.builder()
@@ -54,7 +57,7 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
     @Test
     void signupClaimsEveryPendingCredentialForThatEmail() {
         UUID newUserId = UUID.randomUUID();
-        when(userRepository.existsByEmail("alice@example.com")).thenReturn(false);
+        when(userRepository.existsByEmailHmac(pii.emailHmac("alice@example.com"))).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User user = inv.getArgument(0);
@@ -64,8 +67,8 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
 
         Credential first = pendingCredential("alice@example.com");
         Credential second = pendingCredential("alice@example.com");
-        when(credentialRepository.findByGraduateEmailAndStatus(
-                "alice@example.com", CredentialStatus.PENDING_CLAIM))
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(
+                pii.emailHmac("alice@example.com"), CredentialStatus.PENDING_CLAIM))
                 .thenReturn(List.of(first, second));
 
         service.signup("alice@example.com", "password123", null, null, null);
@@ -78,14 +81,14 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
 
     @Test
     void signupStoresAHashNeverThePlaintextPassword() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("hashed-value");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User user = inv.getArgument(0);
             user.setId(UUID.randomUUID());
             return user;
         });
-        when(credentialRepository.findByGraduateEmailAndStatus(anyString(), any()))
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(anyString(), any()))
                 .thenReturn(List.of());
 
         service.signup("alice@example.com", "password123", null, null, null);
@@ -98,7 +101,7 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
 
     @Test
     void duplicateEmailIsRejected() {
-        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+        when(userRepository.existsByEmailHmac(pii.emailHmac("taken@example.com"))).thenReturn(true);
 
         assertThrows(ValidationException.class,
                 () -> service.signup("taken@example.com", "password123", null, null, null));
@@ -112,8 +115,8 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
 
     @Test
     void checkPendingCredentialsCountsWithoutCreatingAnything() {
-        when(credentialRepository.countByGraduateEmailAndStatus(
-                "alice@example.com", CredentialStatus.PENDING_CLAIM)).thenReturn(3);
+        when(credentialRepository.countByGraduateEmailHmacAndStatus(
+                pii.emailHmac("alice@example.com"), CredentialStatus.PENDING_CLAIM)).thenReturn(3);
 
         assertEquals(3, service.checkPendingCredentials("alice@example.com"));
         org.mockito.Mockito.verify(userRepository, org.mockito.Mockito.never()).save(any());
@@ -136,9 +139,10 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
 
         GraduateProfileResponse r = service.updateOwnProfile("  Ada ", " Lovelace ", " +1 555 ", null, null);
 
-        assertEquals("Ada", u.getFirstName());
-        assertEquals("Lovelace", u.getLastName());
-        assertEquals("+1 555", u.getPhone());
+        // stored ciphertext, readable back through decrypt + the response DTO
+        assertEquals("Ada", pii.decryptUserField(u.getFirstName()));
+        assertEquals("Lovelace", pii.decryptUserField(u.getLastName()));
+        assertEquals("+1 555", pii.decryptUserField(u.getPhone()));
         assertEquals("Ada", r.firstName());
     }
 

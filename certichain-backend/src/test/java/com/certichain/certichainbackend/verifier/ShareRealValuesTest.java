@@ -36,7 +36,8 @@ class ShareRealValuesTest {
     private final CredentialFieldCryptoService credentialFieldCryptoService = passthroughCrypto();
     private final VerifierServiceImpl verifierService = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository, shareRepository,
-            shareFieldSelectionRepository, merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService);
+            shareFieldSelectionRepository, merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     private static CredentialFieldCryptoService passthroughCrypto() {
         CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);

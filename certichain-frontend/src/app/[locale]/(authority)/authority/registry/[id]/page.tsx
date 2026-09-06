@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useParams } from "next/navigation"
 import { useRouter } from "@/i18n/navigation"
 import { useInstitution, useInstitutionDocuments, useReinstateInstitution, useRevokeInstitution, useSuspendInstitution } from "@/features/accreditation"
+import type { InstitutionDetail, RegistrationPerson } from "@/features/accreditation/types/types"
 import { apiClient } from "@/shared/config/axioconfig"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
@@ -14,6 +15,27 @@ function isPdf(fileName: string) {
 
 function fmtDate(iso: string | null, locale: string) {
   return iso ? new Date(iso).toLocaleDateString(locale) : "—"
+}
+
+/** Parses the JSONB people columns (founders array / administrator object) defensively. */
+function parsePeople(raw: string | null | undefined): RegistrationPerson[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed as RegistrationPerson[]
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as RegistrationPerson
+      return obj.fullName ? [obj] : []
+    }
+  } catch {
+    // malformed JSON submitted pre-validation — show nothing rather than crash the dossier
+  }
+  return []
+}
+
+function joinAddress(parts: (string | null | undefined)[]) {
+  const kept = parts.filter((p): p is string => !!p && p.trim().length > 0)
+  return kept.length > 0 ? kept.join(", ") : null
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -30,6 +52,138 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="mt-6 border-t border-[#eef0f3] pt-6">
       <h3 className="font-heading m-0 mb-4 text-lg font-bold">{title}</h3>
       {children}
+    </div>
+  )
+}
+
+type TFn = (key: string) => string
+
+/** Full application dossier from the remodeled registration form. Sections render
+ *  only when the institution actually submitted that track's data. */
+function ApplicationDossier({
+  institution: inst,
+  t,
+  locale,
+}: {
+  institution: InstitutionDetail
+  t: TFn
+  locale: string
+}) {
+  const address = joinAddress([inst.street, inst.ward, inst.township, inst.district, inst.stateRegion, inst.postalCode])
+  const founders = parsePeople(inst.founders)
+  const admins = parsePeople(inst.administrator)
+  const submittedFiles = [
+    { label: t("establishmentFile"), url: inst.establishmentDocUrl },
+    { label: t("dicaFile"), url: inst.dicaCertificateUrl },
+    { label: t("taxFile"), url: inst.taxClearanceUrl },
+    { label: t("micFile"), url: inst.micPermitUrl },
+  ].filter((f): f is { label: string; url: string } => !!f.url)
+  const hasApplication = inst.institutionType ?? inst.institutionNameMm ?? inst.institutionCategory ?? address
+  const isPublic = inst.institutionType === "public"
+  const hasEstablishment = inst.yearEstablished ?? inst.establishmentDocType ?? inst.establishmentDocTitle ?? inst.establishmentDocRef ?? inst.establishmentDocIssueDate
+  const hasBusiness = inst.companyName ?? inst.dicaCertificateNumber ?? inst.mycoRegistrationNumber ?? inst.tinNumber ?? inst.incorporationDate ?? inst.ownershipStructure ?? inst.investmentAmount ?? inst.foreignInvolvement ?? inst.micPermitNumber
+
+  return (
+    <>
+      {hasApplication && (
+        <Section title={t("application")}>
+          <div className="flex flex-col gap-3.5">
+            <Row label={t("instType")} value={inst.institutionType ?? "—"} />
+            {inst.institutionNameMm && <Row label={t("nameMm")} value={inst.institutionNameMm} />}
+            {inst.institutionCategory && <Row label={t("category")} value={inst.institutionCategory} />}
+            {address && <Row label={t("address")} value={address} />}
+          </div>
+        </Section>
+      )}
+
+      {isPublic && hasEstablishment && (
+        <Section title={t("establishment")}>
+          <div className="flex flex-col gap-3.5">
+            {inst.yearEstablished != null && <Row label={t("yearEstablished")} value={String(inst.yearEstablished)} />}
+            {inst.establishmentDocType && <Row label={t("docType")} value={inst.establishmentDocType} />}
+            {inst.establishmentDocTitle && <Row label={t("docTitle")} value={inst.establishmentDocTitle} />}
+            {inst.establishmentDocRef && <Row label={t("docRef")} value={inst.establishmentDocRef} />}
+            {inst.establishmentDocIssueDate && <Row label={t("docIssueDate")} value={fmtDate(inst.establishmentDocIssueDate, locale)} />}
+          </div>
+        </Section>
+      )}
+
+      {!isPublic && hasBusiness && (
+        <Section title={t("business")}>
+          <div className="flex flex-col gap-3.5">
+            {inst.companyName && <Row label={t("companyName")} value={inst.companyName} />}
+            {inst.dicaCertificateNumber && <Row label={t("dicaNumber")} value={inst.dicaCertificateNumber} />}
+            {inst.mycoRegistrationNumber && <Row label={t("mycoNumber")} value={inst.mycoRegistrationNumber} />}
+            {inst.tinNumber && <Row label={t("tinNumber")} value={inst.tinNumber} />}
+            {inst.incorporationDate && <Row label={t("incorporationDate")} value={fmtDate(inst.incorporationDate, locale)} />}
+            {inst.ownershipStructure && <Row label={t("ownership")} value={inst.ownershipStructure} />}
+            {inst.investmentAmount != null && <Row label={t("investment")} value={String(inst.investmentAmount)} />}
+            {inst.foreignInvolvement != null && <Row label={t("foreignInvolvement")} value={inst.foreignInvolvement ? t("yes") : t("no")} />}
+            {inst.micPermitNumber && <Row label={t("micPermit")} value={inst.micPermitNumber} />}
+          </div>
+        </Section>
+      )}
+
+      {(founders.length > 0 || admins.length > 0) && (
+        <Section title={t("people")}>
+          <div className="flex flex-col gap-3">
+            {founders.length > 0 && (
+              <div>
+                <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide text-[#75777f]">{t("founders")}</p>
+                <div className="flex flex-col gap-2">
+                  {founders.map((p, i) => (
+                    <PersonCard key={i} person={p} t={t} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {admins.length > 0 && (
+              <div>
+                <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide text-[#75777f]">{t("administrator")}</p>
+                <div className="flex flex-col gap-2">
+                  {admins.map((p, i) => (
+                    <PersonCard key={i} person={p} t={t} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {submittedFiles.length > 0 && (
+        <Section title={t("submittedFiles")}>
+          <div className="flex flex-col gap-2.5">
+            {submittedFiles.map((f) => (
+              <a
+                key={f.label}
+                href={f.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-3 rounded border border-[#c5c6cf] bg-[#f7f9fb] p-3 text-sm"
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="material-symbols-outlined shrink-0 text-[#44474e]">description</span>
+                  <span className="font-semibold" style={{ color: "#005eb3" }}>{f.label}</span>
+                </span>
+                <span className="material-symbols-outlined shrink-0 text-[18px]" style={{ color: "#005eb3" }}>open_in_new</span>
+              </a>
+            ))}
+          </div>
+        </Section>
+      )}
+    </>
+  )
+}
+
+function PersonCard({ person, t }: { person: RegistrationPerson; t: TFn }) {
+  const sub = [person.nrcOrPassport, person.phone, person.email].filter(Boolean).join(" · ")
+  return (
+    <div className="rounded border border-[#eef0f3] bg-[#f7f9fb] p-3 text-sm">
+      <p className="m-0 font-semibold">{person.fullName ?? t("unnamed")}</p>
+      {person.fullNameMyanmar && <p className="m-0 mt-0.5 text-[#44474e]">{person.fullNameMyanmar}</p>}
+      {sub && <p className="m-0 mt-1 font-mono text-xs text-[#44474e]">{sub}</p>}
+      {person.educationalQualification && <p className="m-0 mt-1 text-xs text-[#75777f]">{person.educationalQualification}</p>}
     </div>
   )
 }
@@ -225,6 +379,9 @@ export default function InstitutionDetailPage() {
                 </div>
               )}
             </Section>
+
+            {/* Remodeled application dossier (V18) — everything the institution submitted */}
+            <ApplicationDossier institution={institution} t={t} locale={locale} />
 
             {/* Signing key */}
             {institution.publicKey && (

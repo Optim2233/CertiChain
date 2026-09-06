@@ -8,6 +8,7 @@ import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.entity.PasswordResetToken;
 import com.certichain.certichainbackend.common.repository.PasswordResetTokenRepository;
 import com.certichain.certichainbackend.common.service.EmailService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,45 +32,54 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
+    private final PiiCryptoService piiCryptoService;
 
-    @Value("${certichain.frontend-url:http://localhost:3000}")
-    private String frontendUrl;
+    // Base URL stamped into password-reset links. Separate from the dev LAN frontend
+    // URL - emailed links must be publicly reachable (see EMAIL_PUBLIC_BASE_URL).
+    @Value("${certichain.email.base-url:${certichain.frontend-url:http://localhost:3000}}")
+    private String emailBaseUrl;
 
     public AuthResult authenticate(String email, String password) {
         // Same error for "no such user" and "wrong password" - never reveal which.
-        var user = userRepository.findByEmail(email)
+        // Email is ciphertext in the DB: look up by HMAC blind index, decrypt for the result.
+        var user = userRepository.findByEmailHmac(piiCryptoService.emailHmac(email))
                 .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()))
                 .orElseThrow(() -> new ValidationException("Invalid email or password"));
 
-        return new AuthResult(user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId());
+        return new AuthResult(user.getId(), piiCryptoService.decryptUserField(user.getEmail()),
+                user.getRole(), user.getInstitutionId());
     }
 
     public AuthResult signup(String email, String password, Role role, UUID institutionId) {
-        if (userRepository.findByEmail(email).isPresent()) {
+        String norm = PiiCryptoService.normalizeEmail(email);
+        if (userRepository.existsByEmailHmac(piiCryptoService.emailHmac(norm))) {
             throw new ValidationException("Email already registered");
         }
-        
+
         String passwordHash = passwordEncoder.encode(password);
-        
+
         var user = User.builder()
-                .email(email)
+                .email(piiCryptoService.encryptUserField(norm))
+                .emailHmac(piiCryptoService.emailHmac(norm))
                 .passwordHash(passwordHash)
                 .role(role)
                 .institutionId(institutionId)
                 .createdAt(Instant.now())
                 .lastBriefedAt(Instant.now())
                 .build();
-        
+
         var savedUser = userRepository.save(user);
-        
-        return new AuthResult(savedUser.getId(), savedUser.getEmail(), savedUser.getRole(), savedUser.getInstitutionId());
+
+        return new AuthResult(savedUser.getId(), norm, savedUser.getRole(), savedUser.getInstitutionId());
     }
 
     public UserResponse findByUserId(UUID userId) {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getInstitutionId(),
-                user.getFirstName(), user.getLastName(), user.getProfileImageUrl());
+        return new UserResponse(user.getId(), piiCryptoService.decryptUserField(user.getEmail()),
+                user.getRole(), user.getInstitutionId(),
+                piiCryptoService.decryptUserField(user.getFirstName()),
+                piiCryptoService.decryptUserField(user.getLastName()), user.getProfileImageUrl());
     }
 
     @CacheEvict(cacheNames = "currentUser", allEntries = true)
@@ -87,11 +97,12 @@ public class AuthService {
     }
 
     public void requestPasswordReset(String email) {
-        var userOpt = userRepository.findByEmail(email);
+        var userOpt = userRepository.findByEmailHmac(piiCryptoService.emailHmac(email));
         if (userOpt.isEmpty()) {
             return; // don't reveal whether email exists
         }
         var user = userOpt.get();
+        String plainEmail = piiCryptoService.decryptUserField(user.getEmail());
         // ponytail: simple rate limit - max 3 tokens per 15 min per user
         long recent = passwordResetTokenRepository.countByUserIdAndCreatedAtAfter(
                 user.getId(), Instant.now().minus(Duration.ofMinutes(15)));
@@ -107,14 +118,14 @@ public class AuthService {
                 .createdAt(Instant.now())
                 .build();
         passwordResetTokenRepository.save(token);
-        String link = frontendUrl.replaceAll("/$", "") + "/reset-password?token=" + rawToken;
+        String link = emailBaseUrl.replaceAll("/$", "") + "/reset-password?token=" + rawToken;
         try {
-            ((com.certichain.certichainbackend.common.service.impl.EmailServiceImpl) emailService).sendPasswordReset(user.getEmail(), link);
+            ((com.certichain.certichainbackend.common.service.impl.EmailServiceImpl) emailService).sendPasswordReset(plainEmail, link);
         } catch (Exception ex) {
-            emailService.send(user.getEmail(), "Reset your CertiChain password",
+            emailService.send(plainEmail, "Reset your CertiChain password",
                     "Click the link to reset your password (expires in 30 minutes):\n" + link + "\n\nIf you didn't request this, ignore this email.");
         }
-        log.info("Password reset link for {}: {}", user.getEmail(), link);
+        log.info("Password reset link for {}: {}", user.getId(), link);
     }
 
     public void resetPassword(String rawToken, String newPassword) {
