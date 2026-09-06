@@ -1,15 +1,33 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useParams } from "next/navigation"
 import { useRouter } from "@/i18n/navigation"
 import { InstitutionFacts, useInstitution, useInstitutionDocuments, useVerifyDocument } from "@/features/accreditation"
+import type { InstitutionDetail } from "@/features/accreditation/types/types"
 import { apiClient } from "@/shared/config/axioconfig"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
 function isPdf(fileName: string) {
   return fileName.toLowerCase().endsWith(".pdf")
+}
+
+/** Files uploaded via the remodeled form live as Supabase URLs on the institution
+ *  row, not as verifiable `institution_document` rows. They are still submitted
+ *  documents, so they join the selectable list and preview inline via iframe.
+ *  Informational only: they never block the Next step (no verified flag). */
+function submittedUrlFiles(
+  inst: InstitutionDetail | undefined,
+  t: (key: string) => string,
+): { key: string; label: string; url: string }[] {
+  if (!inst) return []
+  return [
+    { key: "establishment", label: t("establishmentFile"), url: inst.establishmentDocUrl },
+    { key: "dica", label: t("dicaFile"), url: inst.dicaCertificateUrl },
+    { key: "tax", label: t("taxFile"), url: inst.taxClearanceUrl },
+    { key: "mic", label: t("micFile"), url: inst.micPermitUrl },
+  ].filter((f): f is { key: string; label: string; url: string } => !!f.url)
 }
 
 export default function ReviewDocumentsPage() {
@@ -29,7 +47,11 @@ export default function ReviewDocumentsPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedUrlKey, setSelectedUrlKey] = useState<string | null>(null)
+  const urlFiles = useMemo(() => submittedUrlFiles(institution, t), [institution, t])
   const selectedDoc = docs.find((d) => d.id === selectedId) ?? null
+  const selectedUrlFile = urlFiles.find((f) => f.key === selectedUrlKey) ?? null
+  const hasAny = docs.length > 0 || urlFiles.length > 0
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState(false)
@@ -67,6 +89,7 @@ export default function ReviewDocumentsPage() {
 
   // Selecting a PDF fetches it once for the preview pane; the resulting blob URL is only
   // ever used for the <iframe src> below, revoked by the cleanup effect whenever it changes.
+  // URL files (Supabase links) preview directly — no fetch needed.
   function selectDocument(documentId: string, fileName: string) {
     if (documentId === selectedId) return // already showing - skip the redundant re-fetch
     setPreviewUrl((prev) => {
@@ -74,6 +97,7 @@ export default function ReviewDocumentsPage() {
       return null
     })
     setSelectedId(documentId)
+    setSelectedUrlKey(null)
     setPreviewError(false)
     if (!isPdf(fileName)) return
     setPreviewLoading(true)
@@ -84,14 +108,27 @@ export default function ReviewDocumentsPage() {
       .finally(() => setPreviewLoading(false))
   }
 
+  function selectUrlFile(key: string) {
+    if (key === selectedUrlKey) return
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    setSelectedUrlKey(key)
+    setSelectedId(null)
+    setPreviewError(false)
+    setPreviewLoading(false)
+  }
+
   // Reviewing a document's submitted proof is the point of this page - show it immediately
   // rather than making the reviewer click the filename first.
   useEffect(() => {
-    if (selectedId === null && docs.length > 0) {
-      selectDocument(docs[0].id, docs[0].fileName)
+    if (selectedId === null && selectedUrlKey === null) {
+      if (docs.length > 0) selectDocument(docs[0].id, docs[0].fileName)
+      else if (urlFiles.length > 0) setSelectedUrlKey(urlFiles[0].key)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docs])
+  }, [docs, urlFiles])
 
   // Object URLs aren't garbage-collected on their own - without this, every document click
   // leaks a blob for the rest of the session.
@@ -133,10 +170,11 @@ export default function ReviewDocumentsPage() {
             <p className="text-sm text-[#C0392B]">
               {t("loadFailed")}
             </p>
-          ) : docs.length === 0 ? (
+          ) : !hasAny ? (
             <p className="text-sm text-[#75777f]">{t("noDocuments")}</p>
           ) : (
-            docs.map((d) => (
+            <>
+            {docs.map((d) => (
               <div
                 key={d.id}
                 className="mb-3 rounded border bg-[#f7f9fb] p-4"
@@ -187,7 +225,32 @@ export default function ReviewDocumentsPage() {
                   )}
                 </div>
               </div>
-            ))
+            ))}
+            {urlFiles.length > 0 && (
+              <div className="mt-3">
+                <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide text-[#75777f]">{t("submittedFiles")}</p>
+                <div className="flex flex-col gap-2">
+                  {urlFiles.map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => selectUrlFile(f.key)}
+                      className="flex items-center justify-between gap-3 rounded border bg-[#f7f9fb] p-3 text-left text-sm"
+                      style={{ borderColor: f.key === selectedUrlKey ? "#02275A" : "#c5c6cf" }}
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="material-symbols-outlined shrink-0 text-[#44474e]">description</span>
+                        <span className="font-semibold" style={{ color: "#005eb3" }}>{f.label}</span>
+                      </span>
+                      <span className="material-symbols-outlined shrink-0 text-[18px]" style={{ color: "#005eb3" }}>
+                        {f.key === selectedUrlKey ? "visibility" : "open_in_new"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            </>
           )}
 
           <div className="mt-4 flex justify-end border-t border-[#c5c6cf] pt-4">
@@ -206,7 +269,23 @@ export default function ReviewDocumentsPage() {
         </div>
 
         <div className="sticky top-8 flex h-[calc(100vh-8rem)] min-w-0 flex-1 flex-col rounded-lg border border-[#c5c6cf] bg-white">
-          {!selectedDoc ? (
+          {selectedUrlFile ? (
+            <>
+              <div className="flex items-center justify-between border-b border-[#c5c6cf] px-5 py-3">
+                <span className="truncate font-mono text-sm text-[#191c1e]">{selectedUrlFile.label}</span>
+                <a
+                  href={selectedUrlFile.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex shrink-0 items-center gap-1.5 rounded border border-[#c5c6cf] bg-white px-3 py-1.5 text-xs font-semibold text-[#44474e]"
+                >
+                  <span className="material-symbols-outlined text-base">open_in_new</span>
+                  {t("openFile")}
+                </a>
+              </div>
+              <iframe src={selectedUrlFile.url} title={selectedUrlFile.label} className="min-h-0 flex-1 rounded-b-lg" />
+            </>
+          ) : !selectedDoc ? (
             <div className="flex flex-1 items-center justify-center p-8 text-center">
               <p className="m-0 text-sm text-[#75777f]">{t("selectDocPreview")}</p>
             </div>

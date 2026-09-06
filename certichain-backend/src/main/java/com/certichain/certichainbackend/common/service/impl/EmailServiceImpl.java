@@ -19,7 +19,7 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
     private final String fromAddress;
-    private final String frontendUrl;
+    private final String emailBaseUrl;
     private final String logoUrl;
     private final boolean configured;
 
@@ -27,12 +27,16 @@ public class EmailServiceImpl implements EmailService {
                             @Value("${spring.mail.username:}") String gmailAddress,
                             @Value("${mail.from:}") String fromAddress,
                             @Value("${certichain.frontend-url:http://localhost:3000}") String frontendUrl,
+                            @Value("${certichain.email.base-url:${certichain.frontend-url:http://localhost:3000}}") String emailBaseUrlParam,
                             @Value("${certichain.email.logo-url:}") String logoUrl) {
         this.mailSender = mailSender;
         this.templateEngine = templateEngine;
         this.fromAddress = fromAddress != null && !fromAddress.isBlank() ? fromAddress : gmailAddress;
-        this.frontendUrl = frontendUrl;
-        this.logoUrl = logoUrl != null && !logoUrl.isBlank() ? logoUrl : frontendUrl.replaceAll("/$","") + "/certichain-shield.svg";
+        // Logo + CTA links must be publicly reachable (a dev LAN frontend URL is not) -
+        // EMAIL_PUBLIC_BASE_URL overrides them independently in prod.
+        String emailBase = emailBaseUrlParam != null && !emailBaseUrlParam.isBlank() ? emailBaseUrlParam : frontendUrl;
+        this.emailBaseUrl = emailBase;
+        this.logoUrl = logoUrl != null && !logoUrl.isBlank() ? logoUrl : emailBase.replaceAll("/$","") + "/certichain-shield.svg";
         this.configured = gmailAddress != null && !gmailAddress.isBlank();
     }
 
@@ -54,7 +58,7 @@ public class EmailServiceImpl implements EmailService {
         if (!configured) return;
         try {
             Context ctx = new Context();
-            ctx.setVariable("frontendUrl", frontendUrl);
+            ctx.setVariable("frontendUrl", emailBaseUrl);
             ctx.setVariable("logoUrl", logoUrl);
             ctx.setVariable("preheader", "Reset your CertiChain password — expires in 30 minutes");
             ctx.setVariable("resetLink", resetLink);
@@ -69,7 +73,7 @@ public class EmailServiceImpl implements EmailService {
     @Async
     public void sendNotification(String to, String type, String message) {
         String ctaUrl = null; String ctaLabel = null;
-        if (type != null && type.toLowerCase().contains("certificate")) { ctaUrl = frontendUrl + "/graduate"; ctaLabel = "View credentials"; }
+        if (type != null && type.toLowerCase().contains("certificate")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
         sendInternal(to, "CertiChain: " + type, message, ctaUrl, ctaLabel);
     }
 
@@ -77,7 +81,7 @@ public class EmailServiceImpl implements EmailService {
         if (!configured) return;
         try {
             Context ctx = new Context();
-            ctx.setVariable("frontendUrl", frontendUrl);
+            ctx.setVariable("frontendUrl", emailBaseUrl);
             ctx.setVariable("logoUrl", logoUrl);
             ctx.setVariable("preheader", subject);
             ctx.setVariable("title", subject);
@@ -93,7 +97,7 @@ public class EmailServiceImpl implements EmailService {
 
     private void sendMime(String to, String subject, String text, String html) throws Exception {
         MimeMessage mime = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(mime, false, "UTF-8");
+        MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
         helper.setFrom(fromAddress);
         helper.setTo(to);
         helper.setSubject(subject);

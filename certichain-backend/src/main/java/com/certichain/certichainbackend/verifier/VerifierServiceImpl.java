@@ -20,6 +20,7 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -58,6 +59,7 @@ public class VerifierServiceImpl implements VerifierService {
     private final AuditLogService auditLogService;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final CredentialFieldCryptoService credentialFieldCryptoService;
+    private final PiiCryptoService piiCryptoService;
 
     // Self-reference for the cached counters above: internal this.* calls bypass
     // the cache proxy. @Lazy breaks the constructor cycle.
@@ -110,8 +112,9 @@ public class VerifierServiceImpl implements VerifierService {
                     "message", "This share link is no longer active");
         }
 
-        share.setViewCount(share.getViewCount() + 1);
-        shareRepository.save(share);
+        // Atomic bump only - never read-modify-write the managed copy, or concurrent
+        // verifications of the same link 409 on the @Version check.
+        shareRepository.incrementViewCount(share.getId());
         auditLogService.log(AuditEvents.SHARE_VIEWED_EVENT, null, null, null, share.getId());
 
         if (share.getScope() == ShareScope.SINGLE_CREDENTIAL) {
@@ -138,6 +141,7 @@ public class VerifierServiceImpl implements VerifierService {
             "certificate_id", "share_token", "share_id", "share_code", "share_link", "share_url");
 
     @Override
+    @Transactional
     public List<BulkVerifyRow> verifyBulk(MultipartFile csv) {
         // Share-only: one share token (or full share link) per non-blank line, optional header row.
         // Only shared credentials are exposed — verifiers must use a share token/link.
@@ -254,8 +258,7 @@ public class VerifierServiceImpl implements VerifierService {
         if (share.isRevoked()) return new BulkVerifyRow(token, VerificationResult.INVALID_NOT_FOUND, null, null);
 
         // View-count bump + SHARE_VIEWED audit stay per row, exactly as before.
-        share.setViewCount(share.getViewCount() + 1);
-        shareRepository.save(share);
+        shareRepository.incrementViewCount(share.getId());
         auditLogService.log(AuditEvents.SHARE_VIEWED_EVENT, null, null, null, share.getId());
 
         if (share.getScope() == ShareScope.SINGLE_CREDENTIAL) {
@@ -298,6 +301,17 @@ public class VerifierServiceImpl implements VerifierService {
         if (fields == null) {
             fields = credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
         }
+        // Fields come out of the prefetch straight from the DB - Base64 ciphertext. Decrypt
+        // before the Merkle recompute, exactly like the single-lookup path, or every bulk row
+        // fails the root check and reports INVALID_NOT_FOUND.
+        try {
+            fields = credentialFieldCryptoService.decrypted(fields, credential.getInstitutionId());
+        } catch (RuntimeException e) {
+            // IllegalStateException = missing DEK/bad KEK/GCM tag; IllegalArgumentException =
+            // legacy plaintext (Base64 decode of non-ciphertext). Both fail closed to
+            // "nothing disclosed" so Merkle mismatches -> unverifiable, never 500.
+            fields = List.of();
+        }
         Institution institution = null;
         if (credential.getInstitutionId() != null) {
             institution = pre.institutions.get(credential.getInstitutionId());
@@ -336,8 +350,11 @@ public class VerifierServiceImpl implements VerifierService {
     public List<Institution> publicInstitutionDirectory() {
         // APPROVED + SUSPENDED only. Suspended is shown (dimmed on the frontend) rather than
         // hidden - confirmed decision, see context_kit/CLAUDE.md.
+        // Sanitized copies: the directory is unauthenticated, so PII never leaves here.
         return institutionRepository.findByStatusInOrderByNameAsc(
-                List.of(InstitutionStatus.APPROVED, InstitutionStatus.SUSPENDED));
+                List.of(InstitutionStatus.APPROVED, InstitutionStatus.SUSPENDED)).stream()
+                .map(piiCryptoService::publicDirectoryCopy)
+                .toList();
     }
 
     /**
@@ -352,9 +369,10 @@ public class VerifierServiceImpl implements VerifierService {
                 credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(credential.getId());
         try {
             allFields = credentialFieldCryptoService.decrypted(allFields, credential.getInstitutionId());
-        } catch (IllegalStateException e) {
-            // No DEK yet (institution predates encryption and hasn't been backfilled) or its
-            // institution row is gone entirely. Never let the public verify endpoint 500 over
+        } catch (RuntimeException e) {
+            // No DEK yet (institution predates encryption and hasn't been backfilled), its
+            // institution row is gone, or legacy plaintext fails Base64 decode
+            // (IllegalArgumentException). Never let the public verify endpoint 500 over
             // this - failing closed to "nothing disclosed" also means the Merkle recompute
             // below won't match, so this reports as unverifiable rather than falsely VERIFIED.
             allFields = List.of();
@@ -424,7 +442,7 @@ public class VerifierServiceImpl implements VerifierService {
         return new VerificationResponse(
                 result,
                 title(allFields, credential),
-                credential.getGraduateEmail(),
+                piiCryptoService.decryptUserField(credential.getGraduateEmail()),
                 institutionName,
                 institutionStatus,
                 credential.getIssuedAt(),

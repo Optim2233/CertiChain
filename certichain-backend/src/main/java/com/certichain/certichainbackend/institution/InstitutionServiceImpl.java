@@ -30,9 +30,11 @@ import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -77,6 +79,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
     private final CredentialFieldCryptoService credentialFieldCryptoService;
+    private final PiiCryptoService piiCryptoService;
 
     @Override
     @Transactional
@@ -84,7 +87,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         requireText(req.getName(), "name");
         requireText(req.getEmail(), "email");
         requireText(req.getPassword(), "password");
-        if (userRepository.existsByEmail(req.getEmail())) throw new ValidationException("Email already registered");
+        if (userRepository.existsByEmailHmac(piiCryptoService.emailHmac(req.getEmail()))) throw new ValidationException("Email already registered");
         if (req.getPhone() != null && req.getPhone().length() > 50) throw new ValidationException("phone too long (max 50)");
         if (req.getWebsite() != null && req.getWebsite().length() > 255) throw new ValidationException("website too long (max 255)");
 
@@ -126,36 +129,46 @@ public class InstitutionServiceImpl implements InstitutionService {
             catch (Exception e) { throw new ValidationException("Invalid incorporationDate (expected YYYY-MM-DD)"); }
         }
 
+        // Mint the DEK at application time (not approval) so applicant PII is encrypted
+        // from the first write. approve()/reinstate() keep their mint-if-unset guards for
+        // pre-encryption rows.
+        javax.crypto.SecretKey newDek = credentialFieldCryptoService.generateDek();
+        com.certichain.certichainbackend.common.service.EncryptedPayload wrappedDek =
+                credentialFieldCryptoService.wrapDek(newDek);
+
         Institution institution = Institution.builder()
                 .name(req.getName().trim())
                 .ministry(req.getGoverningMinistry() != null && !req.getGoverningMinistry().isBlank() ? req.getGoverningMinistry().trim() : null)
                 .institutionType(type)
                 .institutionNameMm(req.getInstitutionNameMm() != null && !req.getInstitutionNameMm().isBlank() ? req.getInstitutionNameMm().trim() : null)
                 .institutionCategory(req.getInstitutionCategory() != null && !req.getInstitutionCategory().isBlank() ? req.getInstitutionCategory().trim() : null)
-                .phone(req.getPhone() != null && !req.getPhone().isBlank() ? req.getPhone().trim() : null)
+                .phone(piiCryptoService.encryptInstitutionField(trimToNull(req.getPhone()), newDek))
                 .website(req.getWebsite() != null && !req.getWebsite().isBlank() ? req.getWebsite().trim() : null)
                 .stateRegion(req.getStateRegion() != null && !req.getStateRegion().isBlank() ? req.getStateRegion().trim() : null)
                 .district(req.getDistrict() != null && !req.getDistrict().isBlank() ? req.getDistrict().trim() : null)
                 .township(req.getTownship() != null && !req.getTownship().isBlank() ? req.getTownship().trim() : null)
-                .ward(req.getWard() != null && !req.getWard().isBlank() ? req.getWard().trim() : null)
-                .street(req.getStreet() != null && !req.getStreet().isBlank() ? req.getStreet().trim() : null)
-                .postalCode(req.getPostalCode() != null && !req.getPostalCode().isBlank() ? req.getPostalCode().trim() : null)
+                .ward(piiCryptoService.encryptInstitutionField(trimToNull(req.getWard()), newDek))
+                .street(piiCryptoService.encryptInstitutionField(trimToNull(req.getStreet()), newDek))
+                .postalCode(piiCryptoService.encryptInstitutionField(trimToNull(req.getPostalCode()), newDek))
                 .yearEstablished(req.getYearEstablished())
                 .establishmentDocType(req.getEstablishmentDocType() != null && !req.getEstablishmentDocType().isBlank() ? req.getEstablishmentDocType().trim() : null)
-                .establishmentDocTitle(req.getEstablishmentDocTitle() != null && !req.getEstablishmentDocTitle().isBlank() ? req.getEstablishmentDocTitle().trim() : null)
-                .establishmentDocRef(req.getEstablishmentDocRef() != null && !req.getEstablishmentDocRef().isBlank() ? req.getEstablishmentDocRef().trim() : null)
+                .establishmentDocTitle(piiCryptoService.encryptInstitutionField(trimToNull(req.getEstablishmentDocTitle()), newDek))
+                .establishmentDocRef(piiCryptoService.encryptInstitutionField(trimToNull(req.getEstablishmentDocRef()), newDek))
                 .establishmentDocIssueDate(estDate)
-                .companyName(req.getCompanyName() != null && !req.getCompanyName().isBlank() ? req.getCompanyName().trim() : null)
-                .dicaCertificateNumber(req.getDicaCertificateNumber() != null && !req.getDicaCertificateNumber().isBlank() ? req.getDicaCertificateNumber().trim() : null)
-                .mycoRegistrationNumber(req.getMycoRegistrationNumber() != null && !req.getMycoRegistrationNumber().isBlank() ? req.getMycoRegistrationNumber().trim() : null)
-                .tinNumber(req.getTinNumber() != null && !req.getTinNumber().isBlank() ? req.getTinNumber().trim() : null)
+                .companyName(piiCryptoService.encryptInstitutionField(trimToNull(req.getCompanyName()), newDek))
+                .dicaCertificateNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getDicaCertificateNumber()), newDek))
+                .mycoRegistrationNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getMycoRegistrationNumber()), newDek))
+                .tinNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getTinNumber()), newDek))
                 .incorporationDate(incorpDate)
                 .ownershipStructure(req.getOwnershipStructure() != null && !req.getOwnershipStructure().isBlank() ? req.getOwnershipStructure().trim() : null)
                 .investmentAmount(req.getInvestmentAmount())
                 .foreignInvolvement(Boolean.TRUE.equals(req.getForeignInvolvement()))
-                .micPermitNumber(req.getMicPermitNumber() != null && !req.getMicPermitNumber().isBlank() ? req.getMicPermitNumber().trim() : null)
-                .founders(foundersJson)
-                .administrator(adminJson != null && !adminJson.isBlank() ? adminJson.trim() : null)
+                .micPermitNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getMicPermitNumber()), newDek))
+                .founders(piiCryptoService.encryptJson(foundersJson, newDek))
+                .administrator(piiCryptoService.encryptJson(
+                        adminJson != null && !adminJson.isBlank() ? adminJson.trim() : null, newDek))
+                .dekWrapped(wrappedDek.ciphertext())
+                .dekIv(wrappedDek.iv())
                 .status(InstitutionStatus.PENDING)
                 .appliedAt(Instant.now())
                 .build();
@@ -188,7 +201,8 @@ public class InstitutionServiceImpl implements InstitutionService {
                 InstitutionDocument doc = InstitutionDocument.builder()
                         .institutionId(institution.getId())
                         .fileName(safeName)
-                        .fileData(url != null ? new byte[0] : readBytes(document))
+                        .fileData(url != null ? new byte[0] : piiCryptoService.encryptBytes(
+                                readBytes(document), institution.getId()))
                         .fileUrl(url)
                         .uploadedAt(Instant.now())
                         .build();
@@ -196,8 +210,10 @@ public class InstitutionServiceImpl implements InstitutionService {
             }
         }
 
+        String normEmail = PiiCryptoService.normalizeEmail(req.getEmail());
         userRepository.save(User.builder()
-                .email(req.getEmail().trim().toLowerCase())
+                .email(piiCryptoService.encryptUserField(normEmail))
+                .emailHmac(piiCryptoService.emailHmac(normEmail))
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .role(Role.INSTITUTION)
                 .institutionId(institution.getId())
@@ -206,7 +222,10 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .build());
 
         auditLogService.log("Institution application submitted", null, institution.getId(), null);
-        return institution;
+        // Decrypted copy with the just-minted DEK: the managed entity holds ciphertext
+        // from here on. Key-direct (no storage re-read) so the response can't fail
+        // independently of the write that just succeeded.
+        return piiCryptoService.decryptedCopy(institution, newDek);
     }
 
     private String uploadIfPresent(UUID instId, String kind, MultipartFile file) {
@@ -218,7 +237,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         InstitutionDocument doc = InstitutionDocument.builder()
                 .institutionId(instId)
                 .fileName(file.getOriginalFilename() != null ? file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_") : kind + ".pdf")
-                .fileData(readBytes(file))
+                .fileData(piiCryptoService.encryptBytes(readBytes(file), instId))
                 .uploadedAt(Instant.now())
                 .build();
         institutionDocumentRepository.save(doc);
@@ -228,7 +247,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     @Cacheable(cacheNames = "institution", key = "'own:' + @currentUser.institutionId()")
     public Institution getOwnInstitution() {
-        return load(currentUser.institutionId());
+        return piiCryptoService.decryptedCopy(load(currentUser.institutionId()));
     }
 
     @Override
@@ -256,8 +275,10 @@ public class InstitutionServiceImpl implements InstitutionService {
             if (trimmed != null && trimmed.length() > 50) {
                 throw new ValidationException("phone too long (max 50)");
             }
-            if (!java.util.Objects.equals(trimmed, institution.getPhone())) {
-                institution.setPhone(trimmed);
+            UUID instId = institution.getId();
+            if (!java.util.Objects.equals(trimmed,
+                    piiCryptoService.decryptInstitutionField(institution.getPhone(), instId))) {
+                institution.setPhone(piiCryptoService.encryptInstitutionField(trimmed, instId));
                 changed = true;
             }
         }
@@ -361,7 +382,7 @@ public class InstitutionServiceImpl implements InstitutionService {
             institution = institutionRepository.save(institution);
             auditLogService.log("Institution profile updated", currentUser.id(), institution.getId(), null);
         }
-        return institution;
+        return piiCryptoService.decryptedCopy(institution);
     }
 
     /** WCAG contrast ratio of white (#FFFFFF) against the given #RRGGBB colour. */
@@ -384,11 +405,15 @@ public class InstitutionServiceImpl implements InstitutionService {
     // survive the Redis JSON round trip (InvalidDefinitionException: no Creators).
     public Page<Credential> listCredentials(String status, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("issuedAt").descending());
+        Page<Credential> result;
         if (status == null || status.isBlank()) {
-            return credentialRepository.findByInstitutionId(currentUser.institutionId(), pageRequest);
+            result = credentialRepository.findByInstitutionId(currentUser.institutionId(), pageRequest);
+        } else {
+            result = credentialRepository.findByInstitutionIdAndStatus(
+                    currentUser.institutionId(), parseCredentialStatus(status), pageRequest);
         }
-        return credentialRepository.findByInstitutionIdAndStatus(
-                currentUser.institutionId(), parseCredentialStatus(status), pageRequest);
+        // Decrypted copies: the controller maps CredentialResponse::from over this page.
+        return result.map(piiCryptoService::decryptedCredentialCopy);
     }
 
     // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
@@ -434,7 +459,8 @@ public class InstitutionServiceImpl implements InstitutionService {
             }
             if (c.getType() == CredentialType.CERTIFICATE) cert++; else act++;
             if (c.getStatus() == CredentialStatus.REVOKED && c.getRevokeReason() != null) {
-                String key = c.getRevokeReason().trim();
+                String key = piiCryptoService.decryptInstitutionField(
+                        c.getRevokeReason(), c.getInstitutionId()).trim();
                 if (!key.isEmpty()) revokeReasons.merge(key.length() > 60 ? key.substring(0,60) : key, 1L, Long::sum);
             }
             // expiry buckets (only non-revoked, non-expired with future expiry)
@@ -465,13 +491,13 @@ public class InstitutionServiceImpl implements InstitutionService {
                     .collect(Collectors.groupingBy(com.certichain.certichainbackend.common.entity.AuditLogEntry::getCredentialId, Collectors.counting()));
             // also include revoked verifications in counts? keep separate — top is clean verifies
             // title rows are ciphertext in the DB - decrypt per owning institution (this
-            // institution's own DEK only) so the labels are readable. No silent catch: a
-            // decrypt failure here is a real data/DEK problem worth surfacing as a 500.
+            // institution's own DEK only) so the labels are readable. Per-row isolation:
+            // one bad title/DEK falls back to the id-prefix label below instead of 500ing
+            // the whole dashboard.
             Map<UUID, UUID> credentialToInstitution = credentials.stream()
                     .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
-            Map<UUID, String> titleById = credentialFieldCryptoService.decryptedTitlesByCredential(
-                    credentialToInstitution,
-                    credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
+            final Map<UUID, String> titleById =
+                    decryptTitlesOrEmpty(credentialToInstitution, credentialIds);
             topVerified = counts.entrySet().stream()
                     .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed())
                     .limit(5)
@@ -613,7 +639,8 @@ public class InstitutionServiceImpl implements InstitutionService {
             requireText(fieldName, "field name");
             parsed.add(new Field(fieldName, field.getOrDefault("value", "")));
         }
-        return issue(graduateEmail, parsed, CredentialType.CERTIFICATE, expiresAt);
+        return piiCryptoService.decryptedCredentialCopy(
+                issue(graduateEmail, parsed, CredentialType.CERTIFICATE, expiresAt));
     }
 
     @Override
@@ -622,9 +649,9 @@ public class InstitutionServiceImpl implements InstitutionService {
     public Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt) {
         requireText(activity, "activity");
         requireText(date, "date");
-        return issue(graduateEmail,
+        return piiCryptoService.decryptedCredentialCopy(issue(graduateEmail,
                 List.of(new Field("activity", activity), new Field("date", date)),
-                CredentialType.ACTIVITY_RECORD, expiresAt);
+                CredentialType.ACTIVITY_RECORD, expiresAt));
     }
 
     @Override
@@ -712,7 +739,8 @@ public class InstitutionServiceImpl implements InstitutionService {
     /** Shared revoke behaviour: status + reason + timestamp, audit entry, graduate notification. */
     private void applyRevocation(Credential credential, String reason) {
         credential.setStatus(CredentialStatus.REVOKED);
-        credential.setRevokeReason(reason);
+        credential.setRevokeReason(piiCryptoService.encryptInstitutionField(
+                reason, credential.getInstitutionId()));
         credential.setRevokedAt(Instant.now());
         auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
@@ -736,10 +764,10 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
-    @Cacheable(cacheNames = "institution",
-            key = "'credential:' + @currentUser.institutionId() + ':' + #credentialId")
+    // Not cached: returns a decrypted copy, and plaintext PII must not sit in Redis.
+    // Single indexed PK lookup - the cache bought little anyway.
     public Credential getCredential(UUID credentialId) {
-        return ownCredential(credentialId);
+        return piiCryptoService.decryptedCredentialCopy(ownCredential(credentialId));
     }
 
     @Override
@@ -764,11 +792,12 @@ public class InstitutionServiceImpl implements InstitutionService {
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate edited",
                 "A credential you hold was edited and re-signed by the issuing institution.");
-        return credential;
+        return piiCryptoService.decryptedCredentialCopy(credential);
     }
 
     @Override
-    @Cacheable(cacheNames = "institution", key = "'disputes:' + @currentUser.institutionId()")
+    // Not cached: returns decrypted copies, and plaintext PII must not sit in Redis.
+    // Indexed per-institution queries - the cache bought little at this scale.
     public List<InstitutionDisputeResponse> listDisputes() {
         List<Credential> credentials = credentialRepository.findByInstitutionId(currentUser.institutionId());
         if (credentials.isEmpty()) {
@@ -785,27 +814,37 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .collect(Collectors.toMap(Credential::getId, Function.identity()));
         // title lives in the 'title' CredentialField row; one batch query, no N+1. The row
         // comes back as ciphertext, so decrypt per owning institution before wiring it in.
+        // Per-row isolation: one bad title falls back to null below, not a 500 for the list.
         Map<UUID, UUID> credentialToInstitution = credById.values().stream()
                 .collect(Collectors.toMap(Credential::getId, Credential::getInstitutionId));
-        Map<UUID, String> titleById = credentialFieldCryptoService.decryptedTitlesByCredential(
-                credentialToInstitution,
-                credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
+        final Map<UUID, String> titleById = decryptTitlesOrEmpty(credentialToInstitution, credentialIds);
 
         return flags.stream().map(f -> {
             Credential c = credById.get(f.getCredentialId());
+            UUID instId = c != null ? c.getInstitutionId() : currentUser.institutionId();
+            String gradEmail = c != null
+                    ? piiCryptoService.decryptUserField(c.getGraduateEmail()) : null;
+            // Dispute text lives under the issuing institution's DEK (same key as revoke reasons).
             return new InstitutionDisputeResponse(
                     f.getId(), f.getCredentialId(),
                     titleById.get(f.getCredentialId()),
                     c != null ? c.getType() : null,
-                    c != null ? c.getGraduateEmail() : null,
-                    f.getReason(), f.getStatus(), f.getResolutionNote(),
+                    gradEmail,
+                    piiCryptoService.decryptInstitutionField(f.getReason(), instId),
+                    f.getStatus(),
+                    piiCryptoService.decryptInstitutionField(f.getResolutionNote(), instId),
                     f.getCreatedAt(), f.getResolvedAt());
         }).toList();
     }
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "institution", allEntries = true)
+    // Resolution must show on the graduate's table immediately, not after the 5-min TTL.
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "institution", allEntries = true),
+            @CacheEvict(cacheNames = "graduate", allEntries = true),
+            @CacheEvict(cacheNames = "currentUser", allEntries = true)}
+    )
     public void upholdDispute(UUID disputeId, String resolutionNote, String action, List<Map<String, String>> fields) {
         requireText(resolutionNote, "resolution_note");
         DisputeFlag dispute = openDispute(disputeId);
@@ -813,7 +852,8 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         if ("REVOKE".equalsIgnoreCase(action)) {
             credential.setStatus(CredentialStatus.REVOKED);
-            credential.setRevokeReason(resolutionNote);
+            credential.setRevokeReason(piiCryptoService.encryptInstitutionField(
+                    resolutionNote, credential.getInstitutionId()));
             credential.setRevokedAt(Instant.now());
             auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                     credential.getInstitutionId(), credential.getId());
@@ -842,7 +882,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         }
 
         dispute.setStatus(DisputeStatus.UPHELD);
-        dispute.setResolutionNote(resolutionNote);
+        dispute.setResolutionNote(piiCryptoService.encryptInstitutionField(
+                resolutionNote, credential.getInstitutionId()));
         dispute.setResolvedAt(Instant.now());
         auditLogService.log("Dispute upheld", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
@@ -852,7 +893,11 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = "institution", allEntries = true)
+    // Resolution must show on the graduate's table immediately, not after the 5-min TTL.
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "institution", allEntries = true),
+            @CacheEvict(cacheNames = "graduate", allEntries = true),
+            @CacheEvict(cacheNames = "currentUser", allEntries = true)})
     public void dismissDispute(UUID disputeId, String resolutionNote) {
         requireText(resolutionNote, "resolution_note");
         DisputeFlag dispute = openDispute(disputeId);
@@ -860,7 +905,8 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         // Record stands as issued - the credential is deliberately untouched.
         dispute.setStatus(DisputeStatus.DISMISSED);
-        dispute.setResolutionNote(resolutionNote);
+        dispute.setResolutionNote(piiCryptoService.encryptInstitutionField(
+                resolutionNote, credential.getInstitutionId()));
         dispute.setResolvedAt(Instant.now());
         auditLogService.log("Dispute dismissed", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
@@ -930,12 +976,13 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         // Claim-on-issue: an existing account gets the credential outright, otherwise it
         // waits in PENDING_CLAIM until that email signs up.
-        Optional<User> graduate = userRepository.findByEmail(normGradEmail);
+        Optional<User> graduate = userRepository.findByEmailHmac(piiCryptoService.emailHmac(normGradEmail));
         Credential credential = credentialRepository.save(Credential.builder()
                 .type(type)
                 .institutionId(institutionId)
                 .graduateUserId(graduate.map(User::getId).orElse(null))
-                .graduateEmail(normGradEmail)
+                .graduateEmail(piiCryptoService.encryptUserField(normGradEmail))
+                .graduateEmailHmac(piiCryptoService.emailHmac(normGradEmail))
                 .batchId(batchId)
                 .status(graduate.isPresent() ? CredentialStatus.ISSUED : CredentialStatus.PENDING_CLAIM)
                 .merkleRoot(signed.merkleRoot())
@@ -955,9 +1002,15 @@ for (SignedCredential.FieldWithIndex field : signed.fields()) {
             credentialFieldRepository.save(toSave);
         }
         auditLogService.log(AuditEvents.CERTIFICATE_ISSUED_EVENT, currentUser.id(), institutionId, credential.getId());
-        // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null.
-        notificationService.notify(credential.getGraduateUserId(), "Certificate issued",
-                "A new credential has been issued to you by an accredited institution.");
+        // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null,
+        // so email the address directly or the graduate never learns the credential exists.
+        if (credential.getGraduateUserId() != null) {
+            notificationService.notify(credential.getGraduateUserId(), "Certificate issued",
+                    "A new credential has been issued to you by an accredited institution.");
+        } else {
+            notificationService.notifyEmail(normGradEmail, "Certificate issued",
+                    "A new credential has been issued to you by an accredited institution. Sign up with this email address to claim it.");
+        }
         return credential;
     }
 
@@ -996,8 +1049,13 @@ for (SignedCredential.FieldWithIndex field : signed.fields()) {
         return rows;
     }
 
-    private static String[] splitCsvLine(String line) {
-        List<String> out = new ArrayList<>();
+    private static String trimToNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    private static String[] splitCsvLine(String line) {        List<String> out = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
         boolean inQ = false;
         for (int i = 0; i < line.length(); i++) {
@@ -1042,6 +1100,22 @@ for (SignedCredential.FieldWithIndex field : signed.fields()) {
     private Institution load(UUID id) {
         return institutionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Institution not found"));
+    }
+
+    /**
+     * Batch-decrypts "title" rows, failing closed to an empty map so one bad
+     * title/DEK falls back to the caller's default label instead of 500ing the
+     * whole list. The returned map is a fresh local per call - safe for lambdas.
+     */
+    private Map<UUID, String> decryptTitlesOrEmpty(Map<UUID, UUID> credentialToInstitution,
+                                                   List<UUID> credentialIds) {
+        try {
+            return credentialFieldCryptoService.decryptedTitlesByCredential(
+                    credentialToInstitution,
+                    credentialFieldRepository.findByCredentialIdInAndFieldName(credentialIds, "title"));
+        } catch (RuntimeException e) {
+            return Map.of();
+        }
     }
 
     private void requireText(String value, String fieldName) {
