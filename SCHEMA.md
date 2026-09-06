@@ -2,9 +2,9 @@
 
 Consolidated reference for the CertiChain schema. **Not the source of truth** —
 the source of truth is the ordered Flyway migrations in
-`certichain-backend/src/main/resources/db/migration/` (`V1`…`V6`), mirrored by
+`certichain-backend/src/main/resources/db/migration/` (`V1`…`V22`), mirrored by
 the JPA entities in `certichain-backend/src/main/java/.../common/entity/`.
-This file just saves you from replaying all 6 migrations in your head; if it
+This file just saves you from replaying all 22 migrations in your head; if it
 ever disagrees with the migrations, the migrations win — regenerate this file.
 
 ## institution
@@ -24,6 +24,8 @@ ever disagrees with the migrations, the migrations win — regenerate this file.
 | key_generated_at | TIMESTAMPTZ | (V2) |
 | updated_at | TIMESTAMPTZ | set via `@PreUpdate`, not backfilled (V6) |
 | version | BIGINT NOT NULL DEFAULT 0 | optimistic locking (V6) |
+| dek_wrapped | BYTEA | per-institution DEK wrapped with app KEK, minted at AA approve (V21, nullable for pre-encryption rows) |
+| dek_iv | BYTEA | IV for `dek_wrapped` (V21) |
 
 ## users
 
@@ -78,7 +80,8 @@ Indexes: `idx_credential_institution_id`, `idx_credential_graduate_user_id`, `id
 | id | UUID PK | |
 | credential_id | UUID NOT NULL → credential(id) | |
 | field_name | VARCHAR(255) NOT NULL | |
-| field_value | TEXT NOT NULL | |
+| field_value | TEXT NOT NULL | Base64 AES-256-GCM ciphertext since V22 (plaintext for pre-encryption rows until backfilled) |
+| field_value_iv | BYTEA | per-row GCM IV (V22, null = legacy plaintext) |
 | merkle_index | INT NOT NULL | |
 
 Constraints: `uq_credential_field_credential_id_field_name` UNIQUE (credential_id, field_name) (V6)

@@ -1,6 +1,7 @@
 export { institutionService } from './api/api';
 export {
   useApplyInstitution,
+  useBatches,
   useCredential,
   useCredentialFields,
   useCredentials,
@@ -8,23 +9,31 @@ export {
   useDisputes,
   useDismissDispute,
   useEditCredential,
+  useInstitutionAnalytics,
   useInstitutionMe,
   useIssueActivityRecord,
   useIssueBatch,
   useIssueCertificate,
+  useRevokeBatch,
   useRevokeCredential,
+  useUpdateInstitution,
   useUpholdDispute,
 } from './hooks/useInstitution';
 export { useInstitutionStore } from './store/institutionStore';
 export type {
   BatchIssueResult,
+  BatchRevokeResult,
+  BatchSummary,
   Credential,
   CredentialField,
   CredentialFieldInput,
+  CredentialListItem,
   CredentialStatus,
   CredentialSummary,
   CredentialType,
+  DailyCount,
   DisputeFlag,
   DisputeStatus,
+  InstitutionAnalytics,
   InstitutionState,
 } from './types/types';

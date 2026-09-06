@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import "@material-symbols/font-400/outlined.css";
 @import "tailwindcss";
 
 @theme {
@@ -19,8 +19,8 @@
   --color-seal: #8b2635;
   --color-card-ink: #0b1220;
   --color-foil: #c9a85c;
-  --font-heading: "Manrope", sans-serif;
-  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-heading: var(--font-manrope), sans-serif;
+  --font-sans: var(--font-ibm-plex-sans), var(--font-myanmar), sans-serif;
 }
 
 @layer base {

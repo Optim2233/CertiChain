@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface AccreditationService {
-    Page<Institution> listInstitutions(String status, int page, int size);
+    Page<Institution> listInstitutions(String status, String q, int page, int size);
     List<UUID> institutionsWithOpenDisputes();
-    Institution getInstitution(UUID id);
+    InstitutionDetailResponse getInstitution(UUID id);
     void approve(UUID id);
     void requestInfo(UUID id, String note);
     void reject(UUID id, String reason);
@@ -20,4 +20,5 @@ public interface AccreditationService {
     Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size);
     List<InstitutionDocumentResponse> listDocuments(UUID institutionId);
     InstitutionDocument getDocument(UUID institutionId, UUID documentId);
+    void verifyDocument(UUID institutionId, UUID documentId);
 }

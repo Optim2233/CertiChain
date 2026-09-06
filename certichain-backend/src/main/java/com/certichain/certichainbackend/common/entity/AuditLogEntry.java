@@ -31,6 +31,9 @@ public class AuditLogEntry {
     @Column(name = "credential_id")
     private UUID credentialId;
 
+    @Column(name = "share_id")
+    private UUID shareId;
+
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 }

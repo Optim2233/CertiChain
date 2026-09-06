@@ -13,4 +13,6 @@ public interface VerifierService {
     List<Institution> publicInstitutionDirectory();
     List<BulkVerifyRow> verifyBulk(MultipartFile csv);
     TrustStats getTrustStats();
+    int countApprovedInstitutions();
+    int countVerifications();
 }

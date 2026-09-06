@@ -7,6 +7,8 @@ import com.certichain.certichainbackend.common.enums.CredentialType;
 import com.certichain.certichainbackend.common.exception.ValidationException;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
+import com.certichain.certichainbackend.support.TestCrypto;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -29,11 +31,17 @@ class GraduateServiceImplTest {
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
 
+private final com.certichain.certichainbackend.common.service.SupabaseStorageService storageService =
+            mock(com.certichain.certichainbackend.common.service.SupabaseStorageService.class);
+    private final com.certichain.certichainbackend.auth.CurrentUser currentUser =
+            mock(com.certichain.certichainbackend.auth.CurrentUser.class);
+    private final PiiCryptoService pii = TestCrypto.pii();
+
     // null credentialFieldCryptoService: none of these tests touch getCredentialFields(),
     // the only method that calls it.
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, null, null, null, null, null, null,
-            passwordEncoder, null, null);
+            storageService, passwordEncoder, currentUser, null, pii);
 
     private Credential pendingCredential(String email) {
         return Credential.builder()
@@ -49,7 +57,7 @@ class GraduateServiceImplTest {
     @Test
     void signupClaimsEveryPendingCredentialForThatEmail() {
         UUID newUserId = UUID.randomUUID();
-        when(userRepository.existsByEmail("alice@example.com")).thenReturn(false);
+        when(userRepository.existsByEmailHmac(pii.emailHmac("alice@example.com"))).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User user = inv.getArgument(0);
@@ -59,11 +67,11 @@ class GraduateServiceImplTest {
 
         Credential first = pendingCredential("alice@example.com");
         Credential second = pendingCredential("alice@example.com");
-        when(credentialRepository.findByGraduateEmailAndStatus(
-                "alice@example.com", CredentialStatus.PENDING_CLAIM))
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(
+                pii.emailHmac("alice@example.com"), CredentialStatus.PENDING_CLAIM))
                 .thenReturn(List.of(first, second));
 
-        service.signup("alice@example.com", "password123");
+        service.signup("alice@example.com", "password123", null, null, null);
 
         assertEquals(CredentialStatus.ISSUED, first.getStatus());
         assertEquals(CredentialStatus.ISSUED, second.getStatus());
@@ -73,17 +81,17 @@ class GraduateServiceImplTest {
 
     @Test
     void signupStoresAHashNeverThePlaintextPassword() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("hashed-value");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> {
             User user = inv.getArgument(0);
             user.setId(UUID.randomUUID());
             return user;
         });
-        when(credentialRepository.findByGraduateEmailAndStatus(anyString(), any()))
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(anyString(), any()))
                 .thenReturn(List.of());
 
-        service.signup("alice@example.com", "password123");
+        service.signup("alice@example.com", "password123", null, null, null);
 
         org.mockito.ArgumentCaptor<User> saved = org.mockito.ArgumentCaptor.forClass(User.class);
         org.mockito.Mockito.verify(userRepository).save(saved.capture());
@@ -93,24 +101,77 @@ class GraduateServiceImplTest {
 
     @Test
     void duplicateEmailIsRejected() {
-        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+        when(userRepository.existsByEmailHmac(pii.emailHmac("taken@example.com"))).thenReturn(true);
 
         assertThrows(ValidationException.class,
-                () -> service.signup("taken@example.com", "password123"));
+                () -> service.signup("taken@example.com", "password123", null, null, null));
     }
 
     @Test
     void blankCredentialsAreRejected() {
-        assertThrows(ValidationException.class, () -> service.signup("", "password123"));
-        assertThrows(ValidationException.class, () -> service.signup("alice@example.com", "  "));
+        assertThrows(ValidationException.class, () -> service.signup("", "password123", null, null, null));
+        assertThrows(ValidationException.class, () -> service.signup("alice@example.com", "  ", null, null, null));
     }
 
     @Test
     void checkPendingCredentialsCountsWithoutCreatingAnything() {
-        when(credentialRepository.countByGraduateEmailAndStatus(
-                "alice@example.com", CredentialStatus.PENDING_CLAIM)).thenReturn(3);
+        when(credentialRepository.countByGraduateEmailHmacAndStatus(
+                pii.emailHmac("alice@example.com"), CredentialStatus.PENDING_CLAIM)).thenReturn(3);
 
         assertEquals(3, service.checkPendingCredentials("alice@example.com"));
         org.mockito.Mockito.verify(userRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    // --- profile ---
+
+    private User meWith(String first, String last, String phone, String img) {
+        UUID id = UUID.randomUUID();
+        when(currentUser.id()).thenReturn(id);
+        User u = User.builder().id(id).email("me@x.com").firstName(first).lastName(last)
+                .phone(phone).profileImageUrl(img).build();
+        when(userRepository.findById(id)).thenReturn(java.util.Optional.of(u));
+        return u;
+    }
+
+    @Test
+    void updateProfileTrimsAndPersistsNameAndPhone() {
+        User u = meWith(null, null, null, null);
+
+        GraduateProfileResponse r = service.updateOwnProfile("  Ada ", " Lovelace ", " +1 555 ", null, null);
+
+        // stored ciphertext, readable back through decrypt + the response DTO
+        assertEquals("Ada", pii.decryptUserField(u.getFirstName()));
+        assertEquals("Lovelace", pii.decryptUserField(u.getLastName()));
+        assertEquals("+1 555", pii.decryptUserField(u.getPhone()));
+        assertEquals("Ada", r.firstName());
+    }
+
+    @Test
+    void blankProfileImageUrlClearsAnExistingPhoto() {
+        User u = meWith("Ada", "L", null, "https://old/pic.jpg");
+
+        service.updateOwnProfile(null, null, null, "", null);
+
+        assertEquals(null, u.getProfileImageUrl());
+    }
+
+    @Test
+    void uploadedFileRoutesToStorageAndStoresTheReturnedUrl() {
+        User u = meWith("Ada", "L", null, null);
+        org.springframework.web.multipart.MultipartFile file =
+                mock(org.springframework.web.multipart.MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(storageService.uploadImage(anyString(), any())).thenReturn("https://cdn/new.png");
+
+        service.updateOwnProfile(null, null, null, null, file);
+
+        assertEquals("https://cdn/new.png", u.getProfileImageUrl());
+    }
+
+    @Test
+    void nonHttpProfileImageUrlIsRejected() {
+        meWith(null, null, null, null);
+        assertThrows(ValidationException.class,
+                () -> service.updateOwnProfile(null, null, null, "ftp://x/y.png", null));
     }
 }

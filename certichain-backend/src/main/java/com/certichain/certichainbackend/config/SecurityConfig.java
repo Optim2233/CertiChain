@@ -1,6 +1,8 @@
 package com.certichain.certichainbackend.config;
 
+import com.certichain.certichainbackend.auth.AuthRateLimitFilter;
 import com.certichain.certichainbackend.auth.JwtAuthenticationFilter;
+import com.certichain.certichainbackend.verifier.VerifyRateLimitFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +23,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final VerifyRateLimitFilter verifyRateLimitFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -33,10 +37,13 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/logout",
                                 "/api/auth/signup",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
                                 "/api/verify/**",
                                 "/api/institution/apply",
                                 "/api/graduate/signup",
@@ -44,19 +51,31 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
     // ponytail: any localhost/127.0.0.1 port is allowed so a stray process
     // squatting on 3000 doesn't silently break CORS - tighten to a fixed
     // port (or an env-driven allowlist) before deploying past local dev.
+    // The 192.168.*/10.*/172.16-31.* patterns are for same-LAN phone testing
+    // (QR/verify flows) only - remove once the real deploy URL replaces them.
+    @org.springframework.beans.factory.annotation.Value("${certichain.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     private UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
             "http://localhost:*",
             "http://127.0.0.1:*",
-            "https://certichain-frontend.vercel.app"
+            "http://192.168.*.*:*",
+            "http://10.*.*.*:*",
+            "http://172.1[6-9].*.*:*",
+            "http://172.2*.*.*:*",
+            "http://172.3[0-1].*.*:*",
+            frontendUrl
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

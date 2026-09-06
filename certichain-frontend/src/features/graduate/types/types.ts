@@ -12,6 +12,12 @@ export interface Share {
   viewCount: number;
 }
 
+// Backend returns a bare array of ISO timestamps (List<Instant>), not objects.
+export type ShareActivityEntry = string;
+
+// Same bare-timestamp shape as ShareActivityEntry - timestamps only, no verifier identity.
+export type VerificationTimestamp = string;
+
 export interface ShareInput {
   name: string;
   scope: ShareScope;
@@ -21,6 +27,23 @@ export interface ShareInput {
 
 export interface SignupCheckResult {
   pendingCredentialCount: number;
+}
+
+export interface GraduateProfile {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  profileImageUrl: string | null;
+}
+
+export interface GraduateProfileInput {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  /** "" clears an existing photo; undefined leaves it unchanged. */
+  profileImageUrl?: string;
+  profileImage?: File | null;
 }
 
 export interface GraduateState {

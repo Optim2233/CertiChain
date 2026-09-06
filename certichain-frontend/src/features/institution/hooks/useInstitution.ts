@@ -1,29 +1,32 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '../api/api';
 import { useInstitutionStore } from '../store/institutionStore';
 import type { CredentialFieldInput } from '../types/types';
 
 export function useInstitutionMe() {
   const setMe = useInstitutionStore((state) => state.setMe);
-
-  return useQuery({
+  const query = useQuery({
     queryKey: ['institution-me'],
-    queryFn: async () => {
-      const { data } = await institutionService.getMe();
-      setMe(data);
-      return data;
-    },
+    queryFn: async () => (await institutionService.getMe()).data,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
+  useEffect(() => {
+    if (query.data) setMe(query.data);
+  }, [query.data, setMe]);
+  return query;
 }
 
 export function useCredentials(status: string | null = null, page = 0, size = 20) {
   return useQuery({
     queryKey: ['institution-credentials', status, page, size],
     queryFn: () => institutionService.listCredentials(status, page, size),
+    // Keeps the previous page on screen while the next one loads, so paging
+    // doesn't flash the table back to a skeleton on every click.
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -34,6 +37,15 @@ export function useCredentialSummary() {
     queryKey: ['institution-credential-summary'],
     queryFn: () => institutionService.getCredentialSummary(),
     staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInstitutionAnalytics(days = 30) {
+  return useQuery({
+    queryKey: ['institution-analytics', days],
+    queryFn: () => institutionService.getAnalytics(days),
+    staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
 }
@@ -49,23 +61,10 @@ export function useDisputes() {
 
 export function useApplyInstitution() {
   return useMutation({
-    mutationFn: ({
-      name,
-      ministry,
-      email,
-      password,
-      phone,
-      website,
-      documents,
-    }: {
-      name: string;
-      ministry: string;
-      email: string;
-      password: string;
-      phone: string;
-      website: string;
-      documents: File[];
-    }) => institutionService.applyInstitution(name, ministry, email, password, phone, website, documents),
+    mutationFn: (input: {
+      fields: Record<string, unknown>;
+      files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null; documents?: File[] };
+    }) => institutionService.applyInstitution(input),
   });
 }
 
@@ -75,10 +74,12 @@ export function useIssueCertificate() {
     mutationFn: ({
       graduateEmail,
       fields,
+      expiresAt,
     }: {
       graduateEmail: string;
       fields: CredentialFieldInput[];
-    }) => institutionService.issueCertificate(graduateEmail, fields),
+      expiresAt?: string;
+    }) => institutionService.issueCertificate(graduateEmail, fields, expiresAt),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
   });
@@ -88,8 +89,30 @@ export function useIssueBatch() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (spreadsheet: File) => institutionService.issueBatch(spreadsheet),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
+    },
+  });
+}
+
+export function useBatches() {
+  return useQuery({
+    queryKey: ['institution-batches'],
+    queryFn: () => institutionService.listBatches(),
+  });
+}
+
+export function useRevokeBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ batchId, reason }: { batchId: string; reason: string }) =>
+      institutionService.revokeBatch(batchId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
+    },
   });
 }
 
@@ -100,11 +123,13 @@ export function useIssueActivityRecord() {
       graduateEmail,
       activity,
       date,
+      expiresAt,
     }: {
       graduateEmail: string;
       activity: string;
       date: string;
-    }) => institutionService.issueActivityRecord(graduateEmail, activity, date),
+      expiresAt?: string;
+    }) => institutionService.issueActivityRecord(graduateEmail, activity, date, expiresAt),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
   });
@@ -182,5 +207,25 @@ export function useDismissDispute() {
       institutionService.dismissDispute(id, resolutionNote),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-disputes'] }),
+  });
+}
+
+export function useUpdateInstitution() {
+  const queryClient = useQueryClient();
+  const setMe = useInstitutionStore((state) => state.setMe);
+  return useMutation({
+    mutationFn: (data: {
+      name?: string;
+      phone?: string;
+      website?: string;
+      profileImageUrl?: string;
+      profileImage?: File | null;
+      brandColor?: string;
+      accentPattern?: "hatch" | "dots" | "none";
+    }) => institutionService.updateMe(data),
+    onSuccess: (res) => {
+      setMe(res.data);
+      queryClient.invalidateQueries({ queryKey: ['institution-me'] });
+    },
   });
 }

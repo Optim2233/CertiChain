@@ -1,13 +1,15 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { accreditationService } from '../api/api';
 import type { InstitutionStatusFilter } from '../types/types';
 
-export function useInstitutions(status: InstitutionStatusFilter, page = 0, size = 20) {
+export function useInstitutions(status: InstitutionStatusFilter, page = 0, size = 20, q = '') {
   return useQuery({
-    queryKey: ['institutions', status, page, size],
-    queryFn: () => accreditationService.listInstitutions(status, page, size),
+    queryKey: ['institutions', status, page, size, q],
+    queryFn: () => accreditationService.listInstitutions(status, page, size, q),
+    // Paging keeps the current rows visible instead of flashing a skeleton.
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });
@@ -42,10 +44,23 @@ export function useInstitutionDocuments(institutionId: string) {
   });
 }
 
+export function useVerifyDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ institutionId, documentId }: { institutionId: string; documentId: string }) =>
+      accreditationService.verifyDocument(institutionId, documentId),
+    onSuccess: (_data, { institutionId }) => {
+      queryClient.invalidateQueries({ queryKey: ['institution-documents', institutionId] });
+    },
+  });
+}
+
 export function useAuditLog(institutionId: string | null, page = 0, size = 20) {
   return useQuery({
     queryKey: ['audit-log', institutionId, page, size],
     queryFn: () => accreditationService.getAuditLog(institutionId, page, size),
+    // Paging keeps the current rows visible instead of flashing a skeleton.
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
   });

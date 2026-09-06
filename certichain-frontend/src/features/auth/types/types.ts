@@ -22,6 +22,9 @@ export interface UserResponse {
   email: string;
   role: UserRole;
   institutionId: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
 }
 
 export interface AuthState {

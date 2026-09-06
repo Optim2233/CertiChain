@@ -4,6 +4,7 @@ import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.Institution;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.service.EncryptedPayload;
+import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,8 +12,11 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -73,6 +77,49 @@ public class CredentialFieldCryptoService {
                 .fieldValue(new String(plaintext, StandardCharsets.UTF_8))
                 .merkleIndex(field.getMerkleIndex())
                 .build();
+    }
+
+    /**
+     * Decrypts a batch of "title" field rows - fetched straight from the DB so their
+     * {@code fieldValue} is still Base64 ciphertext - into a credentialId → plaintext
+     * title map. The rows here sit under different institutions (graduate timeline,
+     * disputes, analytics all span issuers), so the DEK is unwrapped once per
+     * owning institution rather than once per title.
+     *
+     * @param credentialToInstitution  maps each title row's credentialId to its issuing institution
+     * @param titleFields              "title" rows loaded without going through {@link #decrypted}
+     */
+    public Map<UUID, String> decryptedTitlesByCredential(Map<UUID, UUID> credentialToInstitution,
+                                                         List<CredentialField> titleFields) {
+        Map<UUID, List<CredentialField>> byInstitution = new HashMap<>();
+        for (CredentialField field : titleFields) {
+            UUID institutionId = credentialToInstitution.get(field.getCredentialId());
+            if (institutionId != null) {
+                byInstitution.computeIfAbsent(institutionId, k -> new ArrayList<>()).add(field);
+            }
+        }
+        Map<UUID, String> titles = new HashMap<>();
+        byInstitution.forEach((institutionId, fields) -> {
+            for (CredentialField field : decrypted(fields, institutionId)) {
+                titles.put(field.getCredentialId(), field.getFieldValue());
+            }
+        });
+        return titles;
+    }
+
+    /** The institution's unwrapped DEK - shared with PiiCryptoService for institution-scoped PII. */
+    public SecretKey institutionDek(UUID institutionId) {
+        return unwrapDek(institutionId);
+    }
+
+    /** Mint + KEK-wrap a fresh DEK (apply-time; approve()/reinstate() keep mint-if-unset). */
+    public SecretKey generateDek() {
+        return envelopeEncryptionService.generateDek();
+    }
+
+    /** KEK-wrap a DEK for storage. */
+    public EncryptedPayload wrapDek(SecretKey dek) {
+        return envelopeEncryptionService.encrypt(dek.getEncoded(), envelopeEncryptionService.kek());
     }
 
     private SecretKey unwrapDek(UUID institutionId) {

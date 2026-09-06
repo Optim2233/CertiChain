@@ -4,6 +4,7 @@ import com.certichain.certichainbackend.common.entity.Institution;
 import com.certichain.certichainbackend.common.entity.InstitutionDocument;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,13 +24,14 @@ public class AccreditationController {
     @GetMapping("/institutions")
     public Page<Institution> listInstitutions(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return accreditationService.listInstitutions(status, page, size);
+        return accreditationService.listInstitutions(status, q, page, size);
     }
 
     @GetMapping("/institutions/{id}")
-    public Institution getInstitution(@PathVariable UUID id) {
+    public InstitutionDetailResponse getInstitution(@PathVariable UUID id) {
         return accreditationService.getInstitution(id);
     }
 
@@ -84,8 +86,22 @@ public class AccreditationController {
     @GetMapping("/institutions/{id}/documents/{documentId}")
     public ResponseEntity<byte[]> downloadDocument(@PathVariable UUID id, @PathVariable UUID documentId) {
         InstitutionDocument document = accreditationService.getDocument(id, documentId);
+        // "inline" (not "attachment"): the frontend fetches this both to preview a PDF in an
+        // iframe and to force-download via its own <a download> - "attachment" would make the
+        // browser save-to-disk it before JS ever gets to render it. Explicit content type is
+        // what lets the browser's PDF viewer recognize the blob at all; a raw byte[] body
+        // defaults to application/octet-stream, which no viewer renders inline.
+        String contentType = document.getFileName().toLowerCase().endsWith(".pdf")
+                ? MediaType.APPLICATION_PDF_VALUE
+                : MediaType.APPLICATION_OCTET_STREAM_VALUE;
         return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=\"" + document.getFileName() + "\"")
+                .header("Content-Type", contentType)
+                .header("Content-Disposition", "inline; filename=\"" + document.getFileName() + "\"")
                 .body(document.getFileData());
+    }
+
+    @PostMapping("/institutions/{id}/documents/{documentId}/verify")
+    public void verifyDocument(@PathVariable UUID id, @PathVariable UUID documentId) {
+        accreditationService.verifyDocument(id, documentId);
     }
 }

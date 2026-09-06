@@ -1,6 +1,6 @@
--- Reconstructed from production's live schema (see V12's note). Composite
--- indexes for "count of event X on this credential/share over time" queries
--- (trust stats, verification counters).
+-- Composite indexes for the hot per-dashboard count paths (briefing aggregates,
+-- institution analytics): event + entity + recency, matching the
+-- countByEventAnd*IdInAndOccurredAtAfter repository queries.
 CREATE INDEX idx_audit_log_entry_event_credential_time
     ON audit_log_entry(event, credential_id, occurred_at);
 CREATE INDEX idx_audit_log_entry_event_share_time
