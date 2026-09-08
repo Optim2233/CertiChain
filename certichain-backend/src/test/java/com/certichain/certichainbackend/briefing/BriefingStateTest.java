@@ -39,7 +39,8 @@ class BriefingStateTest {
 
     private final BriefingServiceImpl service = new BriefingServiceImpl(
             currentUser, userRepository, notificationRepository, credentialRepository,
-            shareRepository, disputeFlagRepository, auditLogEntryRepository);
+            shareRepository, disputeFlagRepository, auditLogEntryRepository,
+            com.certichain.certichainbackend.support.TestCrypto.pii());
 
     private void user(Instant lastBriefedAt) {
         User u = User.builder().id(UUID.randomUUID()).role(Role.GRADUATE)

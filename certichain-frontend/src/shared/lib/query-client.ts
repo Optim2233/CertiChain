@@ -9,6 +9,11 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        // Portal pages mount 4-7 queries each; without a staleTime every
+        // navigation and window-focus refires all of them. 60s keeps data
+        // fresh enough for dashboards while making tab switches free.
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
         // Auth/permission errors (wrong role, not logged in) never resolve
         // by retrying - burning the default 3 retries just makes every
         // "you're not allowed here" page sit on a "Loading..." spinner for

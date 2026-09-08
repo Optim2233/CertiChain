@@ -1,4 +1,5 @@
 export { accreditationService } from './api/api';
+export { InstitutionFacts } from './components/institution-facts';
 export {
   useApproveInstitution,
   useAuditLog,
@@ -18,6 +19,7 @@ export type {
   AccreditationState,
   AuditLogEntry,
   Institution,
+  InstitutionDetail,
   InstitutionDocument,
   InstitutionStatus,
   InstitutionStatusFilter,

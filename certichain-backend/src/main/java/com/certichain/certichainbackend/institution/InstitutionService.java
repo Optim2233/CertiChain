@@ -21,23 +21,27 @@ public interface InstitutionService {
      * forward" - and the users table CHECK constraint forces an institution user to carry an
      * institution_id. Confirmed with the team before changing this signature.
      */
-    Institution apply(String name, String ministry, String email, String password,
-                      String phone, String website,
-                      List<MultipartFile> documents);
+    Institution apply(ApplyInstitutionRequest req);
     Institution getOwnInstitution();
     Institution updateOwnInstitution(String name, String phone, String website,
-                                     String profileImageUrl, MultipartFile profileImage);
+                                      String profileImageUrl, MultipartFile profileImage,
+                                      String brandColor, String accentPattern,
+                                      String secondaryBrandColor, String accentColor,
+                                      String patternScale,
+                                      String titleFont, String medalPosition, String watermarkIcon);
     Page<Credential> listCredentials(String status, int page, int size);
     CredentialSummary getCredentialSummary();
-    InstitutionAnalytics getAnalytics();
+    InstitutionAnalytics getAnalytics(int days);
     Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields, Instant expiresAt);
     List<Map<String, Object>> issueBatch(MultipartFile spreadsheet);
     Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt);
     void revokeCredential(UUID credentialId, String reason);
+    List<BatchSummaryRow> listBatches();
+    BatchRevokeResult revokeBatch(UUID batchId, String reason);
     Credential getCredential(UUID credentialId);
     Credential editCredential(UUID credentialId, List<Map<String, String>> fields);
     List<CredentialField> getCredentialFields(UUID credentialId);
-    List<?> listDisputes();
+    List<InstitutionDisputeResponse> listDisputes();
     void upholdDispute(UUID disputeId, String resolutionNote, String action, List<Map<String, String>> fields);
     void dismissDispute(UUID disputeId, String resolutionNote);
 }

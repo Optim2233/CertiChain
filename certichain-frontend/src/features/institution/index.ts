@@ -1,6 +1,7 @@
 export { institutionService } from './api/api';
 export {
   useApplyInstitution,
+  useBatches,
   useCredential,
   useCredentialFields,
   useCredentials,
@@ -13,6 +14,7 @@ export {
   useIssueActivityRecord,
   useIssueBatch,
   useIssueCertificate,
+  useRevokeBatch,
   useRevokeCredential,
   useUpdateInstitution,
   useUpholdDispute,
@@ -20,6 +22,8 @@ export {
 export { useInstitutionStore } from './store/institutionStore';
 export type {
   BatchIssueResult,
+  BatchRevokeResult,
+  BatchSummary,
   Credential,
   CredentialField,
   CredentialFieldInput,

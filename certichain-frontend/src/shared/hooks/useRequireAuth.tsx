@@ -13,7 +13,7 @@ export function RequireAuth({ children, role }: { children: React.ReactNode; rol
   // Same dev-only bypass as proxy.ts - portal pages must be browsable without
   // a real login while iterating on the UI. Remove both bypasses together
   // before deploying past local dev.
-  const devBypass = process.env.NODE_ENV !== 'production';
+  const devBypass = process.env.NEXT_PUBLIC_BYPASS_AUTH === '1';
   const { isError } = useMe();
   const wrongRole = !!role && !!user && user.role !== role;
 

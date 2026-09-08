@@ -32,6 +32,13 @@ public class MerkleServiceImpl implements MerkleService {
         return buildTree(leaves).getLast().getFirst();
     }
 
+    /**
+     * @deprecated No prod caller (verifier uses {@code computeRoot} on already-decrypted
+     * lists, signing uses {@code computeRoot(plaintext)}). Do not resurrect without
+     * decrypting via {@code CredentialFieldCryptoService} first - raw
+     * {@code fieldValue} here is Base64 ciphertext since V22.
+     */
+    @Deprecated
     @Override
     public DisclosureProof generateProof(UUID credentialId, List<UUID> selectedFieldIds) {
         // Load the FULL leaf set, ordered by merkleIndex - the proof needs every

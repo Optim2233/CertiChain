@@ -19,20 +19,15 @@ with Supabase Storage for profile images is also implemented
 (`SupabaseStorageServiceImpl.java`, `InstitutionServiceImpl.java:130`,
 `application.properties` `supabase.*`). See gap 4 for storage details.
 
-## 2. Graduate signup — `firstName` + `lastName` + `phone`
+## 2. Graduate signup — `firstName` + `lastName` + `phone` — ✅ FIXED
 
 **Frontend** (`features/graduate/api/api.ts` → `signup`) sends
 `{ email, password, firstName, lastName, phone }` to `POST
 /api/graduate/signup`.
 
-**Backend** (`GraduateController.java:27-28`) takes a loose
-`Map<String, String> body` and (need to confirm in `GraduateServiceImpl`)
-likely only reads `email`/`password` out of it — same silent-drop behavior,
-no error, no persistence.
-
-**To close:** check what `GraduateService.signup()` currently pulls from the
-map; add `firstName`/`lastName`/`phone` columns wherever graduate profile
-data lives, and read them out.
+**Backend** `GraduateServiceImpl.signup()` reads all five; names/phone are
+KEK-envelope-encrypted at rest, email exact-matched via HMAC blind index.
+`GraduateProfileResponse` decrypts on read. Nothing outstanding.
 
 ## 3. Graduate notification preferences — no endpoint at all
 

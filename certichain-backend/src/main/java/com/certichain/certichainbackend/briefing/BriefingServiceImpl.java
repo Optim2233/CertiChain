@@ -15,9 +15,11 @@ import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.AuditLogEntryRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
+import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -49,6 +51,7 @@ public class BriefingServiceImpl implements BriefingService {
     private final ShareRepository shareRepository;
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
+    private final PiiCryptoService piiCryptoService;
 
     @Override
     public Briefing getBriefing() {
@@ -66,7 +69,8 @@ public class BriefingServiceImpl implements BriefingService {
 
         List<BriefingItem> items = new ArrayList<>();
         for (Notification n : discrete) {
-            items.add(new BriefingItem("notification", n.getType(), n.getMessage(), 1, n.getCreatedAt()));
+            items.add(new BriefingItem("notification", n.getType(),
+                    piiCryptoService.decryptUserField(n.getMessage()), 1, n.getCreatedAt()));
         }
         int moreCount = (int) Math.max(0, discreteTotal - discrete.size());
 
@@ -89,6 +93,7 @@ public class BriefingServiceImpl implements BriefingService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "currentUser", allEntries = true)
     public void acknowledge() {
         User user = currentUser.user();
         user.setLastBriefedAt(Instant.now());
@@ -96,20 +101,11 @@ public class BriefingServiceImpl implements BriefingService {
     }
 
     private void addGraduateAggregates(List<BriefingItem> items, UUID userId, Instant windowStart, Instant at) {
-        List<UUID> credentialIds = credentialRepository
-                .findByGraduateUserIdOrderByIssuedAtDesc(userId).stream()
-                .map(Credential::getId)
-                .toList();
-        if (!credentialIds.isEmpty()) {
-            int verifications = auditLogEntryRepository.countByEventAndCredentialIdInAndOccurredAtAfter(
-                    AuditEvents.VERIFY_EVENT, credentialIds, windowStart);
-            if (verifications > 0) {
-                items.add(new BriefingItem("verifications",
-                        "Your credentials were verified " + verifications + plural(verifications, " time", " times"),
-                        "By employers or other parties checking your records.", verifications, at));
-            }
-        }
-
+        // A graduate's credentials are only reachable through a share link, so every
+        // VERIFY_EVENT on their credentials is already counted by the SHARE_VIEWED_EVENT
+        // that produced it. Reporting both was the same number twice - keep only the
+        // share-view line, which is the graduate-facing fact ("someone looked at what
+        // you shared"). Institutions still get their own verifications item.
         List<UUID> shareIds = shareRepository.findByGraduateUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(Share::getId)
                 .toList();
@@ -118,8 +114,8 @@ public class BriefingServiceImpl implements BriefingService {
                     AuditEvents.SHARE_VIEWED_EVENT, shareIds, windowStart);
             if (views > 0) {
                 items.add(new BriefingItem("shareViews",
-                        "Your share links were viewed " + views + plural(views, " time", " times"),
-                        "Someone opened a link you shared.", views, at));
+                        "Your shared credentials were viewed " + views + plural(views, " time", " times"),
+                        "Employers or other parties opened a link you shared.", views, at));
             }
         }
     }

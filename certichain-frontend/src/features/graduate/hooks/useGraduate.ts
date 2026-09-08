@@ -3,15 +3,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { graduateService } from '../api/api';
 import { useGraduateStore } from '../store/graduateStore';
-import type { ShareInput } from '../types/types';
+import type { GraduateProfileInput, Share, ShareInput } from '../types/types';
+import type { ApiResponse } from '@/shared/types/types';
 
-export function useSignupCheck(email: string) {
+export function useGraduateProfile() {
+  return useQuery({
+    queryKey: ['graduate-profile'],
+    queryFn: async () => (await graduateService.getProfile()).data,
+  });
+}
+
+export function useUpdateGraduateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GraduateProfileInput) => graduateService.updateProfile(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['graduate-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+export function useSignupCheck() {
   const setPendingCredentialCount = useGraduateStore(
     (state) => state.setPendingCredentialCount
   );
 
   return useMutation({
-    mutationFn: () => graduateService.signupCheck(email),
+    mutationFn: (email: string) => graduateService.signupCheck(email),
     onSuccess: ({ data }) => setPendingCredentialCount(data.pendingCredentialCount),
   });
 }
@@ -77,7 +96,14 @@ export function useCreateShare() {
         input.credentialId,
         input.selectedFieldIds
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['graduate-shares'] }),
+    onSuccess: ({ data: created }) => {
+      // Write the new row into the list right away so the table updates without
+      // waiting on the refetch, then invalidate to reconcile with the server.
+      queryClient.setQueryData<ApiResponse<Share[]>>(['graduate-shares'], (prev) =>
+        prev ? { ...prev, data: [created, ...prev.data] } : prev
+      );
+      queryClient.invalidateQueries({ queryKey: ['graduate-shares'] });
+    },
   });
 }
 
@@ -85,7 +111,14 @@ export function useRevokeShare() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => graduateService.revokeShare(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['graduate-shares'] }),
+    onSuccess: (_res, id) => {
+      queryClient.setQueryData<ApiResponse<Share[]>>(['graduate-shares'], (prev) =>
+        prev
+          ? { ...prev, data: prev.data.map((s) => (s.id === id ? { ...s, revoked: true } : s)) }
+          : prev
+      );
+      queryClient.invalidateQueries({ queryKey: ['graduate-shares'] });
+    },
   });
 }
 

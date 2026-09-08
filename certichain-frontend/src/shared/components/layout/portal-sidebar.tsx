@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useTranslations } from "next-intl"
+import { Link, usePathname } from "@/i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useLogout } from "@/features/auth"
+import { CertiChainShield } from "@/shared/components/brand/CertiChainShield"
 
 export interface SidebarNavItem {
   label: string
@@ -77,6 +78,7 @@ export function PortalSidebar({
   items: SidebarNavItem[]
 }) {
   const pathname = usePathname()
+  const t = useTranslations("common")
   const logout = useLogout()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -103,10 +105,8 @@ export function PortalSidebar({
       >
         <div>
           <div className={cn("flex items-center gap-3 border-b border-white/10 px-5 py-5", collapsed && "justify-center px-2")}>
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white">
-              <span className="material-symbols-outlined text-[20px]" style={{ color: "#02275A" }}>
-                {icon ?? "workspace_premium"}
-              </span>
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white p-1.5">
+              <CertiChainShield size={24} />
             </div>
             <div className={cn(collapsed && "sr-only")}>
               <p className="font-heading m-0 text-lg font-extrabold leading-tight">{title}</p>
@@ -115,7 +115,7 @@ export function PortalSidebar({
             <button
               type="button"
               onClick={() => setCollapsed((c) => !c)}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
               className={cn("ml-auto text-white/50 hover:text-white", collapsed && "hidden")}
             >
               <span className="material-symbols-outlined text-lg leading-none">chevron_left</span>
@@ -126,7 +126,7 @@ export function PortalSidebar({
               type="button"
               onClick={() => setCollapsed(false)}
               className="mx-auto mt-2 block text-white/50 hover:text-white"
-              title="Expand sidebar"
+              title={t("expandSidebar")}
             >
               <span className="material-symbols-outlined rotate-180 text-lg leading-none">chevron_left</span>
             </button>
@@ -140,11 +140,11 @@ export function PortalSidebar({
             type="button"
             onClick={() => logout.mutate()}
             disabled={logout.isPending}
-            title={collapsed ? "Log out" : undefined}
+            title={collapsed ? t("logOut") : undefined}
             className="flex items-center gap-3 rounded-lg px-3.5 py-2 text-left text-sm text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-lg leading-none">logout</span>
-            <span className={cn(collapsed && "sr-only")}>Log out</span>
+            <span className={cn(collapsed && "sr-only")}>{t("logOut")}</span>
           </button>
         </div>
       </aside>

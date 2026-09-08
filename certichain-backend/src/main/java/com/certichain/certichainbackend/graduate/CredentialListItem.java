@@ -2,21 +2,10 @@ package com.certichain.certichainbackend.graduate;
 
 import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.CredentialType;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Timeline row for the graduate's credential cards. The bare Credential entity carries
- * neither the credential's title (a credential_field row) nor the issuer's name (a join
- * away), so cards had nothing identifying to show and fell back to the literal word
- * "Certificate" on every one of them. Both are joined in here so the list renders from a
- * single query instead of N per-credential field fetches.
- */
-// Records are final, so the Redis cache's default typing skips them and a cached list comes
-// back as LinkedHashMaps. Tagging the type here makes the cached value self-describing.
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
 public record CredentialListItem(
         UUID id,
         CredentialType type,
@@ -28,5 +17,46 @@ public record CredentialListItem(
         String merkleRoot,
         String signature,
         Instant issuedAt,
-        Instant expiresAt) {
+        Instant expiresAt,
+        String institutionBrandColor,
+        String institutionSecondaryBrandColor,
+        String institutionLogoUrl,
+        String institutionAccentPattern,
+        String institutionAccentColor,
+        Integer institutionWatermarkOpacity,
+        String institutionPatternScale,
+        String institutionCardRadius,
+        String institutionTitleFont,
+        String institutionLogoShape,
+        String institutionMedalStyle,
+        String institutionMedalShape,
+        String institutionMedalPosition,
+        String institutionMedalIcon,
+        String institutionMedalSize,
+        String institutionWatermarkIcon) {
+
+    /** Copy with an already-decrypted title - the {@code title} slot is the only field
+     *  the record ever ships in encrypted form. */
+    public CredentialListItem withTitle(String replacement) {
+        return new CredentialListItem(id, type, replacement, institutionName, graduateEmail, status,
+                revokeReason, merkleRoot, signature, issuedAt, expiresAt,
+                institutionBrandColor, institutionSecondaryBrandColor, institutionLogoUrl,
+                institutionAccentPattern, institutionAccentColor, institutionWatermarkOpacity,
+                institutionPatternScale, institutionCardRadius, institutionTitleFont,
+                institutionLogoShape, institutionMedalStyle, institutionMedalShape,
+                institutionMedalPosition, institutionMedalIcon, institutionMedalSize,
+                institutionWatermarkIcon);
+    }
+
+    /** Copy with a decrypted graduate email (same ciphertext-straight-from-the-DB problem as title). */
+    public CredentialListItem withGraduateEmail(String replacement) {
+        return new CredentialListItem(id, type, title, institutionName, replacement, status,
+                revokeReason, merkleRoot, signature, issuedAt, expiresAt,
+                institutionBrandColor, institutionSecondaryBrandColor, institutionLogoUrl,
+                institutionAccentPattern, institutionAccentColor, institutionWatermarkOpacity,
+                institutionPatternScale, institutionCardRadius, institutionTitleFont,
+                institutionLogoShape, institutionMedalStyle, institutionMedalShape,
+                institutionMedalPosition, institutionMedalIcon, institutionMedalSize,
+                institutionWatermarkIcon);
+    }
 }

@@ -23,6 +23,10 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    /** Hex HMAC-SHA256 of the normalized email - exact-match lookups on encrypted emails. */
+    @Column(name = "email_hmac", length = 64, unique = true)
+    private String emailHmac;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
@@ -35,6 +39,18 @@ public class User {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
 
     // Advances only when the user acknowledges a "while you were away" briefing,
     // never on login. See V10 migration and BriefingServiceImpl.

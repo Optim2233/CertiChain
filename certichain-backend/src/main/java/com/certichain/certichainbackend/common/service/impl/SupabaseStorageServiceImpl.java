@@ -46,12 +46,56 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     }
 
     @Override
+    public String uploadDocument(UUID institutionId, String docKind, MultipartFile file) {
+        if (file == null || file.isEmpty()) throw new ValidationException("Document file is empty");
+        if (file.getSize() > 10L * 1024 * 1024) throw new ValidationException("Document too large (max 10MB)");
+        String ct = file.getContentType();
+        if (ct != null && !ct.equals("application/pdf") && !ct.equals("application/octet-stream")) {
+            throw new ValidationException("Only PDF documents are accepted");
+        }
+        if (!configured) {
+            // dev fallback: store inline is now handled by caller; here we just fail with clear message
+            throw new ValidationException("Supabase storage is not configured - set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+        }
+        // reuse image upload path but with documents/ prefix and pdf handling
+        String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : docKind + ".pdf";
+        String safe = original.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String path = "documents/" + institutionId + "/" + docKind + "/" + UUID.randomUUID() + "_" + safe;
+        String uploadUrl = supabaseUrl + "/storage/v1/object/" + bucket + "/" + path;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(uploadUrl))
+                    .header("apikey", serviceRoleKey)
+                    .header("Authorization", "Bearer " + serviceRoleKey)
+                    .header("Content-Type", ct != null ? ct : "application/pdf")
+                    .header("x-upsert", "true")
+                    .timeout(Duration.ofSeconds(20))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(file.getBytes()))
+                    .build();
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) {
+                log.warn("Supabase document upload failed: HTTP {} - {}", response.statusCode(), response.body());
+                throw new ValidationException("Failed to upload document to storage: HTTP " + response.statusCode());
+            }
+            return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+        } catch (ValidationException ve) { throw ve; }
+        catch (Exception ex) {
+            log.warn("Supabase document upload exception: {}", ex.getMessage(), ex);
+            throw new ValidationException("Failed to upload document: " + ex.getMessage());
+        }
+    }
+
+    @Override
     public boolean isConfigured() {
         return configured;
     }
 
     @Override
     public String uploadProfileImage(UUID institutionId, MultipartFile file) {
+        return uploadImage(institutionId.toString(), file);
+    }
+
+    @Override
+    public String uploadImage(String pathPrefix, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ValidationException("Profile image file is empty");
         }
@@ -77,7 +121,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             } else {
                 ext = ".jpg";
             }
-            String path = institutionId + "/" + UUID.randomUUID() + ext;
+            String path = pathPrefix.replaceAll("^/|/$", "") + "/" + UUID.randomUUID() + ext;
             String uploadUrl = supabaseUrl + "/storage/v1/object/" + bucket + "/" + path;
 
             HttpRequest request = HttpRequest.newBuilder(URI.create(uploadUrl))
@@ -95,7 +139,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                 throw new ValidationException("Failed to upload profile image to storage: HTTP " + response.statusCode());
             }
             String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
-            log.info("Uploaded profile image for institution {} to {}", institutionId, publicUrl);
+            log.info("Uploaded image at {} to {}", path, publicUrl);
             return publicUrl;
         } catch (ValidationException ve) {
             throw ve;

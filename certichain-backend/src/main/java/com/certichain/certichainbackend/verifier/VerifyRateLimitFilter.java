@@ -37,8 +37,14 @@ public class VerifyRateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String ip = request.getRemoteAddr();
+        String ip = resolveClientIp(request);
         Instant now = Instant.now();
+        hits.entrySet().removeIf(e -> {
+            synchronized (e.getValue()) {
+                while (!e.getValue().isEmpty() && e.getValue().peekFirst().isBefore(now.minusMillis(WINDOW_MILLIS * 2))) e.getValue().pollFirst();
+                return e.getValue().isEmpty();
+            }
+        });
         Deque<Instant> window = hits.computeIfAbsent(ip, k -> new ArrayDeque<>());
         synchronized (window) {
             while (!window.isEmpty() && window.peekFirst().isBefore(now.minusMillis(WINDOW_MILLIS))) {
@@ -52,5 +58,11 @@ public class VerifyRateLimitFilter extends OncePerRequestFilter {
             window.addLast(now);
         }
         filterChain.doFilter(request, response);
+    }
+
+    private static String resolveClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
+        return request.getRemoteAddr();
     }
 }

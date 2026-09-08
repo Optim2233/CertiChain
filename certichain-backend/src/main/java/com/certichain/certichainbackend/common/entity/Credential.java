@@ -34,6 +34,14 @@ public class Credential {
     @Column(name = "graduate_email", nullable = false)
     private String graduateEmail;
 
+    /** Hex HMAC-SHA256 of the normalized graduate email - exact-match lookups on encrypted emails. */
+    @Column(name = "graduate_email_hmac", length = 64)
+    private String graduateEmailHmac;
+
+    /** Set only for credentials created by one batch upload; null for single issuance. */
+    @Column(name = "batch_id")
+    private UUID batchId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CredentialStatus status;

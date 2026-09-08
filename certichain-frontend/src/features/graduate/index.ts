@@ -6,6 +6,7 @@ export {
   useCredentialFlags,
   useCredentialVerificationHistory,
   useFlagCredential,
+  useGraduateProfile,
   useOpenDisputes,
   usePendingDisputeCount,
   useRevokeShare,
@@ -14,10 +15,13 @@ export {
   useSignup,
   useSignupCheck,
   useTimeline,
+  useUpdateGraduateProfile,
   useVerificationCount,
 } from './hooks/useGraduate';
 export { useGraduateStore } from './store/graduateStore';
 export type {
+  GraduateProfile,
+  GraduateProfileInput,
   GraduateState,
   Share,
   ShareActivityEntry,

@@ -29,6 +29,23 @@ export interface SignupCheckResult {
   pendingCredentialCount: number;
 }
 
+export interface GraduateProfile {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  profileImageUrl: string | null;
+}
+
+export interface GraduateProfileInput {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  /** "" clears an existing photo; undefined leaves it unchanged. */
+  profileImageUrl?: string;
+  profileImage?: File | null;
+}
+
 export interface GraduateState {
   pendingCredentialCount: number | null;
   setPendingCredentialCount: (count: number) => void;

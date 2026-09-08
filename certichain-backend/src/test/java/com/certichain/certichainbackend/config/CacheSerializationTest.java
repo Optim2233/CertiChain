@@ -1,57 +1,61 @@
 package com.certichain.certichainbackend.config;
 
-import com.certichain.certichainbackend.common.enums.CredentialStatus;
-import com.certichain.certichainbackend.common.enums.CredentialType;
-import com.certichain.certichainbackend.graduate.CredentialListItem;
+import com.certichain.certichainbackend.common.entity.Institution;
+import com.certichain.certichainbackend.common.enums.InstitutionStatus;
 import com.certichain.certichainbackend.institution.CredentialSummary;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the reason no {@code @Cacheable} method may return a record. This fails in a uniquely
- * quiet way - only on a cache <em>hit</em>, never on the miss that populates it - so an endpoint
- * passes every test, works once, then 500s in the browser seconds later. It shipped exactly that
- * way: {@code /api/graduate/timeline} threw "LinkedHashMap cannot be cast to CredentialListItem".
+ * Pins the Redis cache value serializer's round-trip behaviour.
  *
- * <p>Cause: a cached value is read back as a bare Object, so it has to carry its own type tag.
- * The serializer's default typing is NON_FINAL, and records are final, so no tag is written.
- * Configuring that away needs a serializer this Spring Data Redis version does not expose, so
- * the services return records uncached instead; each is a single indexed query.
+ * <p>History: on Spring Boot 4.1 / Spring Data Redis 4.x, {@code GenericJacksonJsonRedisSerializer
+ * .builder().build()} defaults to <em>no</em> default typing, so every cached value reads back as
+ * a {@code LinkedHashMap} and a {@code @Cacheable} method 500s on its first cache <em>hit</em>
+ * ("LinkedHashMap cannot be cast to ..."). {@code /api/institution/me} shipped exactly that way.
  *
- * <p>If a future upgrade fixes the round trip, these tests fail - that is the signal to put the
- * {@code @Cacheable} annotations back.
+ * <p>{@link CacheConfig#valueSerializer()} now re-enables default typing (+ Spring cache null
+ * support), so a cached single value — entity or record — is self-describing and survives the
+ * round trip. These tests lock that in.
+ *
+ * <p>Note: a raw {@code List<record>} return type still does not round-trip (the list itself
+ * carries no type tag). Services that return a bare list of records — e.g. graduate timeline —
+ * stay uncached for that reason; don't add {@code @Cacheable} to them.
  */
 class CacheSerializationTest {
 
     private final GenericJacksonJsonRedisSerializer serializer = CacheConfig.valueSerializer();
 
-    private static CredentialListItem sample() {
-        return new CredentialListItem(
-                UUID.randomUUID(), CredentialType.CERTIFICATE, "BSc Computer Science",
-                "Yangon University", "grad@example.com", CredentialStatus.ISSUED,
-                null, "merkle", "sig", Instant.parse("2026-08-26T12:00:00Z"), null);
-    }
-
     @Test
-    void aBareRecordDoesNotSurviveTheRoundTrip() {
+    void aRecordSurvivesTheRoundTrip() {
         var original = new CredentialSummary(7, 1, 2);
 
         Object restored = serializer.deserialize(serializer.serialize(original));
 
-        assertThat(restored).isNotEqualTo(original).isInstanceOf(java.util.Map.class);
+        assertThat(restored).isEqualTo(original);
     }
 
     @Test
-    void aRecordInsideAListDoesNotSurviveTheRoundTrip() {
-        Object restored = serializer.deserialize(serializer.serialize(List.of(sample())));
+    void anEntitySurvivesTheRoundTrip() {
+        var original = Institution.builder()
+                .name("Yangon University")
+                .ministry("Education")
+                .status(InstitutionStatus.APPROVED)
+                .appliedAt(Instant.parse("2026-08-26T12:00:00Z"))
+                .brandColor("#0B1E3D")
+                .accentPattern("dots")
+                .build();
 
-        // This cast is what threw in production, on the timeline endpoint.
-        assertThat((List<?>) restored).first().isNotInstanceOf(CredentialListItem.class);
+        Object restored = serializer.deserialize(serializer.serialize(original));
+
+        assertThat(restored).isInstanceOf(Institution.class);
+        var i = (Institution) restored;
+        assertThat(i.getName()).isEqualTo("Yangon University");
+        assertThat(i.getBrandColor()).isEqualTo("#0B1E3D");
+        assertThat(i.getAccentPattern()).isEqualTo("dots");
     }
 }

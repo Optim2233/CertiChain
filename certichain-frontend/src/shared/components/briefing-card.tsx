@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
+import { backendText } from "@/i18n/backend-copy"
 import { useBriefing, useAckBriefing } from "@/features/briefing"
 
 const KIND_ICON: Record<string, string> = {
@@ -22,6 +24,8 @@ export function BriefingCard({
   quietTitle: string
   quietDetail: (sinceDate: string) => string
 }) {
+  const t = useTranslations("common")
+  const locale = useLocale()
   const { data, isLoading } = useBriefing()
   const ack = useAckBriefing()
   const [dismissed, setDismissed] = useState(false)
@@ -37,7 +41,7 @@ export function BriefingCard({
   if (isLoading || !briefing || dismissed) return null
   if (briefing.state === "NONE") return null
 
-  const sinceDate = new Date(briefing.since).toLocaleDateString(undefined, {
+  const sinceDate = new Date(briefing.since).toLocaleDateString(locale, {
     month: "long",
     day: "numeric",
   })
@@ -59,7 +63,7 @@ export function BriefingCard({
   return (
     <div className="mb-6 overflow-hidden rounded-xl border border-[#c5c6cf] bg-white shadow-[0_1px_2px_rgba(0,0,0,.04)]">
       <div className="flex items-center justify-between px-5 py-3.5" style={{ background: "#02275A" }}>
-        <h3 className="m-0 text-[15px] font-semibold text-white">While you were away</h3>
+        <h3 className="m-0 text-[15px] font-semibold text-white">{t("awayTitle")}</h3>
         <button
           type="button"
           onClick={() => {
@@ -70,7 +74,7 @@ export function BriefingCard({
           style={{ color: "#a8c8ff" }}
         >
           <span className="material-symbols-outlined text-[16px]">check</span>
-          Dismiss
+          {t("dismissBtn")}
         </button>
       </div>
       <div className="flex flex-col">
@@ -85,13 +89,13 @@ export function BriefingCard({
               </span>
             </span>
             <div className="min-w-0">
-              <p className="m-0 text-[14px] font-semibold">{item.title}</p>
-              <p className="m-0 mt-0.5 text-[13px] text-[#75777f]">{item.detail}</p>
+              <p className="m-0 text-[14px] font-semibold">{backendText(t, item.title)}</p>
+              <p className="m-0 mt-0.5 text-[13px] text-[#75777f]">{backendText(t, item.detail)}</p>
             </div>
           </div>
         ))}
         {briefing.moreCount > 0 && (
-          <p className="m-0 px-5 py-2.5 text-[13px] text-[#75777f]">and {briefing.moreCount} more</p>
+          <p className="m-0 px-5 py-2.5 text-[13px] text-[#75777f]">{t("andMore", { n: briefing.moreCount })}</p>
         )}
       </div>
     </div>

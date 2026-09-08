@@ -20,6 +20,7 @@ export function useUnreadCount() {
     // notifications come from other users' actions, not this tab's own mutations.
     refetchInterval: 30 * 1000,
     staleTime: 15 * 1000,
+    retry: false,
   });
 }
 

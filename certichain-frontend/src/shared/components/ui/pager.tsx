@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import type { Page } from "@/shared/types/types"
 
 /**
@@ -16,6 +17,7 @@ export function Pager({
   onPageChange: (next: number) => void
   className?: string
 }) {
+  const t = useTranslations("common")
   if (!page || page.totalPages <= 1) return null
 
   const btn =
@@ -23,18 +25,18 @@ export function Pager({
 
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={t("pagination")}
       className={`flex items-center justify-between border-t border-[#c5c6cf] px-6 py-3 ${className}`}
     >
       <span className="text-xs text-[#75777f]">
-        Page {page.number + 1} of {page.totalPages} · {page.totalElements} total
+        {t("pageOf", { n: page.number + 1, m: page.totalPages, t: page.totalElements })}
       </span>
       <div className="flex gap-2">
         <button type="button" className={btn} disabled={page.first} onClick={() => onPageChange(page.number - 1)}>
-          Previous
+          {t("previous")}
         </button>
         <button type="button" className={btn} disabled={page.last} onClick={() => onPageChange(page.number + 1)}>
-          Next
+          {t("next")}
         </button>
       </div>
     </nav>
