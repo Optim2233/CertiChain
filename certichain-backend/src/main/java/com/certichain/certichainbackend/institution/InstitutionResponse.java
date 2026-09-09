@@ -12,7 +12,16 @@ public record InstitutionResponse(UUID id, String name, String ministry, String 
                                    String patternScale, String cardRadius, String titleFont, String logoShape,
                                    String medalStyle, String medalShape, String medalPosition, String medalIcon,
                                    String medalSize, String watermarkIcon,
-                                   Instant updatedAt, long version) {
+                                   Instant updatedAt, long version,
+                                   String institutionType, String institutionNameMm, String institutionCategory,
+                                   String stateRegion, String district, String township, String ward,
+                                   String street, String postalCode,
+                                   Integer yearEstablished, String establishmentDocType, String establishmentDocTitle,
+                                   String establishmentDocRef, java.time.LocalDate establishmentDocIssueDate,
+                                   String companyName, String dicaCertificateNumber, String mycoRegistrationNumber,
+                                   String tinNumber, java.time.LocalDate incorporationDate, String ownershipStructure,
+                                   Long investmentAmount, Boolean foreignInvolvement, String micPermitNumber,
+                                   String founders, String administrator) {
     public static InstitutionResponse from(Institution e) {
         return new InstitutionResponse(e.getId(), e.getName(), e.getMinistry(),
                 e.getStatus() != null ? e.getStatus().name() : null, e.getStatusReason(),
@@ -23,6 +32,15 @@ public record InstitutionResponse(UUID id, String name, String ministry, String 
                 e.getPatternScale(), e.getCardRadius(), e.getTitleFont(), e.getLogoShape(),
                 e.getMedalStyle(), e.getMedalShape(), e.getMedalPosition(), e.getMedalIcon(),
                 e.getMedalSize(), e.getWatermarkIcon(),
-                e.getUpdatedAt(), e.getVersion());
+                e.getUpdatedAt(), e.getVersion(),
+                e.getInstitutionType(), e.getInstitutionNameMm(), e.getInstitutionCategory(),
+                e.getStateRegion(), e.getDistrict(), e.getTownship(), e.getWard(),
+                e.getStreet(), e.getPostalCode(),
+                e.getYearEstablished(), e.getEstablishmentDocType(), e.getEstablishmentDocTitle(),
+                e.getEstablishmentDocRef(), e.getEstablishmentDocIssueDate(),
+                e.getCompanyName(), e.getDicaCertificateNumber(), e.getMycoRegistrationNumber(),
+                e.getTinNumber(), e.getIncorporationDate(), e.getOwnershipStructure(),
+                e.getInvestmentAmount(), e.getForeignInvolvement(), e.getMicPermitNumber(),
+                e.getFounders(), e.getAdministrator());
     }
 }

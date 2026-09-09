@@ -1,6 +1,6 @@
 package com.certichain.certichainbackend.verifier;
 
-import com.certichain.certichainbackend.institution.InstitutionResponse;
+import com.certichain.certichainbackend.institution.PublicInstitutionResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,9 +44,9 @@ public class VerifierController {
     }
 
     @GetMapping("/institutions")
-    public List<InstitutionResponse> institutions() {
+    public List<PublicInstitutionResponse> institutions() {
         return verifierService.publicInstitutionDirectory().stream()
-                .map(com.certichain.certichainbackend.institution.InstitutionResponse::from).toList();
+                .map(PublicInstitutionResponse::from).toList();
     }
 
     @GetMapping("/stats")

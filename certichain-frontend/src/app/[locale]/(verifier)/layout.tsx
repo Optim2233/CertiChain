@@ -9,14 +9,15 @@ export interface VerifierNavItem {
 
 export default async function VerifierLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("verifier")
-  const { common, verifier, error } = await getMessages()
+  const { common, verifier, error, institutions } = await getMessages()
   const nav: VerifierNavItem[] = [
     { href: "/verify", label: t("verifyTitle") },
     { href: "/verify/bulk", label: t("forEmployersNav") },
+    { href: "/institutions", label: t("institutionsNav") },
   ]
 
   return (
-    <NextIntlClientProvider messages={{ common, verifier, error }}>
+    <NextIntlClientProvider messages={{ common, verifier, error, institutions }}>
       <VerifierShell footer={t("verifierFooter")} nav={nav}>
         {children}
       </VerifierShell>

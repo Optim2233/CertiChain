@@ -26,6 +26,22 @@ export type ShareRevokedResponse = { result: 'SHARE_REVOKED'; message: string };
 export type ShareTimelineWrapper = { scope: string; results: VerificationResponse[] };
 export type ShareVerificationResponse = VerificationResponse | VerificationResponse[] | ShareRevokedResponse | ShareTimelineWrapper;
 
+/** Row of the unauthenticated directory (`GET /api/verify/institutions`).
+ *  Narrower than the AA `Institution` - no keys, no PII, no branding knobs. */
+export interface PublicInstitution {
+  id: string;
+  name: string;
+  ministry: string | null;
+  status: 'APPROVED' | 'SUSPENDED';
+  institutionType: string | null;
+  stateRegion: string | null;
+  district: string | null;
+  decidedAt: string | null;
+  website: string | null;
+  profileImageUrl: string | null;
+  brandColor: string | null;
+}
+
 export interface TrustStats {
   institutionCount: number;
   verificationCount: number;

@@ -20,7 +20,9 @@ public record InstitutionAnalytics(
         List<Bucket> expiryBuckets,
         List<TopCredential> topVerified,
         double verificationYield,
-        Map<String, Long> revokeReasonTop
+        Map<String, Long> revokeReasonTop,
+        TypeBreakdown disputesByType,
+        Map<String, Long> disputeReasonTop
 ) {
     public record StatusBreakdown(int issued, int revoked, int pendingClaim, int expired) {}
     public record TypeBreakdown(int certificate, int activityRecord) {}

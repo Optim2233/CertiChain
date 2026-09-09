@@ -80,6 +80,8 @@ export interface InstitutionAnalytics {
   topVerified: TopCredential[];
   verificationYield: number;
   revokeReasonTop: Record<string, number>;
+  disputesByType: TypeBreakdown;
+  disputeReasonTop: Record<string, number>;
 }
 
 export interface BatchIssueResult {

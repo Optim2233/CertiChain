@@ -11,6 +11,7 @@ export { useVerifierStore } from './store/verifierStore';
 export type {
   BulkVerifyRow,
   DisclosedField,
+  PublicInstitution,
   ShareVerificationResponse,
   TrustStats,
   VerificationResponse,

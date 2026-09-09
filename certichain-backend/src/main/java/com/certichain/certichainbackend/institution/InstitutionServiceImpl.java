@@ -578,9 +578,13 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         // disputes + disputesByDay (grouped in-memory from dispute_flag — no audit event for flag)
         int open = 0, upheld = 0, dismissed = 0;
+        int disputeCert = 0, disputeAct = 0;
         Double medianHours = null;
+        Map<String, Long> disputeReasons = new java.util.HashMap<>();
         List<DisputeFlag> allFlags = List.of();
         if (!credentialIds.isEmpty()) {
+            Map<UUID, CredentialType> typeById = credentials.stream()
+                    .collect(Collectors.toMap(Credential::getId, Credential::getType));
             allFlags = disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds);
             List<Long> hours = new ArrayList<>();
             for (DisputeFlag f : allFlags) {
@@ -590,6 +594,11 @@ public class InstitutionServiceImpl implements InstitutionService {
                 if (f.getResolvedAt() != null) {
                     hours.add(ChronoUnit.HOURS.between(f.getCreatedAt(), f.getResolvedAt()));
                 }
+                if (typeById.get(f.getCredentialId()) == CredentialType.CERTIFICATE) disputeCert++; else disputeAct++;
+                if (f.getReason() != null) {
+                    String key = f.getReason().trim();
+                    if (!key.isEmpty()) disputeReasons.merge(key.length() > 60 ? key.substring(0, 60) : key, 1L, Long::sum);
+                }
             }
             if (!hours.isEmpty()) {
                 hours.sort(Long::compareTo);
@@ -597,6 +606,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                 medianHours = hours.size() % 2 == 0 ? (hours.get(mid-1)+hours.get(mid))/2.0 : (double) hours.get(mid);
             }
         }
+        Map<String, Long> topDisputeReasons = disputeReasons.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed()).limit(5)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a,b)->a, LinkedHashMap::new));
 
         double yield = credentials.isEmpty() ? 0 : (double) totalVerifications / credentials.size();
         // revoke reason top 3
@@ -638,7 +650,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                         new InstitutionAnalytics.Bucket("31-90 days", e31_90)),
                 topVerified,
                 Math.round(yield*1000)/1000.0,
-                topReasons);
+                topReasons,
+                new InstitutionAnalytics.TypeBreakdown(disputeCert, disputeAct),
+                topDisputeReasons);
     }
 
     /**

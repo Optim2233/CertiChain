@@ -633,6 +633,10 @@
     "topRevokeTitle": "Top revoke reasons",
     "rangeYear": "Year",
     "disputesBarName": "Disputes",
+    "disputeRateTitle": "Dispute rate vs. issuance volume",
+    "disputeRateSub": "Disputes opened per day against credentials issued that day, with dispute rate (%) as a line.",
+    "disputeRateLine": "Dispute rate",
+    "disputesByTypeTitle": "Disputes by type & top reasons",
     "noCredsYet": "No credentials yet.",
     "noVerifs": "No verifications yet.",
     "noRevocations": "No revocations.",
@@ -824,7 +828,8 @@
     "shareCodeHdr": "Share Code",
     "resultHdr": "Result",
     "forEmployersNav": "For Employers",
-    "verifierFooter": "CertiChain is a blockchain-backed credential network. Institutions are reviewed and accredited before they can issue certificates."
+    "verifierFooter": "CertiChain is a blockchain-backed credential network. Institutions are reviewed and accredited before they can issue certificates.",
+    "institutionsNav": "Institutions"
   },
   "share": {
     "revokedTitle": "This Share Link Was Revoked",
@@ -972,13 +977,6 @@
       "signed": "Digitally Signed",
       "availability": "System Availability"
     },
-    "inst": {
-      "kicker": "Trusted Institutions",
-      "title": "Our Accredited Institutions",
-      "empty": "No institutions have been accredited yet.",
-      "active": "Active",
-      "suspended": "Suspended"
-    },
     "cta": {
       "title": "Your Achievement Deserves Proof.",
       "subtitle": "Issue it. Own it. Share it. Verify it.",
@@ -1008,5 +1006,26 @@
     "backHome": "Back to Home",
     "notFoundTitle": "Page Not Found",
     "notFoundSub": "The page you're looking for doesn't exist or may have moved."
+  },
+  "institutions": {
+    "title": "Accredited Institutions",
+    "subtitle": "All institutions reviewed and accredited by the Accreditation Authority.",
+    "searchPh": "Search by name, ministry, or location...",
+    "count": "{n} / {total}",
+    "accredited": "Accredited",
+    "suspended": "Suspended",
+    "visitWebsite": "Visit website",
+    "empty": "No institutions have been accredited yet.",
+    "noMatch": "No institutions match “{q}”.",
+    "loadFailed": "Couldn't load the institution directory. Please try again.",
+    "col": {
+      "institution": "Institution",
+      "ministry": "Ministry",
+      "type": "Type",
+      "location": "Location",
+      "status": "Status",
+      "accreditedSince": "Accredited Since",
+      "website": "Website"
+    }
   }
 }

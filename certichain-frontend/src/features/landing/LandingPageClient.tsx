@@ -4,19 +4,16 @@ import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@/i18n/navigation"
 import { LocaleToggle } from "@/shared/components/locale-toggle"
-import { usePublicInstitutions, useTrustStats } from "@/features/verifier"
+import { useTrustStats } from "@/features/verifier"
 
 const QR_PATH = "M0 0h3v3H0zM7 0h3v3H7zM0 7h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM4 5h2v1H4zM4 7h1v3H4zM6 4h1v1H6zM8 4h2v1H8zM6 6h1v4H6zM8 8h2v2H8z"
 
 export function LandingPageClient() {
-  const t = useTranslations("landing")
   const router = useRouter()
   const [certId, setCertId] = useState("")
   const [mode, setMode] = useState<"id" | "qr">("id")
   const { data: statsRes } = useTrustStats()
-  const { data: institutionsRes } = usePublicInstitutions()
   const stats = statsRes?.data
-  const institutions = institutionsRes?.data ?? []
 
   function goVerify() {
     if (mode === "qr") {
@@ -39,7 +36,6 @@ export function LandingPageClient() {
       <InstantVerification mode={mode} setMode={setMode} certId={certId} setCertId={setCertId} onVerify={goVerify} />
       <Features />
       <StatsBar stats={stats} />
-      <Institutions institutions={institutions} />
       <CtaBanner />
       <Footer />
     </div>
@@ -60,7 +56,7 @@ function Navbar() {
         <a href="#top" className="text-sm font-semibold text-[#191c1e] hover:text-[#0462BA]">{t("nav.home")}</a>
         <a href="#how-it-works" className="text-sm font-semibold text-[#44474e] hover:text-[#0462BA]">{t("nav.howItWorks")}</a>
         <a href="#features" className="text-sm font-semibold text-[#44474e] hover:text-[#0462BA]">{t("nav.features")}</a>
-        <a href="#institutions" className="text-sm font-semibold text-[#44474e] hover:text-[#0462BA]">{t("nav.institutions")}</a>
+        <Link href="/institutions" className="text-sm font-semibold text-[#44474e] hover:text-[#0462BA]">{t("nav.institutions")}</Link>
         <Link href="/verify" className="text-sm font-semibold text-[#44474e] hover:text-[#0462BA]">{t("nav.verifyCredential")}</Link>
         <a href="#footer" className="text-sm font-semibold text-[#44474e] hover:text-[#0462BA]">{t("nav.contact")}</a>
       </nav>
@@ -519,46 +515,6 @@ function StatsBar({ stats }: { stats: { institutionCount: number; verificationCo
   )
 }
 
-function Institutions({ institutions }: { institutions: Array<{ id: string; name: string; status: string }> }) {
-  const t = useTranslations("landing")
-  const shown = institutions.slice(0, 6)
-
-  return (
-    <section id="institutions" className="px-6 py-16 lg:px-10">
-      <div className="mx-auto max-w-[1200px]">
-        <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: "#0462BA" }}>{t("inst.kicker")}</p>
-        <h2 className="font-heading m-0 mb-9 text-[28px] font-extrabold">{t("inst.title")}</h2>
-
-        {shown.length === 0 ? (
-          <p className="m-0 text-sm text-[#75777f]">{t("inst.empty")}</p>
-        ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {shown.map((inst) => (
-              <div key={inst.id} className="flex items-center gap-3.5 rounded-xl border border-[#e5e7eb] bg-white p-5">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full" style={{ background: "#eaf1fb" }}>
-                  <span className="material-symbols-outlined text-lg" style={{ color: "#0462BA" }}>account_balance</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="m-0 truncate text-sm font-bold">{inst.name}</p>
-                  <span
-                    className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold"
-                    style={{ color: inst.status === "APPROVED" ? "#0d9668" : "#8a5a00" }}
-                  >
-                    <span className="material-symbols-outlined text-sm">
-                      {inst.status === "APPROVED" ? "check_circle" : "pause_circle"}
-                    </span>
-                    {inst.status === "APPROVED" ? t("inst.active") : t("inst.suspended")}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}
-
 function CtaBanner() {
   const t = useTranslations("landing")
   return (
@@ -607,7 +563,7 @@ function Footer() {
           <div className="flex flex-col gap-2">
             <a href="#how-it-works" className="text-[13px]" style={{ color: "#c4d3ff" }}>{t("footer.howItWorks")}</a>
             <a href="#features" className="text-[13px]" style={{ color: "#c4d3ff" }}>{t("footer.features")}</a>
-            <a href="#institutions" className="text-[13px]" style={{ color: "#c4d3ff" }}>{t("footer.institutions")}</a>
+            <Link href="/institutions" className="text-[13px]" style={{ color: "#c4d3ff" }}>{t("footer.institutions")}</Link>
             <Link href="/verify" className="text-[13px]" style={{ color: "#c4d3ff" }}>{t("footer.verify")}</Link>
           </div>
         </div>
