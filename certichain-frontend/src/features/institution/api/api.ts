@@ -2,7 +2,7 @@ import type { Page } from '@/shared/types/types';
 import type { Institution } from '@/features/accreditation';
 import type { Credential, DisputeFlag } from '@/features/institution';
 import { apiClient } from '@/shared/config/axioconfig';
-import type { BatchIssueResult, BatchRevokeResult, BatchSummary, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
+import type { BatchIssueResult, BatchRevokeResult, BatchSummary, BatchUnrevokeResult, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
 import {
   applyInstitutionSchema,
   dismissDisputeSchema,
@@ -68,9 +68,10 @@ export const institutionService = {
     );
   },
 
-  async issueBatch(spreadsheet: File, headers?: Record<string, string>) {
+  async issueBatch(spreadsheet: File, batchName?: string, headers?: Record<string, string>) {
     const formData = new FormData();
     formData.append('file', spreadsheet);
+    if (batchName?.trim()) formData.append('batchName', batchName.trim());
     return apiClient.postMultipart<BatchIssueResult[]>(
       '/api/institution/credentials/batch',
       formData,
@@ -100,14 +101,30 @@ export const institutionService = {
     );
   },
 
+  async unrevokeCredential(id: string, headers?: Record<string, string>) {
+    return apiClient.post<void>(`/api/institution/credentials/${id}/unrevoke`, undefined, headers);
+  },
+
   async listBatches(headers?: Record<string, string>) {
     return apiClient.get<BatchSummary[]>('/api/institution/credentials/batches', headers);
   },
 
-  async revokeBatch(batchId: string, reason: string, headers?: Record<string, string>) {
+  async listBatchMembers(batchId: string, headers?: Record<string, string>) {
+    return apiClient.get<Credential[]>(`/api/institution/credentials/batches/${batchId}`, headers);
+  },
+
+  async revokeBatch(batchId: string, reason: string, credentialIds?: string[], headers?: Record<string, string>) {
     return apiClient.post<BatchRevokeResult>(
       `/api/institution/credentials/batches/${batchId}/revoke`,
-      revokeCredentialSchema.parse({ reason }),
+      { ...revokeCredentialSchema.parse({ reason }), credentialIds: credentialIds?.length ? credentialIds : undefined },
+      headers
+    );
+  },
+
+  async unrevokeBatch(batchId: string, credentialIds?: string[], headers?: Record<string, string>) {
+    return apiClient.post<BatchUnrevokeResult>(
+      `/api/institution/credentials/batches/${batchId}/unrevoke`,
+      { credentialIds: credentialIds?.length ? credentialIds : undefined },
       headers
     );
   },

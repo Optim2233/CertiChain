@@ -13,6 +13,7 @@ export default function BatchIssuancePage() {
   const tc = useTranslations("common")
   const issueBatch = useIssueBatch()
   const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [batchName, setBatchName] = useState("")
   const [rowCount, setRowCount] = useState<number | null>(null)
   const [results, setResults] = useState<BatchIssueResult[] | null>(null)
   const [downloadingTemplate, setDownloadingTemplate] = useState(false)
@@ -59,11 +60,12 @@ export default function BatchIssuancePage() {
 
   function confirmIssue() {
     if (!pendingFile) return
-    issueBatch.mutate(pendingFile, { onSuccess: (res) => setResults(res.data) })
+    issueBatch.mutate({ spreadsheet: pendingFile, batchName }, { onSuccess: (res) => setResults(res.data) })
   }
 
   function cancelPending() {
     setPendingFile(null)
+    setBatchName("")
     setRowCount(null)
     if (inputRef.current) inputRef.current.value = ""
   }
@@ -206,8 +208,8 @@ export default function BatchIssuancePage() {
       </div>
 
       {pendingFile && !results && (
-        <div className="mb-6 flex items-center justify-between rounded-lg border border-[#c5c6cf] bg-white p-6">
-          <div className="flex items-center gap-3">
+        <div className="mb-6 rounded-lg border border-[#c5c6cf] bg-white p-6">
+          <div className="mb-5 flex items-center gap-3">
             <span className="material-symbols-outlined text-2xl" style={{ color: "#02275A" }}>description</span>
             <div>
               <p className="m-0 text-sm font-bold">{pendingFile.name}</p>
@@ -216,7 +218,19 @@ export default function BatchIssuancePage() {
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="mb-5">
+            <label className="mb-1.5 block text-[13px] font-bold">{t("batchNameLabel")}</label>
+            <input
+              type="text"
+              value={batchName}
+              onChange={(e) => setBatchName(e.target.value)}
+              placeholder={t("batchNamePh")}
+              maxLength={200}
+              className="w-full rounded border border-[#c5c6cf] px-3.5 py-2.5 text-sm"
+            />
+            <p className="m-0 mt-1 text-xs text-[#75777f]">{t("batchNameHint")}</p>
+          </div>
+          <div className="flex justify-end gap-3">
             <button type="button" onClick={cancelPending} className="rounded border border-[#c5c6cf] bg-white px-5 py-2.5 text-sm font-semibold text-[#44474e]">
               {tc("cancel")}
             </button>

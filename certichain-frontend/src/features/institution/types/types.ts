@@ -10,6 +10,8 @@ export interface Credential {
   institutionId: string;
   graduateUserId: string | null;
   graduateEmail: string;
+  batchId: string | null;
+  batchName: string | null;
   status: CredentialStatus;
   revokeReason: string | null;
   merkleRoot: string | null;
@@ -96,6 +98,7 @@ export interface BatchIssueResult {
 
 export interface BatchSummary {
   batchId: string;
+  batchName: string | null;
   issuedAt: string;
   total: number;
   revoked: number;
@@ -106,7 +109,12 @@ export interface BatchRevokeResult {
   alreadyRevoked: number;
 }
 
-export type DisputeStatus = 'OPEN' | 'UPHELD' | 'DISMISSED';
+export interface BatchUnrevokeResult {
+  restored: number;
+  alreadyActive: number;
+}
+
+export type DisputeStatus = 'OPEN' | 'UPHELD' | 'DISMISSED' | 'WITHDRAWN';
 
 export interface DisputeFlag {
   id: string;

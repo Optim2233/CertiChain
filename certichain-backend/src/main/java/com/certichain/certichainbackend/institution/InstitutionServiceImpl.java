@@ -56,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -496,8 +497,10 @@ public class InstitutionServiceImpl implements InstitutionService {
                 credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.PENDING_CLAIM));
     }
 
-    // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
+    // Single-record return, so it survives the Redis round trip (see CacheSerializationTest) -
+    // cached because this method scans every credential/dispute row for the institution.
     @Override
+    @Cacheable(cacheNames = "institution", key = "'analytics:' + @currentUser.institutionId() + ':' + #days")
     public InstitutionAnalytics getAnalytics(int days) {
         int d = (days == 7 || days == 30 || days == 90 || days == 180 || days == 365) ? days : 30;
         UUID institutionId = currentUser.institutionId();
@@ -741,7 +744,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public List<Map<String, Object>> issueBatch(MultipartFile spreadsheet) {
+    public List<Map<String, Object>> issueBatch(MultipartFile spreadsheet, String batchName) {
         // @Transactional (read-write) is required: the class default is readOnly=true, under
         // which Hibernate silently skips the flush and every issued row is discarded on commit.
         // Per-row errors are caught inside the loop, so a bad row never rolls back good ones.
@@ -749,6 +752,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         // request. Rows are fully validated before anything is written, so a rejected row
         // leaves nothing behind.
         UUID batchId = UUID.randomUUID();
+        String trimmedBatchName = (batchName == null || batchName.isBlank()) ? null : batchName.trim();
         List<Map<String, Object>> results = new ArrayList<>();
         List<Map<String, String>> rows = parseCsv(readText(spreadsheet));
 
@@ -798,7 +802,18 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public BatchRevokeResult revokeBatch(UUID batchId, String reason) {
+    public void unrevokeCredential(UUID credentialId) {
+        Credential credential = ownCredential(credentialId);
+        if (credential.getStatus() != CredentialStatus.REVOKED) {
+            throw new ValidationException("Credential is not revoked");
+        }
+        applyRestoration(credential);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public BatchRevokeResult revokeBatch(UUID batchId, String reason, List<UUID> credentialIds) {
         requireText(reason, "reason");
         List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
                 currentUser.institutionId(), batchId);
@@ -807,9 +822,17 @@ public class InstitutionServiceImpl implements InstitutionService {
         if (members.isEmpty()) {
             throw new ResourceNotFoundException("Batch not found");
         }
+        // credentialIds absent/empty -> whole-batch revoke (original behaviour, unchanged).
+        // Present -> only revoke the selected subset; anything outside the batch is ignored
+        // rather than erroring, since the id list is a filter, not a separate lookup.
+        Set<UUID> selection = (credentialIds == null || credentialIds.isEmpty())
+                ? null : new java.util.HashSet<>(credentialIds);
         int revoked = 0;
         int alreadyRevoked = 0;
         for (Credential credential : members) {
+            if (selection != null && !selection.contains(credential.getId())) {
+                continue;
+            }
             if (credential.getStatus() == CredentialStatus.REVOKED) {
                 alreadyRevoked++;
                 continue;
@@ -818,6 +841,34 @@ public class InstitutionServiceImpl implements InstitutionService {
             revoked++;
         }
         return new BatchRevokeResult(revoked, alreadyRevoked);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public BatchUnrevokeResult unrevokeBatch(UUID batchId, List<UUID> credentialIds) {
+        List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
+                currentUser.institutionId(), batchId);
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("Batch not found");
+        }
+        // Same selection semantics as revokeBatch: absent/empty -> whole batch, else the subset.
+        Set<UUID> selection = (credentialIds == null || credentialIds.isEmpty())
+                ? null : new java.util.HashSet<>(credentialIds);
+        int restored = 0;
+        int alreadyActive = 0;
+        for (Credential credential : members) {
+            if (selection != null && !selection.contains(credential.getId())) {
+                continue;
+            }
+            if (credential.getStatus() != CredentialStatus.REVOKED) {
+                alreadyActive++;
+                continue;
+            }
+            applyRestoration(credential);
+            restored++;
+        }
+        return new BatchUnrevokeResult(restored, alreadyActive);
     }
 
     /** Shared revoke behaviour: status + reason + timestamp, audit entry, graduate notification. */
@@ -832,9 +883,38 @@ public class InstitutionServiceImpl implements InstitutionService {
                 "A credential you hold was revoked. Reason: " + reason);
     }
 
+    /**
+     * Shared restore behaviour: flips status back to ISSUED and clears the revoke
+     * metadata. The prior revoke's audit entry is left in place (it's history, not
+     * an error) and a new "Certificate restored" entry is added alongside it, so
+     * the timeline reads "revoked on X, restored on Y" rather than erasing that it
+     * ever happened. Revoke never touches merkleRoot/signature (see applyRevocation),
+     * so restoring doesn't need to re-sign either — it's a status-field flip both ways.
+     */
+    private void applyRestoration(Credential credential) {
+        credential.setStatus(CredentialStatus.ISSUED);
+        credential.setRevokeReason(null);
+        credential.setRevokedAt(null);
+        auditLogService.log(AuditEvents.CERTIFICATE_RESTORED_EVENT, currentUser.id(),
+                credential.getInstitutionId(), credential.getId());
+        notificationService.notify(credential.getGraduateUserId(), "Certificate restored",
+                "A credential you hold that was previously revoked has been restored by the issuing institution.");
+    }
+
     @Override
     public List<BatchSummaryRow> listBatches() {
         return credentialRepository.findBatchSummaries(currentUser.institutionId());
+    }
+
+    @Override
+    // Not cached: returns decrypted copies (title etc.), same rationale as getCredential.
+    public List<Credential> listBatchMembers(UUID batchId) {
+        List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
+                currentUser.institutionId(), batchId);
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("Batch not found");
+        }
+        return members.stream().map(piiCryptoService::decryptedCredentialCopy).toList();
     }
 
     @Override
@@ -1031,11 +1111,16 @@ public class InstitutionServiceImpl implements InstitutionService {
      * funnel through here, so the APPROVED gate cannot be bypassed on one of them.
      */
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type, Instant expiresAt) {
-        return issue(graduateEmail, fields, type, expiresAt, null);
+        return issue(graduateEmail, fields, type, expiresAt, null, null);
     }
 
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
                              Instant expiresAt, UUID batchId) {
+        return issue(graduateEmail, fields, type, expiresAt, batchId, null);
+    }
+
+    private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
+                             Instant expiresAt, UUID batchId, String batchName) {
         requireText(graduateEmail, "graduate_email");
         String normGradEmail = graduateEmail.trim().toLowerCase();
         UUID institutionId = currentUser.institutionId();
@@ -1068,6 +1153,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .graduateEmail(piiCryptoService.encryptUserField(normGradEmail))
                 .graduateEmailHmac(piiCryptoService.emailHmac(normGradEmail))
                 .batchId(batchId)
+                .batchName(batchName)
                 .status(graduate.isPresent() ? CredentialStatus.ISSUED : CredentialStatus.PENDING_CLAIM)
                 .merkleRoot(signed.merkleRoot())
                 .signature(signed.signature())

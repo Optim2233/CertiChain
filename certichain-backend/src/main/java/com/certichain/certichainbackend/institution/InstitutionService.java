@@ -34,11 +34,14 @@ public interface InstitutionService {
     CredentialSummary getCredentialSummary();
     InstitutionAnalytics getAnalytics(int days);
     Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields, Instant expiresAt);
-    List<Map<String, Object>> issueBatch(MultipartFile spreadsheet);
+    List<Map<String, Object>> issueBatch(MultipartFile spreadsheet, String batchName);
     Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt);
     void revokeCredential(UUID credentialId, String reason);
+    void unrevokeCredential(UUID credentialId);
     List<BatchSummaryRow> listBatches();
-    BatchRevokeResult revokeBatch(UUID batchId, String reason);
+    List<Credential> listBatchMembers(UUID batchId);
+    BatchRevokeResult revokeBatch(UUID batchId, String reason, List<UUID> credentialIds);
+    BatchUnrevokeResult unrevokeBatch(UUID batchId, List<UUID> credentialIds);
     Credential getCredential(UUID credentialId);
     Credential editCredential(UUID credentialId, List<Map<String, String>> fields);
     List<CredentialField> getCredentialFields(UUID credentialId);

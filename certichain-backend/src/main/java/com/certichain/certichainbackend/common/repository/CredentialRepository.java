@@ -25,7 +25,7 @@ public interface CredentialRepository extends JpaRepository<Credential, UUID> {
 
     // One summary row per batch_id for the institution's Batches page, newest first.
     @Query("""
-            SELECT c.batchId AS batchId, MIN(c.issuedAt) AS issuedAt, COUNT(c) AS total,
+            SELECT c.batchId AS batchId, MIN(c.batchName) AS batchName, MIN(c.issuedAt) AS issuedAt, COUNT(c) AS total,
                    SUM(CASE WHEN c.status = com.certichain.certichainbackend.common.enums.CredentialStatus.REVOKED
                             THEN 1 ELSE 0 END) AS revoked
             FROM Credential c

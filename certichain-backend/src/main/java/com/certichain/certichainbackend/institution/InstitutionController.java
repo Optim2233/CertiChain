@@ -213,8 +213,9 @@ public class InstitutionController {
 
     @PostMapping("/credentials/batch")
     @PreAuthorize("hasRole('INSTITUTION')")
-    public List<Map<String, Object>> issueBatch(@RequestParam("file") MultipartFile spreadsheet) {
-        return institutionService.issueBatch(spreadsheet);
+    public List<Map<String, Object>> issueBatch(@RequestParam("file") MultipartFile spreadsheet,
+            @RequestParam(value = "batchName", required = false) String batchName) {
+        return institutionService.issueBatch(spreadsheet, batchName);
     }
 
     // A static example, not generated from anything - the batch parser accepts arbitrary
@@ -255,16 +256,43 @@ public class InstitutionController {
         institutionService.revokeCredential(id, body.get("reason"));
     }
 
+    @PostMapping("/credentials/{id}/unrevoke")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public void unrevokeCredential(@PathVariable UUID id) {
+        institutionService.unrevokeCredential(id);
+    }
+
     @GetMapping("/credentials/batches")
     @PreAuthorize("hasRole('INSTITUTION')")
     public List<BatchSummaryRow> listBatches() {
         return institutionService.listBatches();
     }
 
+    @GetMapping("/credentials/batches/{batchId}")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public List<CredentialResponse> listBatchMembers(@PathVariable UUID batchId) {
+        return institutionService.listBatchMembers(batchId).stream().map(CredentialResponse::from).toList();
+    }
+
     @PostMapping("/credentials/batches/{batchId}/revoke")
     @PreAuthorize("hasRole('INSTITUTION')")
-    public BatchRevokeResult revokeBatch(@PathVariable UUID batchId, @RequestBody Map<String, String> body) {
-        return institutionService.revokeBatch(batchId, body.get("reason"));
+    public BatchRevokeResult revokeBatch(@PathVariable UUID batchId, @RequestBody Map<String, Object> body) {
+        String reason = (String) body.get("reason");
+        @SuppressWarnings("unchecked")
+        List<String> rawIds = (List<String>) body.get("credentialIds");
+        List<UUID> credentialIds = rawIds == null ? null
+                : rawIds.stream().map(UUID::fromString).toList();
+        return institutionService.revokeBatch(batchId, reason, credentialIds);
+    }
+
+    @PostMapping("/credentials/batches/{batchId}/unrevoke")
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public BatchUnrevokeResult unrevokeBatch(@PathVariable UUID batchId, @RequestBody(required = false) Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<String> rawIds = body == null ? null : (List<String>) body.get("credentialIds");
+        List<UUID> credentialIds = rawIds == null ? null
+                : rawIds.stream().map(UUID::fromString).toList();
+        return institutionService.unrevokeBatch(batchId, credentialIds);
     }
 
     @GetMapping("/credentials/{id}/fields")

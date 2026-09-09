@@ -73,7 +73,7 @@ class RevokeBatchTest {
         when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
                 .thenReturn(List.of(a, b, c));
 
-        BatchRevokeResult result = service.revokeBatch(batchId, "policy change");
+        BatchRevokeResult result = service.revokeBatch(batchId, "policy change", null);
 
         assertEquals(2, result.revoked());
         assertEquals(1, result.alreadyRevoked());
@@ -94,7 +94,7 @@ class RevokeBatchTest {
         when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
                 .thenReturn(List.of(member(CredentialStatus.REVOKED), member(CredentialStatus.REVOKED)));
 
-        BatchRevokeResult result = service.revokeBatch(batchId, "again");
+        BatchRevokeResult result = service.revokeBatch(batchId, "again", null);
 
         assertEquals(0, result.revoked());
         assertEquals(2, result.alreadyRevoked());
@@ -108,11 +108,98 @@ class RevokeBatchTest {
         when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
                 .thenReturn(List.of());
 
-        assertThrows(ResourceNotFoundException.class, () -> service.revokeBatch(batchId, "x"));
+        assertThrows(ResourceNotFoundException.class, () -> service.revokeBatch(batchId, "x", null));
     }
 
     @Test
     void blankReasonIsRejected() {
-        assertThrows(ValidationException.class, () -> service.revokeBatch(batchId, "  "));
+        assertThrows(ValidationException.class, () -> service.revokeBatch(batchId, "  ", null));
+    }
+
+    @Test
+    void selectionRevokesOnlyChosenMembers() {
+        currentUserIsInstitution();
+        Credential a = member(CredentialStatus.ISSUED);
+        Credential b = member(CredentialStatus.ISSUED);
+        when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
+                .thenReturn(List.of(a, b));
+
+        BatchRevokeResult result = service.revokeBatch(batchId, "selective", List.of(a.getId()));
+
+        assertEquals(1, result.revoked());
+        assertEquals(0, result.alreadyRevoked());
+        assertEquals(CredentialStatus.REVOKED, a.getStatus());
+        assertEquals(CredentialStatus.ISSUED, b.getStatus());
+        verify(auditLogService, times(1))
+                .log(eq(AuditEvents.CERTIFICATE_REVOKED_EVENT), eq(actorId), eq(institutionId), eq(a.getId()));
+    }
+
+    @Test
+    void unrevokeRestoresAStatusAndClearsReason() {
+        currentUserIsInstitution();
+        Credential revoked = member(CredentialStatus.REVOKED);
+        revoked.setRevokeReason(pii.encryptInstitutionField("old reason", institutionId));
+        revoked.setRevokedAt(Instant.now());
+        when(credentialRepository.findById(revoked.getId())).thenReturn(java.util.Optional.of(revoked));
+
+        service.unrevokeCredential(revoked.getId());
+
+        assertEquals(CredentialStatus.ISSUED, revoked.getStatus());
+        assertEquals(null, revoked.getRevokeReason());
+        assertEquals(null, revoked.getRevokedAt());
+        verify(auditLogService).log(eq(AuditEvents.CERTIFICATE_RESTORED_EVENT), eq(actorId), eq(institutionId), eq(revoked.getId()));
+        verify(notificationService).notify(any(), eq("Certificate restored"), anyString());
+    }
+
+    @Test
+    void unrevokeRejectsNonRevokedCredential() {
+        currentUserIsInstitution();
+        Credential issued = member(CredentialStatus.ISSUED);
+        when(credentialRepository.findById(issued.getId())).thenReturn(java.util.Optional.of(issued));
+
+        assertThrows(ValidationException.class, () -> service.unrevokeCredential(issued.getId()));
+    }
+
+    @Test
+    void unrevokeBatchRestoresEveryRevokedMember() {
+        currentUserIsInstitution();
+        Credential a = member(CredentialStatus.REVOKED);
+        Credential b = member(CredentialStatus.ISSUED);
+        Credential c = member(CredentialStatus.REVOKED);
+        when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
+                .thenReturn(List.of(a, b, c));
+
+        BatchUnrevokeResult result = service.unrevokeBatch(batchId, null);
+
+        assertEquals(2, result.restored());
+        assertEquals(1, result.alreadyActive());
+        assertEquals(CredentialStatus.ISSUED, a.getStatus());
+        assertEquals(CredentialStatus.ISSUED, c.getStatus());
+        verify(auditLogService, times(2))
+                .log(eq(AuditEvents.CERTIFICATE_RESTORED_EVENT), eq(actorId), eq(institutionId), any());
+    }
+
+    @Test
+    void unrevokeBatchSelectionRestoresOnlyChosenMembers() {
+        currentUserIsInstitution();
+        Credential a = member(CredentialStatus.REVOKED);
+        Credential b = member(CredentialStatus.REVOKED);
+        when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
+                .thenReturn(List.of(a, b));
+
+        BatchUnrevokeResult result = service.unrevokeBatch(batchId, List.of(a.getId()));
+
+        assertEquals(1, result.restored());
+        assertEquals(CredentialStatus.ISSUED, a.getStatus());
+        assertEquals(CredentialStatus.REVOKED, b.getStatus());
+    }
+
+    @Test
+    void unrevokeBatchUnknownBatchIs404() {
+        currentUserIsInstitution();
+        when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
+                .thenReturn(List.of());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.unrevokeBatch(batchId, null));
     }
 }
