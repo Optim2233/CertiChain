@@ -296,6 +296,7 @@
     "approved": "Approved Institutions",
     "suspended": "Suspended",
     "revoked": "Revoked",
+    "eyebrow": "Accreditation authority",
     "overview": "Accreditation Overview",
     "overviewSub": "Network health and items that need authority action.",
     "needsAttention": "Needs Attention",
@@ -448,6 +449,7 @@
     "rejectedBanner": "Your application was rejected. Edit and resubmit below.",
     "editResubmit": "Edit & resubmit",
     "revokedBanner": "Your accreditation has been revoked. This decision is permanent.",
+    "eyebrow": "Accredited institution",
     "allClear": "All clear",
     "allClearSub": "No disputes or accreditation changes since {date}.",
     "issuedCreds": "Issued Credentials",
@@ -660,6 +662,7 @@
     "toastTooLarge": "Too large"
   },
   "graduate": {
+    "eyebrow": "Your credential wallet",
     "overview": "Overview",
     "myCredentials": "My Credentials",
     "timeline": "Timeline",
@@ -792,6 +795,7 @@
     "curPw": "Current Password"
   },
   "verifier": {
+    "verifyEyebrow": "Public verification",
     "verifyTitle": "Verify a Certificate",
     "verifySub": "Paste a graduate's share code or link. No account required.",
     "statsLine": "{n} institutions accredited · {m}+ certificates verified",

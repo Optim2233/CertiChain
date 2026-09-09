@@ -20,7 +20,7 @@ export default function AuthorityDashboardPage() {
 
   const kpis = [
     { label: t("pendingReview"), value: pendingData?.data.totalElements ?? 0, icon: "schedule", iconBg: "#e0e3e5", iconColor: "#44474e" },
-    { label: t("approved"), value: approvedData?.data.totalElements ?? 0, icon: "check_circle", iconBg: "#d5e3ff", iconColor: "#02275A" },
+    { label: t("approved"), value: approvedData?.data.totalElements ?? 0, icon: "check_circle", iconBg: "#02275A", iconColor: "#c9a85c" },
     { label: t("suspended"), value: suspendedData?.data.totalElements ?? 0, icon: "pause_circle", iconBg: "#eef0f3", iconColor: "#75777f" },
     { label: t("revoked"), value: revokedData?.data.totalElements ?? 0, icon: "cancel", iconBg: "#ffdad6", iconColor: "#C0392B" },
   ]
@@ -46,6 +46,13 @@ export default function AuthorityDashboardPage() {
 
   return (
     <main className="w-full px-6 py-8">
+      <span
+        className="mb-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em]"
+        style={{ background: "#02275A", color: "#c9a85c" }}
+      >
+        <span className="material-symbols-outlined text-[14px]">workspace_premium</span>
+        {t("eyebrow")}
+      </span>
       <h2 className="font-heading m-0 mb-1 text-[32px] font-bold">{t("overview")}</h2>
       <p className="m-0 mb-9 text-sm text-[#44474e]">{t("overviewSub")}</p>
 

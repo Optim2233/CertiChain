@@ -78,6 +78,17 @@ function Hero() {
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
         style={{ backgroundImage: "repeating-linear-gradient(125deg, #fff 0px, #fff 1px, transparent 1px, transparent 7px)" }}
       />
+      {/* Rosette watermark echoed from the verify page and the shield mark's own seal —
+          the same authenticity motif recurring is what makes the product read as one thing. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 200 200"
+        className="pointer-events-none absolute -right-24 -top-24 h-[420px] w-[420px] opacity-[0.06]"
+      >
+        <circle cx="100" cy="100" r="92" fill="none" stroke="#c9a85c" strokeWidth="2" />
+        <circle cx="100" cy="100" r="76" fill="none" stroke="#c9a85c" strokeWidth="1" strokeDasharray="2 6" />
+        <circle cx="100" cy="100" r="34" fill="#c9a85c" />
+      </svg>
       <div className="relative mx-auto grid max-w-[1200px] items-center gap-14 lg:grid-cols-2">
         <div>
           <h1 className="font-heading m-0 mb-5 text-[44px] font-extrabold leading-[1.1] text-white lg:text-[52px]">
@@ -108,10 +119,22 @@ function Hero() {
           >
             <div className="mb-4 flex items-center justify-between">
               <p className="m-0 text-[11px] font-bold uppercase tracking-wide" style={{ color: "#0462BA" }}>{t("hero.card.label")}</p>
-              <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: "#e6f7ef", color: "#0d9668" }}>
-                <span className="material-symbols-outlined text-xs">check_circle</span>
-                {t("hero.card.verified")}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="flex size-5 shrink-0 items-center justify-center rounded-full"
+                  style={{
+                    background: "radial-gradient(circle at 32% 28%, #c9a85c, #8b6914 75%)",
+                    boxShadow: "inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.35)",
+                  }}
+                  title={t("hero.card.verified")}
+                >
+                  <span className="material-symbols-outlined text-[11px]" style={{ color: "#0B1E3D" }}>workspace_premium</span>
+                </span>
+                <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: "#e6f7ef", color: "#0d9668" }}>
+                  <span className="material-symbols-outlined text-xs">check_circle</span>
+                  {t("hero.card.verified")}
+                </span>
+              </div>
             </div>
             <div className="mb-4 flex items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full" style={{ background: "#d5e3ff" }}>
