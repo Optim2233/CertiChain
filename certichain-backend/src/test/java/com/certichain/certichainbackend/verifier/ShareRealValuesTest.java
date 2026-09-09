@@ -84,21 +84,22 @@ class ShareRealValuesTest {
     }
 
     @Test
-    void singleCredentialShareWithNoFieldSelectionDisclosesEveryField() {
+    void singleCredentialShareWithNoFieldSelectionDisclosesNothing() {
         UUID gradId = UUID.randomUUID();
         Credential cred = seed(CredentialStatus.ISSUED, gradId);
         String token = UUID.randomUUID().toString();
-        Share share = Share.builder().id(UUID.randomUUID()).graduateUserId(gradId).name("Everything")
+        Share share = Share.builder().id(UUID.randomUUID()).graduateUserId(gradId).name("Nothing checked")
                 .scope(ShareScope.SINGLE_CREDENTIAL).shareToken(token).credentialId(cred.getId())
                 .viewCount(0).createdAt(Instant.now()).revoked(false).build();
         when(shareRepository.findByShareToken(token)).thenReturn(Optional.of(share));
-        // No field selection stored - "leave all unchecked to share every field".
+        // No field selection stored - "check a box to share it", so nothing checked means
+        // nothing disclosed.
         when(shareFieldSelectionRepository.findByShareId(share.getId())).thenReturn(List.of());
 
         VerificationResponse resp = (VerificationResponse) verifierService.verifyByShareToken(token);
 
         assertEquals(VerificationResult.VERIFIED, resp.result());
-        assertEquals(2, resp.disclosedFields().size());
+        assertEquals(0, resp.disclosedFields().size());
     }
 
     @Test

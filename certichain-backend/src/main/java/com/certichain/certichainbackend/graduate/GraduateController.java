@@ -94,6 +94,21 @@ public class GraduateController {
         graduateService.revokeShare(id);
     }
 
+    @PostMapping("/shares/{id}/unrevoke")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public void unrevokeShare(@PathVariable UUID id) {
+        graduateService.unrevokeShare(id);
+    }
+
+    @PostMapping("/shares/revoke-batch")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public BatchShareRevokeResult revokeShares(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<String> rawIds = (List<String>) body.get("shareIds");
+        List<UUID> shareIds = rawIds == null ? List.of() : rawIds.stream().map(UUID::fromString).toList();
+        return graduateService.revokeShares(shareIds);
+    }
+
     @GetMapping("/shares/{id}/activity")
     @PreAuthorize("hasRole('GRADUATE')")
     public List<Instant> shareActivity(@PathVariable UUID id) {
@@ -128,6 +143,12 @@ public class GraduateController {
     @PreAuthorize("hasRole('GRADUATE')")
     public List<DisputeFlag> allDisputes() {
         return graduateService.listAllDisputes();
+    }
+
+    @PostMapping("/disputes/{id}/withdraw")
+    @PreAuthorize("hasRole('GRADUATE')")
+    public void withdrawDispute(@PathVariable UUID id) {
+        graduateService.withdrawDispute(id);
     }
 
     @GetMapping("/verifications/count")

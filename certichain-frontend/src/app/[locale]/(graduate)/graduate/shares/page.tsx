@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { useShares, useCreateShare, useRevokeShare, useTimeline, useCredentialFields, useShareActivity } from "@/features/graduate"
+import { useShares, useCreateShare, useRevokeShare, useUnrevokeShare, useRevokeShares, useTimeline, useCredentialFields, useShareActivity } from "@/features/graduate"
 import type { Share } from "@/features/graduate"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
+import { toast } from "sonner"
 
 // Pulls the qrcode lib out of the initial bundle - it's only needed once the
 // share modal is open. ssr:false because it renders to a canvas/data URL.
@@ -30,6 +31,8 @@ export default function GraduateSharesPage() {
   const credentials = timelineData?.data ?? []
   const createShare = useCreateShare()
   const revokeShare = useRevokeShare()
+  const unrevokeShare = useUnrevokeShare()
+  const revokeShares = useRevokeShares()
 
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
@@ -39,13 +42,44 @@ export default function GraduateSharesPage() {
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([])
   const [touched, setTouched] = useState(false)
   const [viewedShare, setViewedShare] = useState<Share | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<Share | "bulk" | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  function toggleSelected(id: string) {
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function confirmRevoke() {
+    if (revokeTarget === "bulk") {
+      revokeShares.mutate([...selected], {
+        onSuccess: ({ data }) => {
+          toast.success(t("revokeSharesToast", { revoked: data.revoked, already: data.alreadyRevoked ?? 0 }))
+          setSelected(new Set())
+          setRevokeTarget(null)
+        },
+      })
+    } else if (revokeTarget) {
+      revokeShare.mutate(revokeTarget.id, { onSuccess: () => setRevokeTarget(null) })
+    }
+  }
 
   const { data: fieldsData } = useCredentialFields(credentialId)
   const fields = fieldsData?.data ?? []
 
+  // Default to everything checked when a credential's fields load - fastest path for the
+  // common case (share it all), while still requiring an explicit checkbox per field.
+  useEffect(() => {
+    if (fieldsData) setSelectedFieldIds(fieldsData.data.map((f) => f.id))
+  }, [fieldsData])
+
   const nameValid = name.trim().length > 0
   const credentialValid = credentialId !== ""
-  const showError = touched && (!nameValid || !credentialValid)
+  const fieldsValid = fields.length === 0 || selectedFieldIds.length > 0
+  const showError = touched && (!nameValid || !credentialValid || !fieldsValid)
 
   function toggleField(id: string) {
     setSelectedFieldIds((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
@@ -53,7 +87,7 @@ export default function GraduateSharesPage() {
 
   function submit() {
     setTouched(true)
-    if (!nameValid || !credentialValid) return
+    if (!nameValid || !credentialValid || !fieldsValid) return
     createShare.mutate(
       {
         name,
@@ -121,11 +155,30 @@ export default function GraduateSharesPage() {
         ))}
       </div>
 
+      {selected.size > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-[#c5c6cf] bg-white px-4 py-2.5">
+          <span className="text-sm text-[#44474e]">{t("selectedCount", { n: selected.size })}</span>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setSelected(new Set())} className="text-xs font-semibold text-[#44474e]">
+              {tc("cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRevokeTarget("bulk")}
+              className="rounded border border-[#c5c6cf] bg-white px-3 py-1.5 text-xs font-semibold text-[#C0392B]"
+            >
+              {t("revokeSelected")}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
         <div
           className="grid gap-4 px-8 py-4"
-          style={{ gridTemplateColumns: "2.5fr 2.5fr 1.5fr 1fr 1fr", background: "#02275A" }}
+          style={{ gridTemplateColumns: "28px 2.5fr 2.5fr 1.5fr 1fr 1fr", background: "#02275A" }}
         >
+          <span />
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{t("shareName")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{t("whatsShared")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("created")}</span>
@@ -133,7 +186,7 @@ export default function GraduateSharesPage() {
           <span className="text-right text-[12px] font-bold uppercase tracking-wide text-white">{tc("status")}</span>
         </div>
         {isLoading ? (
-          <TableSkeleton columns="2.5fr 2.5fr 1.5fr 1fr 1fr" />
+          <TableSkeleton columns="28px 2.5fr 2.5fr 1.5fr 1fr 1fr" />
         ) : shares.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">
             {t("noSharesYet")}
@@ -143,8 +196,14 @@ export default function GraduateSharesPage() {
             <div
               key={s.id}
               className="grid items-center gap-4 border-t border-[#c5c6cf] px-8 py-5"
-              style={{ gridTemplateColumns: "2.5fr 2.5fr 1.5fr 1fr 1fr" }}
+              style={{ gridTemplateColumns: "28px 2.5fr 2.5fr 1.5fr 1fr 1fr" }}
             >
+              <input
+                type="checkbox"
+                checked={selected.has(s.id)}
+                onChange={() => toggleSelected(s.id)}
+                className="size-4 accent-[#C0392B]"
+              />
               <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-[18px]" style={{ color: "#02275A" }}>
                   ios_share
@@ -177,10 +236,18 @@ export default function GraduateSharesPage() {
                 >
                   {tc("view")}
                 </button>
-                {!s.revoked && (
+                {s.revoked ? (
                   <button
                     type="button"
-                    onClick={() => revokeShare.mutate(s.id)}
+                    onClick={() => unrevokeShare.mutate(s.id)}
+                    className="text-xs font-semibold text-[#0d9668] underline underline-offset-4"
+                  >
+                    {t("unrevokeBtn")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRevokeTarget(s)}
                     className="text-xs font-semibold text-[#C0392B] underline underline-offset-4"
                   >
                     {t("revokeBtn")}
@@ -191,6 +258,35 @@ export default function GraduateSharesPage() {
           ))
         )}
       </div>
+
+      {revokeTarget && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-[420px] rounded-lg bg-white p-8">
+            <h3 className="font-heading mb-3 text-xl font-bold">
+              {revokeTarget === "bulk" ? t("revokeSharesTitle", { n: selected.size }) : t("revokeShareTitle")}
+            </h3>
+            <p className="mb-6 text-sm text-[#44474e]">{t("revokeShareWarn")}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRevokeTarget(null)}
+                className="rounded border border-[#c5c6cf] bg-white px-5 py-2.5 text-sm font-semibold text-[#44474e]"
+              >
+                {tc("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={confirmRevoke}
+                disabled={revokeShare.isPending || revokeShares.isPending}
+                className="rounded px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: "#C0392B" }}
+              >
+                {t("revokeBtn")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewedShare && <ShareDetailPanel share={viewedShare} onClose={() => setViewedShare(null)} />}
 
@@ -230,8 +326,20 @@ export default function GraduateSharesPage() {
             {showError && !credentialValid && <p className="mb-3 text-xs text-[#C0392B]">{t("chooseCredShare")}</p>}
             {credentialId && fields.length > 0 && (
               <div className="mb-4 mt-3">
-                <label className="mb-1.5 block text-sm font-semibold">{t("fieldsToShare")}</label>
-                <p className="mb-2 text-xs text-[#75777f]">{t("shareAllHint")}</p>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-sm font-semibold">{t("fieldsToShare")}</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedFieldIds(selectedFieldIds.length === fields.length ? [] : fields.map((f) => f.id))
+                    }
+                    className="text-xs font-semibold"
+                    style={{ color: "#005eb3" }}
+                  >
+                    {selectedFieldIds.length === fields.length ? t("clearAll") : t("selectAll")}
+                  </button>
+                </div>
+                <p className="mb-2 text-xs text-[#75777f]">{t("shareCheckedHint")}</p>
                 <div className="flex flex-col gap-1.5 rounded-md border border-[#c5c6cf] p-3">
                   {fields.map((f) => (
                     <label key={f.id} className="flex items-center gap-2 text-sm">
@@ -244,6 +352,9 @@ export default function GraduateSharesPage() {
                     </label>
                   ))}
                 </div>
+                {showError && selectedFieldIds.length === 0 && (
+                  <p className="mt-1.5 text-xs text-[#C0392B]">{t("selectAtLeastOneField")}</p>
+                )}
               </div>
             )}
             <div className="mt-2 flex justify-end gap-3">

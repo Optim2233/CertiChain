@@ -18,6 +18,11 @@ export type ShareActivityEntry = string;
 // Same bare-timestamp shape as ShareActivityEntry - timestamps only, no verifier identity.
 export type VerificationTimestamp = string;
 
+export interface BatchShareRevokeResult {
+  revoked: number;
+  alreadyRevoked: number;
+}
+
 export interface ShareInput {
   name: string;
   scope: ShareScope;

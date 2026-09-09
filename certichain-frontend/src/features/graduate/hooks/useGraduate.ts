@@ -122,6 +122,31 @@ export function useRevokeShare() {
   });
 }
 
+export function useUnrevokeShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => graduateService.unrevokeShare(id),
+    onSuccess: (_res, id) => {
+      queryClient.setQueryData<ApiResponse<Share[]>>(['graduate-shares'], (prev) =>
+        prev
+          ? { ...prev, data: prev.data.map((s) => (s.id === id ? { ...s, revoked: false } : s)) }
+          : prev
+      );
+      queryClient.invalidateQueries({ queryKey: ['graduate-shares'] });
+    },
+  });
+}
+
+export function useRevokeShares() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (shareIds: string[]) => graduateService.revokeShares(shareIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['graduate-shares'] });
+    },
+  });
+}
+
 export function useShareActivity(id: string) {
   return useQuery({
     queryKey: ['graduate-share-activity', id],
@@ -189,6 +214,18 @@ export function useAllDisputes() {
     queryFn: () => graduateService.getAllDisputes(),
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
+  });
+}
+
+export function useWithdrawDispute() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => graduateService.withdrawDispute(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['graduate-open-disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['graduate-all-disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['graduate-pending-dispute-count'] });
+    },
   });
 }
 

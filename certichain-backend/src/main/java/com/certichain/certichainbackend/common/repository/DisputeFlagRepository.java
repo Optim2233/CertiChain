@@ -18,5 +18,7 @@ public interface DisputeFlagRepository extends JpaRepository<DisputeFlag, UUID> 
 
     int countByCredentialIdInAndStatus(Collection<UUID> credentialIds, DisputeStatus status);
 
+    boolean existsByCredentialIdAndStatus(UUID credentialId, DisputeStatus status);
+
     int countByCredentialIdInAndCreatedAtAfter(Collection<UUID> credentialIds, Instant createdAt);
 }
