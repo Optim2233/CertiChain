@@ -73,7 +73,10 @@ public class EmailServiceImpl implements EmailService {
     @Async
     public void sendNotification(String to, String type, String message) {
         String ctaUrl = null; String ctaLabel = null;
-        if (type != null && type.toLowerCase().contains("certificate")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
+        String lower = type != null ? type.toLowerCase() : "";
+        if (lower.contains("certificate")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
+        else if (lower.contains("approv") || lower.contains("reinstat")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Sign in"; }
+        else if (lower.contains("reject") || lower.contains("information requested") || lower.contains("suspend")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Review application"; }
         sendInternal(to, "CertiChain: " + type, message, ctaUrl, ctaLabel);
     }
 

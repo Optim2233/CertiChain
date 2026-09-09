@@ -1,6 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
+import { Link } from "@/i18n/navigation"
 import { PortalSidebar } from "@/shared/components/layout/portal-sidebar"
 import type { SidebarNavItem } from "@/shared/components/layout/portal-sidebar"
 import { PortalTopbar } from "@/shared/components/layout/portal-topbar"
@@ -25,6 +26,11 @@ function PendingReviewBanner() {
       <p className="m-0 text-sm font-semibold" style={{ color: "#8a5a00" }}>
         {copy[institution.status] ?? copy.PENDING}
       </p>
+      {institution.status === "REJECTED" && (
+        <Link href="/institution/resubmit" className="ml-auto shrink-0 rounded-lg bg-[#0462BA] px-3.5 py-1.5 text-xs font-bold text-white">
+          {t("editResubmit")}
+        </Link>
+      )}
     </div>
   )
 }

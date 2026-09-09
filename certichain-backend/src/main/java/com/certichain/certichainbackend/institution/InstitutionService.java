@@ -22,6 +22,7 @@ public interface InstitutionService {
      * institution_id. Confirmed with the team before changing this signature.
      */
     Institution apply(ApplyInstitutionRequest req);
+    Institution resubmit(ApplyInstitutionRequest req);
     Institution getOwnInstitution();
     Institution updateOwnInstitution(String name, String phone, String website,
                                       String profileImageUrl, MultipartFile profileImage,

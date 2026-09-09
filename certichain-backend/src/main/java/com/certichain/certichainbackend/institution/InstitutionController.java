@@ -87,6 +87,61 @@ public class InstitutionController {
         return InstitutionResponse.from(institutionService.apply(req));
     }
 
+    @PostMapping(value = "/me/resubmit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('INSTITUTION')")
+    public InstitutionResponse resubmit(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String website,
+            @RequestParam(required = false) String institutionType,
+            @RequestParam(required = false) String institutionNameMm,
+            @RequestParam(required = false) String institutionCategory,
+            @RequestParam(required = false) String stateRegion,
+            @RequestParam(required = false) String district,
+            @RequestParam(required = false) String township,
+            @RequestParam(required = false) String ward,
+            @RequestParam(required = false) String street,
+            @RequestParam(required = false) String postalCode,
+            @RequestParam(required = false) String governingMinistry,
+            @RequestParam(required = false) Integer yearEstablished,
+            @RequestParam(required = false) String establishmentDocType,
+            @RequestParam(required = false) String establishmentDocTitle,
+            @RequestParam(required = false) String establishmentDocRef,
+            @RequestParam(required = false) String establishmentDocIssueDate,
+            @RequestParam(required = false) String companyName,
+            @RequestParam(required = false) String dicaCertificateNumber,
+            @RequestParam(required = false) String mycoRegistrationNumber,
+            @RequestParam(required = false) String tinNumber,
+            @RequestParam(required = false) String incorporationDate,
+            @RequestParam(required = false) String ownershipStructure,
+            @RequestParam(required = false) Long investmentAmount,
+            @RequestParam(required = false) Boolean foreignInvolvement,
+            @RequestParam(required = false) String micPermitNumber,
+            @RequestParam(required = false) String foundersJson,
+            @RequestParam(required = false) String administratorJson,
+            @RequestParam(value = "establishmentDocFile", required = false) MultipartFile establishmentDocFile,
+            @RequestParam(value = "dicaCertificate", required = false) MultipartFile dicaCertificate,
+            @RequestParam(value = "taxClearance", required = false) MultipartFile taxClearance,
+            @RequestParam(value = "micPermit", required = false) MultipartFile micPermit) {
+        ApplyInstitutionRequest req = ApplyInstitutionRequest.builder()
+                .name(name).institutionNameMm(institutionNameMm).institutionType(institutionType)
+                .institutionCategory(institutionCategory)
+                .phone(phone).website(website)
+                .stateRegion(stateRegion).district(district).township(township).ward(ward).street(street).postalCode(postalCode)
+                .governingMinistry(governingMinistry).yearEstablished(yearEstablished)
+                .establishmentDocType(establishmentDocType).establishmentDocTitle(establishmentDocTitle)
+                .establishmentDocRef(establishmentDocRef).establishmentDocIssueDate(establishmentDocIssueDate)
+                .companyName(companyName).dicaCertificateNumber(dicaCertificateNumber)
+                .mycoRegistrationNumber(mycoRegistrationNumber).tinNumber(tinNumber)
+                .incorporationDate(incorporationDate).ownershipStructure(ownershipStructure)
+                .investmentAmount(investmentAmount).foreignInvolvement(foreignInvolvement).micPermitNumber(micPermitNumber)
+                .foundersJson(foundersJson).administratorJson(administratorJson)
+                .establishmentDocFile(establishmentDocFile).dicaCertificate(dicaCertificate)
+                .taxClearance(taxClearance).micPermit(micPermit)
+                .build();
+        return InstitutionResponse.from(institutionService.resubmit(req));
+    }
+
     @GetMapping("/me")
     @PreAuthorize("hasRole('INSTITUTION')")
     public InstitutionResponse me() {
