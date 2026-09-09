@@ -17,7 +17,7 @@ public interface AccreditationService {
     void suspend(UUID id, String reason);
     void reinstate(UUID id);
     void revoke(UUID id, String reason);
-    Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size);
+    Page<AuditLogEntryResponse> auditLog(UUID institutionId, String q, String event, int page, int size);
     List<InstitutionDocumentResponse> listDocuments(UUID institutionId);
     InstitutionDocument getDocument(UUID institutionId, UUID documentId);
     void verifyDocument(UUID institutionId, UUID documentId);

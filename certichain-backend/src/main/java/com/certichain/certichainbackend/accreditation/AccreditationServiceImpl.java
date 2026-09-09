@@ -214,11 +214,27 @@ public class AccreditationServiceImpl implements AccreditationService {
 
     @Override
     // Not @Cacheable: see listInstitutions - PageImpl does not survive Redis JSON.
-    public Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size) {
+    public Page<AuditLogEntryResponse> auditLog(UUID institutionId, String q, String event, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("occurredAt").descending());
-        Page<AuditLogEntry> entries = institutionId == null
-                ? auditLogEntryRepository.findAll(pageRequest)
-                : auditLogEntryRepository.findByInstitutionId(institutionId, pageRequest);
+        String trimmedQ = (q == null || q.isBlank()) ? null : q.trim();
+        String trimmedEvent = (event == null || event.isBlank()) ? null : event.trim();
+        boolean hasQ = trimmedQ != null;
+        boolean hasEvent = trimmedEvent != null;
+
+        Page<AuditLogEntry> entries;
+        if (institutionId != null) {
+            entries = hasQ
+                    ? auditLogEntryRepository.findByInstitutionIdAndEventContainingIgnoreCase(institutionId, trimmedQ, pageRequest)
+                    : hasEvent
+                        ? auditLogEntryRepository.findByInstitutionIdAndEvent(institutionId, trimmedEvent, pageRequest)
+                        : auditLogEntryRepository.findByInstitutionId(institutionId, pageRequest);
+        } else {
+            entries = hasQ
+                    ? auditLogEntryRepository.findByEventContainingIgnoreCase(trimmedQ, pageRequest)
+                    : hasEvent
+                        ? auditLogEntryRepository.findByEvent(trimmedEvent, pageRequest)
+                        : auditLogEntryRepository.findAll(pageRequest);
+        }
 
         // A raw UUID in "actor" means nothing to whoever reads the log - batch-resolve
         // to email in one query rather than N+1 per row.

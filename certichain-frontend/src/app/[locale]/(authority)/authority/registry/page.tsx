@@ -8,7 +8,7 @@ import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { Pager } from "@/shared/components/ui/pager"
 import type { InstitutionStatus } from "@/features/accreditation"
 
-const GRID_COLS = "40px 3fr 2fr 2fr 2fr 1fr"
+const GRID_COLS = "72px 3fr 2fr 2fr 2fr 1fr"
 
 export default function InstitutionRegistryPage() {
   const t = useTranslations("authority")
@@ -95,7 +95,7 @@ export default function InstitutionRegistryPage() {
 
       <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
         <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: GRID_COLS, background: "#f2f4f6", borderBottom: "1px solid #c5c6cf" }}>
-          <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">#</span>
+          <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">{t("regId")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">{tc("name")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">{tc("ministry")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474e]">{tc("status")}</span>
@@ -113,13 +113,13 @@ export default function InstitutionRegistryPage() {
             {debouncedSearch ? t("noMatchQ", { q: debouncedSearch }) : t("noMatch")}
           </p>
         ) : (
-          rows.map((r, i) => {
+          rows.map((r) => {
             const style = STATUS_STYLE[r.status]
             const reviewable = r.status === "PENDING"
             const href = reviewable ? "/authority/registry/" + r.id + "/documents" : "/authority/registry/" + r.id
             return (
               <Link key={r.id} href={href} className="grid items-center gap-4 border-b border-[#c5c6cf] px-6 py-4 last:border-0" style={{ gridTemplateColumns: GRID_COLS }}>
-                <span className="text-sm tabular-nums text-[#75777f]">{(data?.data.number ?? 0) * 20 + i + 1}</span>
+                <span className="font-mono text-xs tabular-nums text-[#75777f]" title={r.id}>{r.id.slice(0, 8)}</span>
                 <span className="text-sm font-bold">{r.name}</span>
                 <span className="text-sm text-[#44474e]">{r.ministry}</span>
                 <span className="inline-flex w-fit items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide" style={{ background: style.bg, color: style.color }}>

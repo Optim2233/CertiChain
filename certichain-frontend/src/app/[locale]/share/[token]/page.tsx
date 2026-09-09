@@ -1,17 +1,19 @@
 "use client"
 
 import { useParams } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { useVerifyShare } from "@/features/verifier"
 import type { VerificationResponse } from "@/features/verifier"
 import { Skeleton } from "@/shared/components/ui/skeleton"
+import { CertificateHero } from "@/shared/components/certificate-hero"
 
 export default function ShareTimelinePage() {
   const t = useTranslations("share")
   const tc = useTranslations("common")
   const { token } = useParams<{ token: string }>()
   const verifyShare = useVerifyShare()
+  const [expanded, setExpanded] = useState<number | null>(null)
 
   useEffect(() => {
     if (token) verifyShare.mutate(token)
@@ -40,6 +42,12 @@ export default function ShareTimelinePage() {
 
   const verifiedCount = list.filter((e) => e.result === "VERIFIED").length
   const flaggedCount = list.length - verifiedCount
+
+  // The common case is a single-credential share - open it immediately so the verifier
+  // doesn't have to know there's a click target at all.
+  useEffect(() => {
+    if (list.length === 1) setExpanded(0)
+  }, [list.length])
 
   if (verifyShare.isPending) {
     return (
@@ -116,6 +124,7 @@ export default function ShareTimelinePage() {
         {list.map((e, i) => {
           const dimmed = e.result !== "VERIFIED"
           const expired = e.result === "EXPIRED"
+          const isOpen = expanded === i
           const badge = expired
             ? { bg: "#fff3d6", color: "#a5730f", icon: "schedule", label: tc("expired") }
             : dimmed
@@ -131,18 +140,57 @@ export default function ShareTimelinePage() {
                 </span>
                 {i !== list.length - 1 && <span className="mt-0.5 w-px flex-1" style={{ background: "#e0e3e5" }} />}
               </div>
-              <div className="flex flex-1 flex-wrap items-start justify-between gap-3 pb-6 sm:gap-4">
-                <div>
-                  <h3 className="font-heading m-0 text-sm font-semibold sm:text-base" style={{ color: dimmed ? "#75777f" : "#191c1e" }}>{e.credentialTitle}</h3>
-                  <p className="m-0 mt-1 text-xs sm:text-[13px]" style={{ color: dimmed ? "#9aa0aa" : "#44474e" }}>{e.institutionName}</p>
-                </div>
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-3.5 sm:text-[13px]"
-                  style={{ background: badge.bg, color: badge.color }}
+              <div className="flex-1 pb-6">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(isOpen ? null : i)}
+                  className="flex w-full flex-wrap items-start justify-between gap-3 text-left sm:gap-4"
                 >
-                  <span className="material-symbols-outlined text-base">{badge.icon}</span>
-                  {badge.label}
-                </span>
+                  <div>
+                    <h3 className="font-heading m-0 text-sm font-semibold sm:text-base" style={{ color: dimmed ? "#75777f" : "#191c1e" }}>{e.credentialTitle}</h3>
+                    <p className="m-0 mt-1 text-xs sm:text-[13px]" style={{ color: dimmed ? "#9aa0aa" : "#44474e" }}>{e.institutionName}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:px-3.5 sm:text-[13px]"
+                      style={{ background: badge.bg, color: badge.color }}
+                    >
+                      <span className="material-symbols-outlined text-base">{badge.icon}</span>
+                      {badge.label}
+                    </span>
+                    <span className="material-symbols-outlined text-[#75777f]">
+                      {isOpen ? "expand_less" : "expand_more"}
+                    </span>
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="mt-4">
+                    <CertificateHero
+                      title={e.credentialTitle ?? tc("credential")}
+                      institutionName={e.institutionName}
+                      issuedTo={e.issuedTo}
+                      issuedAt={e.issuedAt}
+                      hash={e.signatureDetails}
+                      registrarName="Registrar"
+                      revoked={e.result === "REVOKED"}
+                      revokeReason={e.revokeReason}
+                    />
+                    {e.disclosedFields.length > 0 && (
+                      <div className="border-border bg-card mt-4 rounded-lg border p-5">
+                        <h4 className="font-heading m-0 mb-3 text-sm font-bold">{t("disclosedFields")}</h4>
+                        <div className="flex flex-col gap-2.5">
+                          {e.disclosedFields.map((f) => (
+                            <div key={f.name} className="flex justify-between border-b border-[#eef0f3] pb-2 text-sm last:border-0">
+                              <span className="capitalize text-[#75777f]">{f.name}</span>
+                              <span className="font-semibold">{f.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )

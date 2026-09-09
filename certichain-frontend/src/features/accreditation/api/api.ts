@@ -88,10 +88,14 @@ export const accreditationService = {
     institutionId: string | null = null,
     page = 0,
     size = 20,
+    q: string | null = null,
+    event: string | null = null,
     headers?: Record<string, string>
   ) {
     const params = new URLSearchParams();
     if (institutionId) params.set("institutionId", institutionId);
+    if (q) params.set("q", q);
+    if (event) params.set("event", event);
     params.set("page", String(page));
     params.set("size", String(size));
     return apiClient.get<Page<AuditLogEntry>>(`/api/aa/audit-log?${params.toString()}`, headers);

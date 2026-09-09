@@ -31,11 +31,13 @@ export default function ReviewDecisionPage() {
   const [reason, setReason] = useState("")
   const [touched, setTouched] = useState(false)
   const [showApproved, setShowApproved] = useState(false)
+  const [confirmingApprove, setConfirmingApprove] = useState(false)
 
   const reasonValid = reason.trim().length > 0
   const showError = touched && !reasonValid
 
   function doApprove() {
+    setConfirmingApprove(false)
     approve.mutate(id, { onSuccess: () => setShowApproved(true) })
   }
 
@@ -105,7 +107,7 @@ export default function ReviewDecisionPage() {
 
         <p className="mb-3 text-sm font-semibold">{t("decisionFor", { name: institution?.name ?? t("thisInstitution") })}</p>
         <div className="mb-3 grid grid-cols-2 gap-3">
-          <button type="button" onClick={doApprove} disabled={approve.isPending} className="rounded px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#02275A" }}>
+          <button type="button" onClick={() => setConfirmingApprove(true)} disabled={approve.isPending} className="rounded px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50" style={{ background: "#02275A" }}>
             {t("approve")}
           </button>
           <button type="button" onClick={() => setModalType("reject")} className="rounded border border-[#c5c6cf] bg-white px-4 py-3.5 text-sm font-semibold text-[#44474e]">
@@ -121,6 +123,35 @@ export default function ReviewDecisionPage() {
           {t("requestInfo")}
         </button>
       </div>
+
+      {confirmingApprove && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-[420px] rounded-lg bg-white p-8">
+            <h3 className="font-heading mb-3 text-xl font-bold">
+              {t("approveConfirmTitle", { name: institution?.name ?? t("thisInstitution") })}
+            </h3>
+            <p className="mb-6 text-sm text-[#44474e]">{t("approveConfirmWarn")}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmingApprove(false)}
+                className="rounded border border-[#c5c6cf] bg-white px-5 py-2.5 text-sm font-semibold text-[#44474e]"
+              >
+                {tc("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={doApprove}
+                disabled={approve.isPending}
+                className="rounded px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: "#02275A" }}
+              >
+                {t("approve")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showApproved && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 p-4">

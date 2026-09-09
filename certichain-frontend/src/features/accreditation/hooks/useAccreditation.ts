@@ -55,10 +55,16 @@ export function useVerifyDocument() {
   });
 }
 
-export function useAuditLog(institutionId: string | null, page = 0, size = 20) {
+export function useAuditLog(
+  institutionId: string | null,
+  page = 0,
+  size = 20,
+  q: string | null = null,
+  event: string | null = null
+) {
   return useQuery({
-    queryKey: ['audit-log', institutionId, page, size],
-    queryFn: () => accreditationService.getAuditLog(institutionId, page, size),
+    queryKey: ['audit-log', institutionId, page, size, q, event],
+    queryFn: () => accreditationService.getAuditLog(institutionId, page, size, q, event),
     // Paging keeps the current rows visible instead of flashing a skeleton.
     placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
