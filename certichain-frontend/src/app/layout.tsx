@@ -32,7 +32,7 @@ const notoSansMyanmar = Noto_Sans_Myanmar({
 
 export const metadata: Metadata = {
   title: "CertiChain",
-  description: "Blockchain-verified academic credentials",
+  description: "Cryptographically verified academic credentials",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -2,15 +2,17 @@
 
 import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { useAllDisputes, useFlagCredential, useTimeline } from "@/features/graduate"
+import { useAllDisputes, useFlagCredential, useTimeline, useWithdrawDispute } from "@/features/graduate"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
 import { translateDisputeReason } from "@/shared/lib/dispute-reason"
+import { toast } from "sonner"
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; key: "underReview" | "upheld" | "dismissed" }> = {
+const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; key: "underReview" | "upheld" | "dismissed" | "withdrawn" }> = {
   OPEN: { bg: "#fff3d6", color: "#a5730f", icon: "schedule", key: "underReview" },
   UPHELD: { bg: "rgba(192,57,43,0.1)", color: "#C0392B", icon: "check_circle", key: "upheld" },
   DISMISSED: { bg: "#eef0f3", color: "#75777f", icon: "cancel", key: "dismissed" },
+  WITHDRAWN: { bg: "#eef0f3", color: "#75777f", icon: "undo", key: "withdrawn" },
 }
 
 export default function GraduateDisputesPage() {
@@ -22,6 +24,7 @@ export default function GraduateDisputesPage() {
   const { data: timelineData } = useTimeline()
   const credentials = timelineData?.data ?? []
   const flagCredential = useFlagCredential()
+  const withdrawDispute = useWithdrawDispute()
 
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -38,9 +41,15 @@ export default function GraduateDisputesPage() {
     if (!valid) return
     flagCredential.mutate(
       { id: credentialId, reason: explain ? reason + ": " + explain : reason },
-      { onSuccess: () => setSubmitted(true) }
+      {
+        onSuccess: () => setSubmitted(true),
+        onError: () => toast.error(t("disputeAlreadyOpen")),
+      }
     )
   }
+
+  const openCredentialIds = new Set(disputes.filter((d) => d.status === "OPEN").map((d) => d.credentialId))
+  const eligibleCredentials = credentials.filter((c) => !openCredentialIds.has(c.id))
 
   function closeModal() {
     setOpen(false)
@@ -96,14 +105,15 @@ export default function GraduateDisputesPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
-        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "2.5fr 2fr 1.3fr 1.3fr", background: "#02275A" }}>
+        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "2.2fr 1.8fr 1.1fr 1.1fr 0.8fr", background: "#02275A" }}>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("credential")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("reason")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("filed")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("status")}</span>
+          <span />
         </div>
         {isLoading ? (
-          <TableSkeleton columns="2.5fr 2fr 1.3fr 1.3fr" />
+          <TableSkeleton columns="2.2fr 1.8fr 1.1fr 1.1fr 0.8fr" />
         ) : isError ? (
           <div className="flex items-center gap-3 p-6 text-sm text-[#44474e]">
             <span>{tc("errorLabel")}</span>
@@ -119,7 +129,7 @@ export default function GraduateDisputesPage() {
             const style = STATUS_STYLE[d.status] ?? STATUS_STYLE.OPEN
             return (
               <div key={d.id} className="border-t border-[#c5c6cf]">
-                <div className="grid items-center gap-4 px-6 py-4" style={{ gridTemplateColumns: "2.5fr 2fr 1.3fr 1.3fr" }}>
+                <div className="grid items-center gap-4 px-6 py-4" style={{ gridTemplateColumns: "2.2fr 1.8fr 1.1fr 1.1fr 0.8fr" }}>
                   <span className="text-sm font-semibold">
                     {cred ? (cred.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord")) : tc("credential")}
                   </span>
@@ -133,6 +143,26 @@ export default function GraduateDisputesPage() {
                       <span className="material-symbols-outlined text-[14px]">{style.icon}</span>
                       {tc(style.key)}
                     </span>
+                  </span>
+                  <span className="text-right">
+                    {d.status === "OPEN" && (() => {
+                      const isThisPending = withdrawDispute.isPending && withdrawDispute.variables === d.id
+                      return (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            withdrawDispute.mutate(d.id, {
+                              onSuccess: () => toast.success(t("withdrawSuccess")),
+                              onError: () => toast.error(t("withdrawFailed")),
+                            })
+                          }
+                          disabled={withdrawDispute.isPending}
+                          className="text-xs font-semibold text-[#44474e] underline underline-offset-4 disabled:opacity-50"
+                        >
+                          {isThisPending ? t("withdrawing") : t("withdrawDispute")}
+                        </button>
+                      )
+                    })()}
                   </span>
                 </div>
                 {d.resolutionNote && (
@@ -181,7 +211,7 @@ export default function GraduateDisputesPage() {
                   style={{ borderColor: showError && !credentialId ? "#C0392B" : "#c5c6cf", background: showError && !credentialId ? "#fff6f5" : "#fff" }}
                 >
                   <option value="">{t("selectCred")}</option>
-                  {credentials.map((c) => (
+                  {eligibleCredentials.map((c) => (
                     <option key={c.id} value={c.id}>
                       {credentialTitle(c, c.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))} — {credentialSubtitle(c)}
                     </option>

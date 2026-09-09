@@ -21,12 +21,15 @@ public interface GraduateService {
     Share createShare(String name, String scope, UUID credentialId, List<UUID> selectedFieldIds);
     List<Share> listShares();
     void revokeShare(UUID shareId);
+    void unrevokeShare(UUID shareId);
+    BatchShareRevokeResult revokeShares(List<UUID> shareIds);
     List<Instant> getShareActivity(UUID shareId);
     DisputeFlag flagCredential(UUID credentialId, String reason);
     List<DisputeFlag> getCredentialFlags(UUID credentialId);
     int countOpenDisputes();
     List<DisputeFlag> listOpenDisputes();
     List<DisputeFlag> listAllDisputes();
+    void withdrawDispute(UUID disputeId);
     int countVerifications();
     List<Instant> getCredentialVerificationHistory(UUID credentialId);
 }

@@ -44,4 +44,16 @@ public interface AuditLogEntryRepository extends JpaRepository<AuditLogEntry, UU
             @Param("institutionId") UUID institutionId, @Param("event") String event, @Param("since") Instant since);
 
     List<AuditLogEntry> findByEventAndCredentialIdInOrderByOccurredAtDesc(String event, Collection<UUID> credentialIds);
+
+    // Optional-filter combinations spelled out as derived queries (mirrors
+    // AccreditationServiceImpl.listInstitutions) rather than a single "(:x IS NULL OR ...)"
+    // JPQL query - Hibernate can't always infer a bare bind parameter's type in that shape.
+    Page<AuditLogEntry> findByEventContainingIgnoreCase(String q, Pageable pageable);
+
+    Page<AuditLogEntry> findByEvent(String event, Pageable pageable);
+
+    Page<AuditLogEntry> findByInstitutionIdAndEventContainingIgnoreCase(
+            UUID institutionId, String q, Pageable pageable);
+
+    Page<AuditLogEntry> findByInstitutionIdAndEvent(UUID institutionId, String event, Pageable pageable);
 }

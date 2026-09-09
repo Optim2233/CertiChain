@@ -24,6 +24,7 @@ import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
@@ -55,6 +56,7 @@ public class GraduateServiceImpl implements GraduateService {
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
     private final SupabaseStorageService supabaseStorageService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
@@ -286,6 +288,37 @@ public class GraduateServiceImpl implements GraduateService {
     }
 
     @Override
+    @Transactional
+    @CacheEvict(cacheNames = "graduate", allEntries = true)
+    public void unrevokeShare(UUID shareId) {
+        Share share = ownShare(shareId);
+        if (!share.isRevoked()) {
+            throw new ValidationException("Share is not revoked");
+        }
+        share.setRevoked(false);
+        auditLogService.log(AuditEvents.SHARE_RESTORED_EVENT, currentUser.id(), null, null, shareId);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "graduate", allEntries = true)
+    public BatchShareRevokeResult revokeShares(List<UUID> shareIds) {
+        int revoked = 0;
+        int alreadyRevoked = 0;
+        for (UUID shareId : shareIds) {
+            Share share = ownShare(shareId);
+            if (share.isRevoked()) {
+                alreadyRevoked++;
+                continue;
+            }
+            share.setRevoked(true);
+            auditLogService.log(AuditEvents.SHARE_REVOKED_EVENT, currentUser.id(), null, null, shareId);
+            revoked++;
+        }
+        return new BatchShareRevokeResult(revoked, alreadyRevoked);
+    }
+
+    @Override
     public List<Instant> getShareActivity(UUID shareId) {
         ownShare(shareId);
         // View events only - the create/revoke entries also carry this shareId, and
@@ -317,6 +350,9 @@ public class GraduateServiceImpl implements GraduateService {
     public DisputeFlag flagCredential(UUID credentialId, String reason) {
         requireText(reason, "reason");
         Credential credential = ownCredential(credentialId);
+        if (disputeFlagRepository.existsByCredentialIdAndStatus(credentialId, DisputeStatus.OPEN)) {
+            throw new ValidationException("This credential already has an open dispute");
+        }
         // OPEN doesn't change what verifiers see - only the institution's resolution does.
         DisputeFlag saved = disputeFlagRepository.save(DisputeFlag.builder()
                 .credentialId(credentialId)
@@ -326,6 +362,9 @@ public class GraduateServiceImpl implements GraduateService {
                 .status(DisputeStatus.OPEN)
                 .createdAt(Instant.now())
                 .build());
+        userRepository.findByInstitutionId(credential.getInstitutionId())
+                .forEach(u -> notificationService.notify(u.getId(), "Dispute opened",
+                        "A credential you issued was flagged for dispute: " + reason.trim()));
         return piiCryptoService.decryptedFlagCopy(saved, credential.getInstitutionId());
     }
 
@@ -369,6 +408,26 @@ public class GraduateServiceImpl implements GraduateService {
         }
         return decryptedFlags(
                 disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds));
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "graduate", allEntries = true),
+            @CacheEvict(cacheNames = "institution", allEntries = true)})
+    public void withdrawDispute(UUID disputeId) {
+        DisputeFlag flag = disputeFlagRepository.findById(disputeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dispute not found"));
+        if (!currentUser.id().equals(flag.getGraduateUserId())) {
+            throw new ForbiddenActionException("Dispute belongs to another graduate");
+        }
+        if (flag.getStatus() != DisputeStatus.OPEN) {
+            throw new ValidationException("Only an open dispute can be withdrawn");
+        }
+        flag.setStatus(DisputeStatus.WITHDRAWN);
+        // No dispute-id column on audit_log_entry - credentialId is the linkable identifier
+        // here, same as flagCredential's own audit entry for the dispute it opened.
+        auditLogService.log(AuditEvents.DISPUTE_WITHDRAWN_EVENT, currentUser.id(), null, flag.getCredentialId());
     }
 
     /** Decrypt-on-read copies (never mutate managed flags - JPA would flush plaintext). */

@@ -8,6 +8,8 @@ import java.util.UUID;
 public interface BatchSummaryRow {
     UUID getBatchId();
 
+    String getBatchName();
+
     Instant getIssuedAt();
 
     long getTotal();

@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@/i18n/navigation"
-import { useCredentials, useCredentialSummary, useDisputes, useRevokeCredential } from "@/features/institution"
+import { toast } from "sonner"
+import { useCredentials, useCredentialSummary, useDisputes, useRevokeCredential, useUnrevokeCredential } from "@/features/institution"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { Pager } from "@/shared/components/ui/pager"
 import { BriefingCard } from "@/shared/components/briefing-card"
@@ -29,6 +30,7 @@ export default function InstitutionDashboardPage() {
   const { data: disputesData } = useDisputes()
   const disputes = disputesData?.data ?? []
   const revoke = useRevokeCredential()
+  const unrevoke = useUnrevokeCredential()
 
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [revokeTarget, setRevokeTarget] = useState<Credential | null>(null)
@@ -61,6 +63,13 @@ export default function InstitutionDashboardPage() {
 
   return (
     <main className="w-full px-6 py-8">
+      <span
+        className="mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em]"
+        style={{ background: "#02275A", color: "#c9a85c" }}
+      >
+        <span className="material-symbols-outlined text-[14px]">workspace_premium</span>
+        {t("eyebrow")}
+      </span>
       <BriefingCard
         quietTitle={t("allClear")}
         quietDetail={(since) => t("allClearSub", { date: since })}
@@ -199,13 +208,28 @@ export default function InstitutionDashboardPage() {
                       >
                         {t("viewCert")}
                       </Link>
-                      {row.status !== "REVOKED" && (
+                      {row.status !== "REVOKED" ? (
                         <button
                           type="button"
                           onClick={() => { setRevokeTarget(row); setMenuOpenId(null) }}
                           className="block w-full border-t border-[#eef0f3] px-4 py-2.5 text-left text-[13px] text-[#C0392B]"
                         >
                           {t("revokeCertBtn")}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={unrevoke.isPending}
+                          onClick={() => {
+                            setMenuOpenId(null)
+                            unrevoke.mutate(row.id, {
+                              onSuccess: () => toast.success(t("restoreToastOk")),
+                              onError: () => toast.error(t("restoreToastFail")),
+                            })
+                          }}
+                          className="block w-full border-t border-[#eef0f3] px-4 py-2.5 text-left text-[13px] font-semibold text-[#0d9668] disabled:opacity-50"
+                        >
+                          {t("restoreCertBtn")}
                         </button>
                       )}
                     </div>

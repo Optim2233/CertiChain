@@ -33,7 +33,7 @@ describe('useBatches', () => {
   it('exposes the ApiResponse from listBatches under the institution-batches key', async () => {
     svc.listBatches.mockResolvedValue({
       status: 200,
-      data: [{ batchId: 'b1', issuedAt: '2026-01-01T00:00:00Z', total: 10, revoked: 2 }],
+      data: [{ batchId: 'b1', batchName: null, issuedAt: '2026-01-01T00:00:00Z', total: 10, revoked: 2 }],
     })
     const { Wrapper } = wrapperWithClient()
 
@@ -54,7 +54,7 @@ describe('useRevokeBatch', () => {
     result.current.mutate({ batchId: 'b1', reason: 'issued in error' })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(svc.revokeBatch).toHaveBeenCalledWith('b1', 'issued in error')
+    expect(svc.revokeBatch).toHaveBeenCalledWith('b1', 'issued in error', undefined)
 
     const keys = invalidateSpy.mock.calls.map((c) => (c[0] as { queryKey: string[] }).queryKey[0])
     expect(keys).toEqual(
@@ -73,7 +73,7 @@ describe('useIssueBatch', () => {
     const { Wrapper, invalidateSpy } = wrapperWithClient()
 
     const { result } = renderHook(() => useIssueBatch(), { wrapper: Wrapper })
-    result.current.mutate(new File(['x'], 'b.csv'))
+    result.current.mutate({ spreadsheet: new File(['x'], 'b.csv') })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     const keys = invalidateSpy.mock.calls.map((c) => (c[0] as { queryKey: string[] }).queryKey[0])

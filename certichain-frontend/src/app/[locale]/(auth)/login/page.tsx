@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
 import { Link, useRouter } from "@/i18n/navigation"
 import { ROLE_HOME, authService, useLogin, useMe } from "@/features/auth"
 import { PasswordField } from "@/features/auth/components/PasswordField"
@@ -25,10 +26,14 @@ function LoginForm() {
   // live session from a dead cookie). Handle both here where /api/auth/me can:
   //  - valid session -> send to the portal
   //  - stale cookie (me 401/403) -> clear it once so it stops being sent
+  // ?stay=1 opts a tab out of the auto-redirect (e.g. deliberately reopening
+  // /login in a second tab without being bounced back to the first tab's portal).
+  const stay = useSearchParams().get("stay") === "1"
   const me = useMe()
   const queryClient = useQueryClient()
   const clearedRef = useRef(false)
   useEffect(() => {
+    if (stay) return
     if (me.data) {
       router.replace(ROLE_HOME[me.data.role])
     } else if (me.isError && !clearedRef.current) {
@@ -36,7 +41,7 @@ function LoginForm() {
       authService.logout().catch(() => {})
       queryClient.clear()
     }
-  }, [me.data, me.isError, router, queryClient])
+  }, [stay, me.data, me.isError, router, queryClient])
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

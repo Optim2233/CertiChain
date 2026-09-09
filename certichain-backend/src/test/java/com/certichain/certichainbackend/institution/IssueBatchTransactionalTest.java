@@ -19,7 +19,7 @@ class IssueBatchTransactionalTest {
     @Test
     void issueBatchIsAReadWriteTransaction() throws NoSuchMethodException {
         Method m = InstitutionServiceImpl.class.getMethod("issueBatch",
-                org.springframework.web.multipart.MultipartFile.class);
+                org.springframework.web.multipart.MultipartFile.class, String.class);
         Transactional tx = m.getAnnotation(Transactional.class);
 
         assertNotNull(tx, "issueBatch must declare its own @Transactional (class default is readOnly)");

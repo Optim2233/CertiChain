@@ -1,7 +1,7 @@
-import type { Institution } from '@/features/accreditation';
 import { apiClient } from '@/shared/config/axioconfig';
 import type {
   BulkVerifyRow,
+  PublicInstitution,
   ShareVerificationResponse,
   TrustStats,
   VerificationResponse,
@@ -29,7 +29,7 @@ export const verifierService = {
   },
 
   async getPublicInstitutions() {
-    return apiClient.get<Institution[]>('/api/verify/institutions');
+    return apiClient.get<PublicInstitution[]>('/api/verify/institutions');
   },
 
   async getTrustStats() {

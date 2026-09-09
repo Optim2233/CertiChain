@@ -56,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -226,6 +227,76 @@ public class InstitutionServiceImpl implements InstitutionService {
         // from here on. Key-direct (no storage re-read) so the response can't fail
         // independently of the write that just succeeded.
         return piiCryptoService.decryptedCopy(institution, newDek);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public Institution resubmit(ApplyInstitutionRequest req) {
+        Institution institution = load(currentUser.institutionId());
+        if (institution.getStatus() != InstitutionStatus.REJECTED) {
+            throw new ValidationException("Only a REJECTED application can be resubmitted");
+        }
+        UUID id = institution.getId();
+        if (req.getName() != null && !req.getName().isBlank()) institution.setName(req.getName().trim());
+        if (req.getPhone() != null) institution.setPhone(piiCryptoService.encryptInstitutionField(trimToNull(req.getPhone()), id));
+        if (req.getWebsite() != null) institution.setWebsite(trimToNull(req.getWebsite()));
+        if (req.getInstitutionNameMm() != null) institution.setInstitutionNameMm(trimToNull(req.getInstitutionNameMm()));
+        if (req.getInstitutionCategory() != null && !req.getInstitutionCategory().isBlank()) institution.setInstitutionCategory(req.getInstitutionCategory().trim());
+        if (req.getInstitutionType() != null && !req.getInstitutionType().isBlank()) {
+            String t = req.getInstitutionType().trim().toLowerCase();
+            if (!t.equals("public") && !t.equals("private")) throw new ValidationException("institutionType must be public or private");
+            institution.setInstitutionType(t);
+        }
+        if (req.getStateRegion() != null) institution.setStateRegion(trimToNull(req.getStateRegion()));
+        if (req.getDistrict() != null) institution.setDistrict(trimToNull(req.getDistrict()));
+        if (req.getTownship() != null) institution.setTownship(trimToNull(req.getTownship()));
+        if (req.getWard() != null) institution.setWard(piiCryptoService.encryptInstitutionField(trimToNull(req.getWard()), id));
+        if (req.getStreet() != null) institution.setStreet(piiCryptoService.encryptInstitutionField(trimToNull(req.getStreet()), id));
+        if (req.getPostalCode() != null) institution.setPostalCode(piiCryptoService.encryptInstitutionField(trimToNull(req.getPostalCode()), id));
+        if (req.getGoverningMinistry() != null) institution.setMinistry(trimToNull(req.getGoverningMinistry()));
+        if (req.getYearEstablished() != null) institution.setYearEstablished(req.getYearEstablished());
+        if (req.getEstablishmentDocType() != null) institution.setEstablishmentDocType(trimToNull(req.getEstablishmentDocType()));
+        if (req.getEstablishmentDocTitle() != null) institution.setEstablishmentDocTitle(piiCryptoService.encryptInstitutionField(trimToNull(req.getEstablishmentDocTitle()), id));
+        if (req.getEstablishmentDocRef() != null) institution.setEstablishmentDocRef(piiCryptoService.encryptInstitutionField(trimToNull(req.getEstablishmentDocRef()), id));
+        if (req.getEstablishmentDocIssueDate() != null && !req.getEstablishmentDocIssueDate().isBlank()) {
+            try { institution.setEstablishmentDocIssueDate(java.time.LocalDate.parse(req.getEstablishmentDocIssueDate().trim())); }
+            catch (Exception e) { throw new ValidationException("Invalid establishmentDocIssueDate (expected YYYY-MM-DD)"); }
+        }
+        if (req.getCompanyName() != null) institution.setCompanyName(piiCryptoService.encryptInstitutionField(trimToNull(req.getCompanyName()), id));
+        if (req.getDicaCertificateNumber() != null) institution.setDicaCertificateNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getDicaCertificateNumber()), id));
+        if (req.getMycoRegistrationNumber() != null) institution.setMycoRegistrationNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getMycoRegistrationNumber()), id));
+        if (req.getTinNumber() != null) institution.setTinNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getTinNumber()), id));
+        if (req.getIncorporationDate() != null && !req.getIncorporationDate().isBlank()) {
+            try { institution.setIncorporationDate(java.time.LocalDate.parse(req.getIncorporationDate().trim())); }
+            catch (Exception e) { throw new ValidationException("Invalid incorporationDate (expected YYYY-MM-DD)"); }
+        }
+        if (req.getOwnershipStructure() != null) institution.setOwnershipStructure(trimToNull(req.getOwnershipStructure()));
+        if (req.getInvestmentAmount() != null) institution.setInvestmentAmount(req.getInvestmentAmount());
+        if (req.getForeignInvolvement() != null) institution.setForeignInvolvement(req.getForeignInvolvement());
+        if (req.getMicPermitNumber() != null) institution.setMicPermitNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getMicPermitNumber()), id));
+        if (req.getFoundersJson() != null && !req.getFoundersJson().isBlank()) {
+            String t = req.getFoundersJson().trim();
+            if (!(t.startsWith("[") && t.endsWith("]"))) throw new ValidationException("Invalid founders JSON");
+            institution.setFounders(piiCryptoService.encryptJson(t, id));
+        }
+        if (req.getAdministratorJson() != null && !req.getAdministratorJson().isBlank()) {
+            String t = req.getAdministratorJson().trim();
+            if (!(t.startsWith("{") && t.endsWith("}"))) throw new ValidationException("Invalid administrator JSON");
+            institution.setAdministrator(piiCryptoService.encryptJson(t, id));
+        }
+        String url;
+        if ((url = uploadIfPresent(id, "establishment", req.getEstablishmentDocFile())) != null) institution.setEstablishmentDocUrl(url);
+        if ((url = uploadIfPresent(id, "dica", req.getDicaCertificate())) != null) institution.setDicaCertificateUrl(url);
+        if ((url = uploadIfPresent(id, "tax", req.getTaxClearance())) != null) institution.setTaxClearanceUrl(url);
+        if ((url = uploadIfPresent(id, "mic", req.getMicPermit())) != null) institution.setMicPermitUrl(url);
+        institution.setStatus(InstitutionStatus.PENDING);
+        institution.setStatusReason(null);
+        institution.setDecidedAt(null);
+        institution.setAppliedAt(Instant.now());
+        institution = institutionRepository.save(institution);
+        auditLogService.log("Institution application resubmitted", currentUser.id(), id, null);
+        return piiCryptoService.decryptedCopy(institution);
     }
 
     private String uploadIfPresent(UUID instId, String kind, MultipartFile file) {
@@ -426,8 +497,10 @@ public class InstitutionServiceImpl implements InstitutionService {
                 credentialRepository.countByInstitutionIdAndStatus(institutionId, CredentialStatus.PENDING_CLAIM));
     }
 
-    // Not cached: record DTOs do not survive the Redis round trip - see CacheSerializationTest.
+    // Single-record return, so it survives the Redis round trip (see CacheSerializationTest) -
+    // cached because this method scans every credential/dispute row for the institution.
     @Override
+    @Cacheable(cacheNames = "institution", key = "'analytics:' + @currentUser.institutionId() + ':' + #days")
     public InstitutionAnalytics getAnalytics(int days) {
         int d = (days == 7 || days == 30 || days == 90 || days == 180 || days == 365) ? days : 30;
         UUID institutionId = currentUser.institutionId();
@@ -508,9 +581,13 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         // disputes + disputesByDay (grouped in-memory from dispute_flag — no audit event for flag)
         int open = 0, upheld = 0, dismissed = 0;
+        int disputeCert = 0, disputeAct = 0;
         Double medianHours = null;
+        Map<String, Long> disputeReasons = new java.util.HashMap<>();
         List<DisputeFlag> allFlags = List.of();
         if (!credentialIds.isEmpty()) {
+            Map<UUID, CredentialType> typeById = credentials.stream()
+                    .collect(Collectors.toMap(Credential::getId, Credential::getType));
             allFlags = disputeFlagRepository.findByCredentialIdInOrderByCreatedAtDesc(credentialIds);
             List<Long> hours = new ArrayList<>();
             for (DisputeFlag f : allFlags) {
@@ -520,6 +597,11 @@ public class InstitutionServiceImpl implements InstitutionService {
                 if (f.getResolvedAt() != null) {
                     hours.add(ChronoUnit.HOURS.between(f.getCreatedAt(), f.getResolvedAt()));
                 }
+                if (typeById.get(f.getCredentialId()) == CredentialType.CERTIFICATE) disputeCert++; else disputeAct++;
+                if (f.getReason() != null) {
+                    String key = f.getReason().trim();
+                    if (!key.isEmpty()) disputeReasons.merge(key.length() > 60 ? key.substring(0, 60) : key, 1L, Long::sum);
+                }
             }
             if (!hours.isEmpty()) {
                 hours.sort(Long::compareTo);
@@ -527,6 +609,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                 medianHours = hours.size() % 2 == 0 ? (hours.get(mid-1)+hours.get(mid))/2.0 : (double) hours.get(mid);
             }
         }
+        Map<String, Long> topDisputeReasons = disputeReasons.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed()).limit(5)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a,b)->a, LinkedHashMap::new));
 
         double yield = credentials.isEmpty() ? 0 : (double) totalVerifications / credentials.size();
         // revoke reason top 3
@@ -568,7 +653,9 @@ public class InstitutionServiceImpl implements InstitutionService {
                         new InstitutionAnalytics.Bucket("31-90 days", e31_90)),
                 topVerified,
                 Math.round(yield*1000)/1000.0,
-                topReasons);
+                topReasons,
+                new InstitutionAnalytics.TypeBreakdown(disputeCert, disputeAct),
+                topDisputeReasons);
     }
 
     /**
@@ -657,7 +744,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public List<Map<String, Object>> issueBatch(MultipartFile spreadsheet) {
+    public List<Map<String, Object>> issueBatch(MultipartFile spreadsheet, String batchName) {
         // @Transactional (read-write) is required: the class default is readOnly=true, under
         // which Hibernate silently skips the flush and every issued row is discarded on commit.
         // Per-row errors are caught inside the loop, so a bad row never rolls back good ones.
@@ -665,6 +752,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         // request. Rows are fully validated before anything is written, so a rejected row
         // leaves nothing behind.
         UUID batchId = UUID.randomUUID();
+        String trimmedBatchName = (batchName == null || batchName.isBlank()) ? null : batchName.trim();
         List<Map<String, Object>> results = new ArrayList<>();
         List<Map<String, String>> rows = parseCsv(readText(spreadsheet));
 
@@ -714,7 +802,18 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public BatchRevokeResult revokeBatch(UUID batchId, String reason) {
+    public void unrevokeCredential(UUID credentialId) {
+        Credential credential = ownCredential(credentialId);
+        if (credential.getStatus() != CredentialStatus.REVOKED) {
+            throw new ValidationException("Credential is not revoked");
+        }
+        applyRestoration(credential);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public BatchRevokeResult revokeBatch(UUID batchId, String reason, List<UUID> credentialIds) {
         requireText(reason, "reason");
         List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
                 currentUser.institutionId(), batchId);
@@ -723,9 +822,17 @@ public class InstitutionServiceImpl implements InstitutionService {
         if (members.isEmpty()) {
             throw new ResourceNotFoundException("Batch not found");
         }
+        // credentialIds absent/empty -> whole-batch revoke (original behaviour, unchanged).
+        // Present -> only revoke the selected subset; anything outside the batch is ignored
+        // rather than erroring, since the id list is a filter, not a separate lookup.
+        Set<UUID> selection = (credentialIds == null || credentialIds.isEmpty())
+                ? null : new java.util.HashSet<>(credentialIds);
         int revoked = 0;
         int alreadyRevoked = 0;
         for (Credential credential : members) {
+            if (selection != null && !selection.contains(credential.getId())) {
+                continue;
+            }
             if (credential.getStatus() == CredentialStatus.REVOKED) {
                 alreadyRevoked++;
                 continue;
@@ -734,6 +841,34 @@ public class InstitutionServiceImpl implements InstitutionService {
             revoked++;
         }
         return new BatchRevokeResult(revoked, alreadyRevoked);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public BatchUnrevokeResult unrevokeBatch(UUID batchId, List<UUID> credentialIds) {
+        List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
+                currentUser.institutionId(), batchId);
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("Batch not found");
+        }
+        // Same selection semantics as revokeBatch: absent/empty -> whole batch, else the subset.
+        Set<UUID> selection = (credentialIds == null || credentialIds.isEmpty())
+                ? null : new java.util.HashSet<>(credentialIds);
+        int restored = 0;
+        int alreadyActive = 0;
+        for (Credential credential : members) {
+            if (selection != null && !selection.contains(credential.getId())) {
+                continue;
+            }
+            if (credential.getStatus() != CredentialStatus.REVOKED) {
+                alreadyActive++;
+                continue;
+            }
+            applyRestoration(credential);
+            restored++;
+        }
+        return new BatchUnrevokeResult(restored, alreadyActive);
     }
 
     /** Shared revoke behaviour: status + reason + timestamp, audit entry, graduate notification. */
@@ -748,9 +883,38 @@ public class InstitutionServiceImpl implements InstitutionService {
                 "A credential you hold was revoked. Reason: " + reason);
     }
 
+    /**
+     * Shared restore behaviour: flips status back to ISSUED and clears the revoke
+     * metadata. The prior revoke's audit entry is left in place (it's history, not
+     * an error) and a new "Certificate restored" entry is added alongside it, so
+     * the timeline reads "revoked on X, restored on Y" rather than erasing that it
+     * ever happened. Revoke never touches merkleRoot/signature (see applyRevocation),
+     * so restoring doesn't need to re-sign either — it's a status-field flip both ways.
+     */
+    private void applyRestoration(Credential credential) {
+        credential.setStatus(CredentialStatus.ISSUED);
+        credential.setRevokeReason(null);
+        credential.setRevokedAt(null);
+        auditLogService.log(AuditEvents.CERTIFICATE_RESTORED_EVENT, currentUser.id(),
+                credential.getInstitutionId(), credential.getId());
+        notificationService.notify(credential.getGraduateUserId(), "Certificate restored",
+                "A credential you hold that was previously revoked has been restored by the issuing institution.");
+    }
+
     @Override
     public List<BatchSummaryRow> listBatches() {
         return credentialRepository.findBatchSummaries(currentUser.institutionId());
+    }
+
+    @Override
+    // Not cached: returns decrypted copies (title etc.), same rationale as getCredential.
+    public List<Credential> listBatchMembers(UUID batchId) {
+        List<Credential> members = credentialRepository.findByInstitutionIdAndBatchId(
+                currentUser.institutionId(), batchId);
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("Batch not found");
+        }
+        return members.stream().map(piiCryptoService::decryptedCredentialCopy).toList();
     }
 
     @Override
@@ -947,11 +1111,16 @@ public class InstitutionServiceImpl implements InstitutionService {
      * funnel through here, so the APPROVED gate cannot be bypassed on one of them.
      */
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type, Instant expiresAt) {
-        return issue(graduateEmail, fields, type, expiresAt, null);
+        return issue(graduateEmail, fields, type, expiresAt, null, null);
     }
 
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
                              Instant expiresAt, UUID batchId) {
+        return issue(graduateEmail, fields, type, expiresAt, batchId, null);
+    }
+
+    private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
+                             Instant expiresAt, UUID batchId, String batchName) {
         requireText(graduateEmail, "graduate_email");
         String normGradEmail = graduateEmail.trim().toLowerCase();
         UUID institutionId = currentUser.institutionId();
@@ -984,6 +1153,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .graduateEmail(piiCryptoService.encryptUserField(normGradEmail))
                 .graduateEmailHmac(piiCryptoService.emailHmac(normGradEmail))
                 .batchId(batchId)
+                .batchName(batchName)
                 .status(graduate.isPresent() ? CredentialStatus.ISSUED : CredentialStatus.PENDING_CLAIM)
                 .merkleRoot(signed.merkleRoot())
                 .signature(signed.signature())

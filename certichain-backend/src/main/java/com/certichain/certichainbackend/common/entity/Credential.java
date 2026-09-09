@@ -42,6 +42,10 @@ public class Credential {
     @Column(name = "batch_id")
     private UUID batchId;
 
+    /** Optional label the institution gave the batch at upload time (e.g. "Fall 2026 Cohort"). */
+    @Column(name = "batch_name")
+    private String batchName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CredentialStatus status;

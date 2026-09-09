@@ -114,7 +114,9 @@ public class AccreditationServiceImpl implements AccreditationService {
                 i.getMicPermitNumber(),
                 i.getDicaCertificateUrl(), i.getTaxClearanceUrl(), i.getMicPermitUrl(),
                 i.getFounders(), i.getAdministrator());
-    }    @Override
+    }
+
+    @Override
     @Transactional
     @CacheEvict(cacheNames = "accreditation", allEntries = true)
     public void approve(UUID id) {
@@ -136,7 +138,8 @@ public class AccreditationServiceImpl implements AccreditationService {
             institution.setDekIv(wrapped.iv());
         }
 
-        audit("Institution approved", id);
+        audit("Institution approved", id,
+                "Your institution registration was approved. You can now sign in and issue credentials.");
     }
 
     @Override
@@ -152,7 +155,8 @@ public class AccreditationServiceImpl implements AccreditationService {
             throw new ValidationException("Information can only be requested on a PENDING application");
         }
         institution.setStatusReason(piiCryptoService.encryptInstitutionField(note.trim(), id));
-        audit("Information requested", id);
+        audit("Information requested", id,
+                "The authority requested more information on your application: " + note.trim());
     }
 
     @Override
@@ -161,7 +165,9 @@ public class AccreditationServiceImpl implements AccreditationService {
     public void reject(UUID id, String reason) {
         requireReason(reason, "reason");
         transition(id, InstitutionStatus.REJECTED, reason, InstitutionStatus.PENDING);
-        audit("Institution rejected", id);
+        audit("Institution rejected", id,
+                "Your institution registration was rejected. Reason: " + reason.trim()
+                        + " You can edit and resubmit your application.");
     }
 
     @Override
@@ -170,7 +176,8 @@ public class AccreditationServiceImpl implements AccreditationService {
     public void suspend(UUID id, String reason) {
         requireReason(reason, "reason");
         transition(id, InstitutionStatus.SUSPENDED, reason, InstitutionStatus.APPROVED);
-        audit("Institution suspended", id);
+        audit("Institution suspended", id,
+                "Your institution was suspended. Reason: " + reason.trim());
     }
 
     @Override
@@ -190,7 +197,8 @@ public class AccreditationServiceImpl implements AccreditationService {
             institution.setDekWrapped(wrapped.ciphertext());
             institution.setDekIv(wrapped.iv());
         }
-        audit("Institution reinstated", id);
+        audit("Institution reinstated", id,
+                "Your institution was reinstated. You can now sign in and issue credentials.");
     }
 
     @Override
@@ -200,16 +208,33 @@ public class AccreditationServiceImpl implements AccreditationService {
         requireReason(reason, "reason");
         transition(id, InstitutionStatus.REVOKED, reason,
                 InstitutionStatus.APPROVED, InstitutionStatus.SUSPENDED);
-        audit("Institution revoked", id);
+        audit("Institution revoked", id,
+                "Your institution was revoked. Reason: " + reason.trim());
     }
 
     @Override
     // Not @Cacheable: see listInstitutions - PageImpl does not survive Redis JSON.
-    public Page<AuditLogEntryResponse> auditLog(UUID institutionId, int page, int size) {
+    public Page<AuditLogEntryResponse> auditLog(UUID institutionId, String q, String event, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("occurredAt").descending());
-        Page<AuditLogEntry> entries = institutionId == null
-                ? auditLogEntryRepository.findAll(pageRequest)
-                : auditLogEntryRepository.findByInstitutionId(institutionId, pageRequest);
+        String trimmedQ = (q == null || q.isBlank()) ? null : q.trim();
+        String trimmedEvent = (event == null || event.isBlank()) ? null : event.trim();
+        boolean hasQ = trimmedQ != null;
+        boolean hasEvent = trimmedEvent != null;
+
+        Page<AuditLogEntry> entries;
+        if (institutionId != null) {
+            entries = hasQ
+                    ? auditLogEntryRepository.findByInstitutionIdAndEventContainingIgnoreCase(institutionId, trimmedQ, pageRequest)
+                    : hasEvent
+                        ? auditLogEntryRepository.findByInstitutionIdAndEvent(institutionId, trimmedEvent, pageRequest)
+                        : auditLogEntryRepository.findByInstitutionId(institutionId, pageRequest);
+        } else {
+            entries = hasQ
+                    ? auditLogEntryRepository.findByEventContainingIgnoreCase(trimmedQ, pageRequest)
+                    : hasEvent
+                        ? auditLogEntryRepository.findByEvent(trimmedEvent, pageRequest)
+                        : auditLogEntryRepository.findAll(pageRequest);
+        }
 
         // A raw UUID in "actor" means nothing to whoever reads the log - batch-resolve
         // to email in one query rather than N+1 per row.
@@ -338,12 +363,14 @@ public class AccreditationServiceImpl implements AccreditationService {
         }
     }
 
-    private void audit(String event, UUID institutionId) {
+    private void audit(String event, UUID institutionId, String message) {
         auditLogService.log(event, currentUser.id(), institutionId, null);
         // Every decision here is institution-facing - notify every account tied to it
         // (usually just one, but nothing stops an institution having more than one login).
+        // notify() writes the in-app row AND sends the Gmail email, on first decision
+        // and on every re-decision alike.
         for (User user : userRepository.findByInstitutionId(institutionId)) {
-            notificationService.notify(user.getId(), event, event);
+            notificationService.notify(user.getId(), event, message);
         }
     }
 }

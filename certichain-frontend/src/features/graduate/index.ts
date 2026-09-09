@@ -10,16 +10,20 @@ export {
   useOpenDisputes,
   usePendingDisputeCount,
   useRevokeShare,
+  useRevokeShares,
   useShareActivity,
   useShares,
   useSignup,
   useSignupCheck,
   useTimeline,
+  useUnrevokeShare,
   useUpdateGraduateProfile,
   useVerificationCount,
+  useWithdrawDispute,
 } from './hooks/useGraduate';
 export { useGraduateStore } from './store/graduateStore';
 export type {
+  BatchShareRevokeResult,
   GraduateProfile,
   GraduateProfileInput,
   GraduateState,

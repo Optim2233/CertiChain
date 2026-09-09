@@ -84,11 +84,11 @@ export function CertificateHero({
         {revoked && revokeReason && <p className="mt-2 text-sm text-red-300">{t("heroReason", { reason: revokeReason })}</p>}
       </div>
 
-      <div className="relative flex items-end justify-between gap-6">
-        <div className="flex flex-wrap gap-8">
+      <div className="relative flex flex-wrap items-end justify-between gap-6">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-8">
           {issuedAt && <div><p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroIssueDate")}</p><p className="m-0 text-[13px] font-semibold">{new Date(issuedAt).toLocaleDateString(locale)}</p></div>}
           {credentialId && <div><p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroCredId")}</p><p className="m-0 text-[13px] font-semibold">{credentialId}</p></div>}
-          {hash && <div><p className="m-0 mb-0.5 whitespace-nowrap text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroHash")}</p><p className="m-0 whitespace-nowrap font-mono text-xs">{hash}</p></div>}
+          {hash && <div className="min-w-0 max-w-full"><p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroHash")}</p><p className="m-0 break-all font-mono text-xs">{hash}</p><p className="m-0 mt-1 text-[10px]" style={{ color: "#a8c8ff" }}>{t("heroHashNote")}</p></div>}
         </div>
         <div className="shrink-0 rounded-md bg-white p-1.5" style={{ width: 56, height: 56 }}>
           <svg viewBox="0 0 10 10" width="100%" height="100%"><rect width="10" height="10" fill="#fff" /><path d={QR_CELLS} fill="#02275A" /></svg>

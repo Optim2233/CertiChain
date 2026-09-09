@@ -422,11 +422,11 @@ public class VerifierServiceImpl implements VerifierService {
     private VerificationResponse respond(VerificationResult result, Credential credential,
                                           List<CredentialField> allFields, List<UUID> visibleFieldIds,
                                           Institution institution, String institutionName, String institutionStatus) {
-        // null OR empty means "disclose everything" - a SINGLE_CREDENTIAL share created
-        // with no field selection stores zero share_field_selection rows, and the graduate
-        // UI ("leave all unchecked to share every field") promises full disclosure for it.
-        Set<UUID> visible = visibleFieldIds == null || visibleFieldIds.isEmpty()
-                ? null : Set.copyOf(visibleFieldIds);
+        // null means "no selection applies" (FULL_TIMELINE shares, which disclose every
+        // field of every credential on the timeline). For a SINGLE_CREDENTIAL share, only
+        // the fields the graduate explicitly checked are disclosed - an empty selection
+        // discloses nothing, matching the "check a box to share it" UI.
+        Set<UUID> visible = visibleFieldIds == null ? null : Set.copyOf(visibleFieldIds);
         List<VerificationResponse.DisclosedField> disclosed = allFields.stream()
                 .filter(f -> visible == null || visible.contains(f.getId()))
                 .map(f -> new VerificationResponse.DisclosedField(f.getFieldName(), f.getFieldValue()))

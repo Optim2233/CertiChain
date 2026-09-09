@@ -72,7 +72,7 @@ function GraduateOverviewContent() {
     { icon: "badge", iconBg: "#d8e2ff", iconColor: "#005eb3", value: timeline.length, label: t("totalCreds"), sub: t("viewAllShort"), subColor: "#005eb3", subHref: "/graduate/credentials" },
     { icon: "check_circle", iconBg: "rgba(16,185,129,0.15)", iconColor: "#0d9668", value: claimed, label: t("fullyClaimed"), sub: t("claimedPct", { p: claimedPct }), subColor: "#0d9668" },
     { icon: "ios_share", iconBg: "#d8e2ff", iconColor: "#005eb3", value: activeShares.length, label: t("activeShares"), sub: t("shareViews", { n: totalShareViews }), subColor: "#005eb3" },
-    { icon: "visibility", iconBg: "#fff3d6", iconColor: "#a5730f", value: totalVerifications, label: t("totalVerifs"), sub: t("allTime"), subColor: "#75777f" },
+    { icon: "visibility", iconBg: "#f3ecd9", iconColor: "#8a6d2f", value: totalVerifications, label: t("totalVerifs"), sub: t("allTime"), subColor: "#75777f" },
   ]
 
   const topThree = [...timeline]
@@ -101,6 +101,13 @@ function GraduateOverviewContent() {
     <main className="mx-auto max-w-[1720px] p-10">
       <div className="mb-7 flex items-center justify-between gap-4">
         <div>
+          <span
+            className="mb-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em]"
+            style={{ background: "#02275A", color: "#c9a85c" }}
+          >
+            <span className="material-symbols-outlined text-[14px]">workspace_premium</span>
+            {t("eyebrow")}
+          </span>
           <h2 className="font-heading m-0 text-[34px] font-bold">
             {t(greetingKey(new Date().getHours()), { name: displayName })}
           </h2>

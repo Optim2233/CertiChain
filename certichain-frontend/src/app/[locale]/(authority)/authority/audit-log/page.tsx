@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { backendText } from "@/i18n/backend-copy"
 import { useAuditLog } from "@/features/accreditation"
@@ -25,20 +25,24 @@ export default function AuditLogPage() {
   const tc = useTranslations("common")
   const locale = useLocale()
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [eventFilter, setEventFilter] = useState("")
   const [filterOpen, setFilterOpen] = useState(false)
   const [page, setPage] = useState(0)
-  const { data, isLoading, isError } = useAuditLog(null, page)
+
+  // Debounce so we don't fire a request per keystroke; reset to page 0 so
+  // results from a new query aren't hidden past the end of the old one.
+  useEffect(() => {
+    const timeout = setTimeout(() => { setDebouncedSearch(search); setPage(0) }, 300)
+    return () => clearTimeout(timeout)
+  }, [search])
+
+  const { data, isLoading, isError } = useAuditLog(null, page, 20, debouncedSearch || null, eventFilter || null)
   const rows = data?.data.content ?? []
-  // ponytail: both the search box and the event dropdown work off the loaded
-  // page only - the audit-log endpoint takes neither a search nor an event
-  // param, so eventTypes lists just the events present on this page. Labelled
-  // in the footer rather than left to look global.
-  // Upgrade path: add ?q=/?event= to GET /audit-log and filter server-side.
+  // Event dropdown options are seeded from whatever's loaded on the current page -
+  // good enough for a "narrow down" filter without a dedicated distinct-events endpoint.
   const eventTypes = Array.from(new Set(rows.map((r) => r.event))).sort()
   const filtered = rows
-    .filter((r) => !search || r.event.toLowerCase().includes(search.toLowerCase()))
-    .filter((r) => !eventFilter || r.event === eventFilter)
 
   return (
     <main className="w-full px-6 py-8">
@@ -110,10 +114,10 @@ export default function AuditLogPage() {
           <p className="p-6 text-sm text-[#C0392B]">
             {t("loadFailed")}
           </p>
-        ) : filtered.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="p-6 text-sm text-[#75777f]">{t("noEntries")}</p>
         ) : (
-          filtered.map((a) => (
+          rows.map((a) => (
             <div key={a.id} className="grid items-start gap-4 border-b border-[#c5c6cf] px-6 py-4 last:border-0" style={{ gridTemplateColumns: GRID_COLS }}>
               <div className="text-[13px]">
                 <span className="font-semibold">{new Date(a.occurredAt).toLocaleDateString(locale)}</span>{" "}
@@ -125,8 +129,7 @@ export default function AuditLogPage() {
           ))
         )}
         <div className="px-6 py-3.5 text-xs text-[#44474e]">
-          {t("showingEntries", { n: filtered.length, t: data?.data.totalElements ?? 0 })}
-          {(search || eventFilter) && " " + t("filtersNote")}
+          {t("showingEntries", { n: rows.length, t: data?.data.totalElements ?? 0 })}
         </div>
         <Pager page={data?.data} onPageChange={setPage} />
       </div>

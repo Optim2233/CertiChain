@@ -2,7 +2,7 @@ import type { Page } from '@/shared/types/types';
 import type { Institution } from '@/features/accreditation';
 import type { Credential, DisputeFlag } from '@/features/institution';
 import { apiClient } from '@/shared/config/axioconfig';
-import type { BatchIssueResult, BatchRevokeResult, BatchSummary, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
+import type { BatchIssueResult, BatchRevokeResult, BatchSummary, BatchUnrevokeResult, CredentialField, CredentialFieldInput, CredentialSummary, InstitutionAnalytics } from '../types/types';
 import {
   applyInstitutionSchema,
   dismissDisputeSchema,
@@ -68,9 +68,10 @@ export const institutionService = {
     );
   },
 
-  async issueBatch(spreadsheet: File, headers?: Record<string, string>) {
+  async issueBatch(spreadsheet: File, batchName?: string, headers?: Record<string, string>) {
     const formData = new FormData();
     formData.append('file', spreadsheet);
+    if (batchName?.trim()) formData.append('batchName', batchName.trim());
     return apiClient.postMultipart<BatchIssueResult[]>(
       '/api/institution/credentials/batch',
       formData,
@@ -100,14 +101,30 @@ export const institutionService = {
     );
   },
 
+  async unrevokeCredential(id: string, headers?: Record<string, string>) {
+    return apiClient.post<void>(`/api/institution/credentials/${id}/unrevoke`, undefined, headers);
+  },
+
   async listBatches(headers?: Record<string, string>) {
     return apiClient.get<BatchSummary[]>('/api/institution/credentials/batches', headers);
   },
 
-  async revokeBatch(batchId: string, reason: string, headers?: Record<string, string>) {
+  async listBatchMembers(batchId: string, headers?: Record<string, string>) {
+    return apiClient.get<Credential[]>(`/api/institution/credentials/batches/${batchId}`, headers);
+  },
+
+  async revokeBatch(batchId: string, reason: string, credentialIds?: string[], headers?: Record<string, string>) {
     return apiClient.post<BatchRevokeResult>(
       `/api/institution/credentials/batches/${batchId}/revoke`,
-      revokeCredentialSchema.parse({ reason }),
+      { ...revokeCredentialSchema.parse({ reason }), credentialIds: credentialIds?.length ? credentialIds : undefined },
+      headers
+    );
+  },
+
+  async unrevokeBatch(batchId: string, credentialIds?: string[], headers?: Record<string, string>) {
+    return apiClient.post<BatchUnrevokeResult>(
+      `/api/institution/credentials/batches/${batchId}/unrevoke`,
+      { credentialIds: credentialIds?.length ? credentialIds : undefined },
       headers
     );
   },
@@ -198,6 +215,22 @@ export const institutionService = {
       titleFont: (parsed as any).titleFont,
       medalPosition: (parsed as any).medalPosition, watermarkIcon: (parsed as any).watermarkIcon,
     }, headers);
+  },
+
+  async resubmitInstitution(input: {
+    fields: Record<string, unknown>;
+    files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null };
+  }) {
+    const formData = new FormData();
+    Object.entries(input.fields).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') formData.append(k, String(v));
+      else if (k === 'foreignInvolvement' && typeof v === 'boolean') formData.append(k, String(v));
+    });
+    if (input.files.establishmentDocFile) formData.append('establishmentDocFile', input.files.establishmentDocFile);
+    if (input.files.dicaCertificate) formData.append('dicaCertificate', input.files.dicaCertificate);
+    if (input.files.taxClearance) formData.append('taxClearance', input.files.taxClearance);
+    if (input.files.micPermit) formData.append('micPermit', input.files.micPermit);
+    return apiClient.postMultipart<Institution>('/api/institution/me/resubmit', formData);
   },
 
   async updateMeJson(data: {

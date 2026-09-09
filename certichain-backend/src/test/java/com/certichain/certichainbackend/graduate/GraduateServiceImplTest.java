@@ -40,7 +40,7 @@ private final com.certichain.certichainbackend.common.service.SupabaseStorageSer
     // null credentialFieldCryptoService: none of these tests touch getCredentialFields(),
     // the only method that calls it.
     private final GraduateServiceImpl service = new GraduateServiceImpl(
-            userRepository, credentialRepository, null, null, null, null, null, null,
+            userRepository, credentialRepository, null, null, null, null, null, null, null,
             storageService, passwordEncoder, currentUser, null, pii);
 
     private Credential pendingCredential(String email) {

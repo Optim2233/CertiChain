@@ -7,8 +7,7 @@ Do not use these values or this file outside local demo. See `SEED-DATA.md` for 
 
 | Email | Password |
 |---|---|
-| `
-` | `aa-dev-password` |
+ `aa@certichain.local` / `aa-dev-password`
 
 ## Institutions
 

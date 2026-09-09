@@ -6,7 +6,7 @@ import type { SidebarNavItem } from "@/shared/components/layout/portal-sidebar"
 export default async function InstitutionLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("institution")
   const tc = await getTranslations("common")
-  const { common, institution, error } = await getMessages()
+  const { common, institution, error, auth } = await getMessages()
   const navItems: SidebarNavItem[] = [
     { label: t("dashboard"), href: "/institution", icon: "dashboard" },
     { label: t("issueNew"), href: "/institution/issue", icon: "add_circle" },
@@ -19,7 +19,7 @@ export default async function InstitutionLayout({ children }: { children: React.
   ]
 
   return (
-    <NextIntlClientProvider messages={{ common, institution, error }}>
+    <NextIntlClientProvider messages={{ common, institution, error, auth }}>
       <InstitutionShell
         title={tc("appName")}
         subtitle={t("portalSubtitle")}

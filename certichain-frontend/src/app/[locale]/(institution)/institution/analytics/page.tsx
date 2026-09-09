@@ -27,6 +27,16 @@ function mergeDaily(a: { date: string; count: number }[], b: { date: string; cou
   return [...m.values()].sort((x, y) => x.date.localeCompare(y.date)).map((e) => ({ ...e, label: fmt(e.date, locale) }))
 }
 
+// Correlates dispute volume against issuance volume so a rising dispute count can be read
+// against whether the institution is simply issuing more credentials that week.
+function mergeDisputeRate(issued: { date: string; count: number }[], disputed: { date: string; count: number }[], locale: string) {
+  const m = new Map<string, { date: string; issued: number; disputes: number }>()
+  issued.forEach((x) => { const e = m.get(x.date) ?? { date: x.date, issued: 0, disputes: 0 }; e.issued = x.count; m.set(x.date, e) })
+  disputed.forEach((x) => { const e = m.get(x.date) ?? { date: x.date, issued: 0, disputes: 0 }; e.disputes = x.count; m.set(x.date, e) })
+  return [...m.values()].sort((x, y) => x.date.localeCompare(y.date))
+    .map((e) => ({ ...e, label: fmt(e.date, locale), ratePct: e.issued ? Math.round((e.disputes / e.issued) * 1000) / 10 : 0 }))
+}
+
 export default function InstitutionAnalyticsPage() {
   const t = useTranslations("institution")
   const tc = useTranslations("common")
@@ -39,6 +49,7 @@ export default function InstitutionAnalyticsPage() {
   const a = data?.data
 
   const trendData = useMemo(() => a ? mergeDaily(a.issuancesByDay, a.verificationsByDay, a.revokedVerificationsByDay, locale) : [], [a, locale])
+  const disputeRateData = useMemo(() => a ? mergeDisputeRate(a.issuancesByDay, a.disputesByDay, locale) : [], [a, locale])
   const statusPie = useMemo(() => a ? [
     { name: tc("issued"), value: a.status.issued, color: "#0462BA" },
     { name: tc("revoked"), value: a.status.revoked, color: "#C0392B" },
@@ -95,7 +106,7 @@ export default function InstitutionAnalyticsPage() {
       </div>
 
       {/* Rows 1-3 lazy-load behind the boundary above (recharts chunk). */}
-      <AnalyticsCharts data={a} trendData={trendData} statusPie={statusPie} funnel={funnel} fmtPct={fmtPct} />
+      <AnalyticsCharts data={a} trendData={trendData} statusPie={statusPie} funnel={funnel} fmtPct={fmtPct} disputeRateData={disputeRateData} />
     </main>
   )
 }

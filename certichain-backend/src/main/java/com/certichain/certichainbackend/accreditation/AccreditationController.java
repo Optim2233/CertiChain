@@ -73,9 +73,11 @@ public class AccreditationController {
     @GetMapping("/audit-log")
     public Page<AuditLogEntryResponse> auditLog(
             @RequestParam(required = false) UUID institutionId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String event,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return accreditationService.auditLog(institutionId, page, size);
+        return accreditationService.auditLog(institutionId, q, event, page, size);
     }
 
     @GetMapping("/institutions/{id}/documents")

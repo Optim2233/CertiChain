@@ -68,6 +68,17 @@ export function useApplyInstitution() {
   });
 }
 
+export function useResubmitInstitution() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      fields: Record<string, unknown>;
+      files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null };
+    }) => institutionService.resubmitInstitution(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institution-me'] }),
+  });
+}
+
 export function useIssueCertificate() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -88,7 +99,8 @@ export function useIssueCertificate() {
 export function useIssueBatch() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (spreadsheet: File) => institutionService.issueBatch(spreadsheet),
+    mutationFn: ({ spreadsheet, batchName }: { spreadsheet: File; batchName?: string }) =>
+      institutionService.issueBatch(spreadsheet, batchName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
       queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
@@ -106,13 +118,36 @@ export function useBatches() {
 export function useRevokeBatch() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ batchId, reason }: { batchId: string; reason: string }) =>
-      institutionService.revokeBatch(batchId, reason),
-    onSuccess: () => {
+    mutationFn: ({ batchId, reason, credentialIds }: { batchId: string; reason: string; credentialIds?: string[] }) =>
+      institutionService.revokeBatch(batchId, reason, credentialIds),
+    onSuccess: (_data, { batchId }) => {
       queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-batch-members', batchId] });
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
       queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
     },
+  });
+}
+
+export function useUnrevokeBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ batchId, credentialIds }: { batchId: string; credentialIds?: string[] }) =>
+      institutionService.unrevokeBatch(batchId, credentialIds),
+    onSuccess: (_data, { batchId }) => {
+      queryClient.invalidateQueries({ queryKey: ['institution-batches'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-batch-members', batchId] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
+    },
+  });
+}
+
+export function useBatchMembers(batchId: string | null) {
+  return useQuery({
+    queryKey: ['institution-batch-members', batchId],
+    queryFn: () => institutionService.listBatchMembers(batchId as string),
+    enabled: !!batchId,
   });
 }
 
@@ -141,6 +176,18 @@ export function useRevokeCredential() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       institutionService.revokeCredential(id, reason),
     onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['institution-credential', id] });
+    },
+  });
+}
+
+export function useUnrevokeCredential() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => institutionService.unrevokeCredential(id),
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] });
       queryClient.invalidateQueries({ queryKey: ['institution-credential-summary'] });
       queryClient.invalidateQueries({ queryKey: ['institution-credential', id] });

@@ -67,7 +67,7 @@ class InstitutionControllerWebTest {
     @Test
     void revokeBatchRoutesToServiceAndReturnsCounts() throws Exception {
         UUID batchId = UUID.randomUUID();
-        when(institutionService.revokeBatch(eq(batchId), eq("policy")))
+        when(institutionService.revokeBatch(eq(batchId), eq("policy"), eq(null)))
                 .thenReturn(new BatchRevokeResult(3, 1));
 
         mvc.perform(post("/api/institution/credentials/batches/{id}/revoke", batchId)
@@ -78,7 +78,7 @@ class InstitutionControllerWebTest {
                 .andExpect(jsonPath("$.revoked").value(3))
                 .andExpect(jsonPath("$.alreadyRevoked").value(1));
 
-        verify(institutionService).revokeBatch(batchId, "policy");
+        verify(institutionService).revokeBatch(batchId, "policy", null);
     }
 
     @Test

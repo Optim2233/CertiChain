@@ -2,6 +2,7 @@ export { institutionService } from './api/api';
 export {
   useApplyInstitution,
   useBatches,
+  useBatchMembers,
   useCredential,
   useCredentialFields,
   useCredentials,
@@ -16,6 +17,9 @@ export {
   useIssueCertificate,
   useRevokeBatch,
   useRevokeCredential,
+  useResubmitInstitution,
+  useUnrevokeBatch,
+  useUnrevokeCredential,
   useUpdateInstitution,
   useUpholdDispute,
 } from './hooks/useInstitution';
@@ -24,6 +28,7 @@ export type {
   BatchIssueResult,
   BatchRevokeResult,
   BatchSummary,
+  BatchUnrevokeResult,
   Credential,
   CredentialField,
   CredentialFieldInput,

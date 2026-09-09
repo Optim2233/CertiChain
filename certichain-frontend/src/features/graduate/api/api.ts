@@ -1,5 +1,5 @@
 import type { CredentialField, CredentialListItem, DisputeFlag } from '@/features/institution';
-import type { GraduateProfile, GraduateProfileInput, Share, ShareActivityEntry, VerificationTimestamp } from '@/features/graduate';
+import type { BatchShareRevokeResult, GraduateProfile, GraduateProfileInput, Share, ShareActivityEntry, VerificationTimestamp } from '@/features/graduate';
 import { apiClient } from '@/shared/config/axioconfig';
 import { createShareSchema, flagCredentialSchema, signupCheckSchema, signupSchema } from './schemas';
 
@@ -70,6 +70,18 @@ export const graduateService = {
     return apiClient.post<void>(`/api/graduate/shares/${id}/revoke`, {}, headers);
   },
 
+  async unrevokeShare(id: string, headers?: Record<string, string>) {
+    return apiClient.post<void>(`/api/graduate/shares/${id}/unrevoke`, {}, headers);
+  },
+
+  async revokeShares(shareIds: string[], headers?: Record<string, string>) {
+    return apiClient.post<BatchShareRevokeResult>(
+      '/api/graduate/shares/revoke-batch',
+      { shareIds },
+      headers
+    );
+  },
+
   async getShareActivity(id: string, headers?: Record<string, string>) {
     return apiClient.get<ShareActivityEntry[]>(`/api/graduate/shares/${id}/activity`, headers);
   },
@@ -96,6 +108,10 @@ export const graduateService = {
 
   async getAllDisputes(headers?: Record<string, string>) {
     return apiClient.get<DisputeFlag[]>('/api/graduate/disputes/all', headers);
+  },
+
+  async withdrawDispute(id: string, headers?: Record<string, string>) {
+    return apiClient.post<void>(`/api/graduate/disputes/${id}/withdraw`, {}, headers);
   },
 
   async getVerificationCount(headers?: Record<string, string>) {

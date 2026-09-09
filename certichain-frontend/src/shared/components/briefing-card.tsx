@@ -95,7 +95,13 @@ export function BriefingCard({
           </div>
         ))}
         {briefing.moreCount > 0 && (
-          <p className="m-0 px-5 py-2.5 text-[13px] text-[#75777f]">{t("andMore", { n: briefing.moreCount })}</p>
+          <button
+            type="button"
+            onClick={() => document.getElementById("portal-notification-bell")?.click()}
+            className="m-0 px-5 py-2.5 text-left text-[13px] font-semibold text-[#005eb3] hover:underline"
+          >
+            {t("andMore", { n: briefing.moreCount })}
+          </button>
         )}
       </div>
     </div>

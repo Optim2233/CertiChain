@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui
 import { Badge } from "@/shared/components/ui/badge"
 import { ChartContainer, ChartTooltipContent } from "@/shared/components/ui/chart"
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 import type { InstitutionAnalytics } from "@/features/institution"
 
@@ -15,12 +15,14 @@ export function AnalyticsCharts({
   statusPie,
   funnel,
   fmtPct,
+  disputeRateData,
 }: {
   data: InstitutionAnalytics
   trendData: { date: string; issued: number; verified: number; revoked: number; label: string }[]
   statusPie: { name: string; value: number; color: string }[]
   funnel: { stage: string; value: number }[]
   fmtPct: (ratio: number, digits?: number) => string
+  disputeRateData: { date: string; issued: number; disputes: number; ratePct: number; label: string }[]
 }) {
   const t = useTranslations("institution")
   const tc = useTranslations("common")
@@ -116,6 +118,53 @@ export function AnalyticsCharts({
               </BarChart>
             </ResponsiveContainer>
             <p className="text-xs text-muted-foreground">{t("disputesTrendNote")}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 2b: dispute rate vs issuance volume + disputes by credential type/reason —
+          disputes alone don't say much; reading them against issuance volume and which
+          credential type draws them is what makes the signal actionable. */}
+      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle>{t("disputeRateTitle")}</CardTitle><p className="text-xs text-muted-foreground">{t("disputeRateSub")}</p></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={disputeRateData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e6e8ec" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} unit="%" />
+                <Tooltip />
+                <Bar yAxisId="left" dataKey="issued" name={tc("issued")} fill="#0462BA" fillOpacity={0.25} radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="disputes" name={t("disputes")} fill="#e67e22" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="right" type="monotone" dataKey="ratePct" name={t("disputeRateLine")} stroke="#C0392B" strokeWidth={2} dot={false} />
+                <Legend />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>{t("disputesByTypeTitle")}</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={140}>
+              <BarChart data={[{ name: t("portfolioName"), cert: a.disputesByType.certificate, activity: a.disputesByType.activityRecord }]}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="cert" name={tc("certificate")} stackId="t" fill="#0462BA" />
+                <Bar dataKey="activity" name={tc("activityRecord")} stackId="t" fill="#c9a85c" />
+                <Legend />
+              </BarChart>
+            </ResponsiveContainer>
+            {Object.keys(a.disputeReasonTop).length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                {Object.entries(a.disputeReasonTop).slice(0, 3).map(([name, value]) => (
+                  <li key={name} className="flex justify-between gap-2"><span className="truncate">{name}</span><span className="shrink-0 font-semibold">{value}</span></li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>

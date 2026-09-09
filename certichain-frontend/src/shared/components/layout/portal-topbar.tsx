@@ -25,18 +25,22 @@ function NotificationBell() {
   const t = useTranslations("common")
   const timeAgo = useTimeAgo()
   const [open, setOpen] = useState(false)
+  const [pageNum, setPageNum] = useState(0)
   const { data: unread } = useUnreadCount()
-  const { data: page, isLoading } = useNotifications(0, 10)
+  const { data: page, isLoading } = useNotifications(pageNum, 10)
   const markRead = useMarkRead()
   const markAllRead = useMarkAllRead()
   const unreadCount = unread?.data.unreadCount ?? 0
   const notifications = page?.data.content ?? []
+  const isFirst = page?.data.first ?? true
+  const isLast = page?.data.last ?? true
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        id="portal-notification-bell"
+        onClick={() => setOpen((o) => { if (!o) setPageNum(0); return !o })}
         aria-label={t("notifications")}
         className="relative flex size-8 items-center justify-center rounded-full text-[#44474e] hover:bg-[#f2f4f6]"
       >
@@ -95,6 +99,31 @@ function NotificationBell() {
                 ))
               )}
             </div>
+            {(!isFirst || !isLast) && (
+              <div className="flex items-center justify-between border-t border-[#f2f4f6] px-4 py-2">
+                <button
+                  type="button"
+                  onClick={() => setPageNum((p) => Math.max(0, p - 1))}
+                  disabled={isFirst}
+                  className="text-xs font-semibold disabled:opacity-30"
+                  style={{ color: "#005eb3" }}
+                >
+                  {t("previous")}
+                </button>
+                <span className="text-[11px] text-[#9aa0aa]">
+                  {t("pageOf", { n: pageNum + 1, m: page?.data.totalPages ?? 1, t: page?.data.totalElements ?? 0 })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPageNum((p) => p + 1)}
+                  disabled={isLast}
+                  className="text-xs font-semibold disabled:opacity-30"
+                  style={{ color: "#005eb3" }}
+                >
+                  {t("next")}
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
