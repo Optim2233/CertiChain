@@ -68,6 +68,17 @@ export function useApplyInstitution() {
   });
 }
 
+export function useResubmitInstitution() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      fields: Record<string, unknown>;
+      files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null };
+    }) => institutionService.resubmitInstitution(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['institution-me'] }),
+  });
+}
+
 export function useIssueCertificate() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -228,6 +228,76 @@ public class InstitutionServiceImpl implements InstitutionService {
         return piiCryptoService.decryptedCopy(institution, newDek);
     }
 
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "institution", allEntries = true)
+    public Institution resubmit(ApplyInstitutionRequest req) {
+        Institution institution = load(currentUser.institutionId());
+        if (institution.getStatus() != InstitutionStatus.REJECTED) {
+            throw new ValidationException("Only a REJECTED application can be resubmitted");
+        }
+        UUID id = institution.getId();
+        if (req.getName() != null && !req.getName().isBlank()) institution.setName(req.getName().trim());
+        if (req.getPhone() != null) institution.setPhone(piiCryptoService.encryptInstitutionField(trimToNull(req.getPhone()), id));
+        if (req.getWebsite() != null) institution.setWebsite(trimToNull(req.getWebsite()));
+        if (req.getInstitutionNameMm() != null) institution.setInstitutionNameMm(trimToNull(req.getInstitutionNameMm()));
+        if (req.getInstitutionCategory() != null && !req.getInstitutionCategory().isBlank()) institution.setInstitutionCategory(req.getInstitutionCategory().trim());
+        if (req.getInstitutionType() != null && !req.getInstitutionType().isBlank()) {
+            String t = req.getInstitutionType().trim().toLowerCase();
+            if (!t.equals("public") && !t.equals("private")) throw new ValidationException("institutionType must be public or private");
+            institution.setInstitutionType(t);
+        }
+        if (req.getStateRegion() != null) institution.setStateRegion(trimToNull(req.getStateRegion()));
+        if (req.getDistrict() != null) institution.setDistrict(trimToNull(req.getDistrict()));
+        if (req.getTownship() != null) institution.setTownship(trimToNull(req.getTownship()));
+        if (req.getWard() != null) institution.setWard(piiCryptoService.encryptInstitutionField(trimToNull(req.getWard()), id));
+        if (req.getStreet() != null) institution.setStreet(piiCryptoService.encryptInstitutionField(trimToNull(req.getStreet()), id));
+        if (req.getPostalCode() != null) institution.setPostalCode(piiCryptoService.encryptInstitutionField(trimToNull(req.getPostalCode()), id));
+        if (req.getGoverningMinistry() != null) institution.setMinistry(trimToNull(req.getGoverningMinistry()));
+        if (req.getYearEstablished() != null) institution.setYearEstablished(req.getYearEstablished());
+        if (req.getEstablishmentDocType() != null) institution.setEstablishmentDocType(trimToNull(req.getEstablishmentDocType()));
+        if (req.getEstablishmentDocTitle() != null) institution.setEstablishmentDocTitle(piiCryptoService.encryptInstitutionField(trimToNull(req.getEstablishmentDocTitle()), id));
+        if (req.getEstablishmentDocRef() != null) institution.setEstablishmentDocRef(piiCryptoService.encryptInstitutionField(trimToNull(req.getEstablishmentDocRef()), id));
+        if (req.getEstablishmentDocIssueDate() != null && !req.getEstablishmentDocIssueDate().isBlank()) {
+            try { institution.setEstablishmentDocIssueDate(java.time.LocalDate.parse(req.getEstablishmentDocIssueDate().trim())); }
+            catch (Exception e) { throw new ValidationException("Invalid establishmentDocIssueDate (expected YYYY-MM-DD)"); }
+        }
+        if (req.getCompanyName() != null) institution.setCompanyName(piiCryptoService.encryptInstitutionField(trimToNull(req.getCompanyName()), id));
+        if (req.getDicaCertificateNumber() != null) institution.setDicaCertificateNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getDicaCertificateNumber()), id));
+        if (req.getMycoRegistrationNumber() != null) institution.setMycoRegistrationNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getMycoRegistrationNumber()), id));
+        if (req.getTinNumber() != null) institution.setTinNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getTinNumber()), id));
+        if (req.getIncorporationDate() != null && !req.getIncorporationDate().isBlank()) {
+            try { institution.setIncorporationDate(java.time.LocalDate.parse(req.getIncorporationDate().trim())); }
+            catch (Exception e) { throw new ValidationException("Invalid incorporationDate (expected YYYY-MM-DD)"); }
+        }
+        if (req.getOwnershipStructure() != null) institution.setOwnershipStructure(trimToNull(req.getOwnershipStructure()));
+        if (req.getInvestmentAmount() != null) institution.setInvestmentAmount(req.getInvestmentAmount());
+        if (req.getForeignInvolvement() != null) institution.setForeignInvolvement(req.getForeignInvolvement());
+        if (req.getMicPermitNumber() != null) institution.setMicPermitNumber(piiCryptoService.encryptInstitutionField(trimToNull(req.getMicPermitNumber()), id));
+        if (req.getFoundersJson() != null && !req.getFoundersJson().isBlank()) {
+            String t = req.getFoundersJson().trim();
+            if (!(t.startsWith("[") && t.endsWith("]"))) throw new ValidationException("Invalid founders JSON");
+            institution.setFounders(piiCryptoService.encryptJson(t, id));
+        }
+        if (req.getAdministratorJson() != null && !req.getAdministratorJson().isBlank()) {
+            String t = req.getAdministratorJson().trim();
+            if (!(t.startsWith("{") && t.endsWith("}"))) throw new ValidationException("Invalid administrator JSON");
+            institution.setAdministrator(piiCryptoService.encryptJson(t, id));
+        }
+        String url;
+        if ((url = uploadIfPresent(id, "establishment", req.getEstablishmentDocFile())) != null) institution.setEstablishmentDocUrl(url);
+        if ((url = uploadIfPresent(id, "dica", req.getDicaCertificate())) != null) institution.setDicaCertificateUrl(url);
+        if ((url = uploadIfPresent(id, "tax", req.getTaxClearance())) != null) institution.setTaxClearanceUrl(url);
+        if ((url = uploadIfPresent(id, "mic", req.getMicPermit())) != null) institution.setMicPermitUrl(url);
+        institution.setStatus(InstitutionStatus.PENDING);
+        institution.setStatusReason(null);
+        institution.setDecidedAt(null);
+        institution.setAppliedAt(Instant.now());
+        institution = institutionRepository.save(institution);
+        auditLogService.log("Institution application resubmitted", currentUser.id(), id, null);
+        return piiCryptoService.decryptedCopy(institution);
+    }
+
     private String uploadIfPresent(UUID instId, String kind, MultipartFile file) {
         if (file == null || file.isEmpty()) return null;
         if (supabaseStorageService.isConfigured()) {

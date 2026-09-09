@@ -200,6 +200,22 @@ export const institutionService = {
     }, headers);
   },
 
+  async resubmitInstitution(input: {
+    fields: Record<string, unknown>;
+    files: { establishmentDocFile?: File | null; dicaCertificate?: File | null; taxClearance?: File | null; micPermit?: File | null };
+  }) {
+    const formData = new FormData();
+    Object.entries(input.fields).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') formData.append(k, String(v));
+      else if (k === 'foreignInvolvement' && typeof v === 'boolean') formData.append(k, String(v));
+    });
+    if (input.files.establishmentDocFile) formData.append('establishmentDocFile', input.files.establishmentDocFile);
+    if (input.files.dicaCertificate) formData.append('dicaCertificate', input.files.dicaCertificate);
+    if (input.files.taxClearance) formData.append('taxClearance', input.files.taxClearance);
+    if (input.files.micPermit) formData.append('micPermit', input.files.micPermit);
+    return apiClient.postMultipart<Institution>('/api/institution/me/resubmit', formData);
+  },
+
   async updateMeJson(data: {
     name?: string;
     phone?: string;
