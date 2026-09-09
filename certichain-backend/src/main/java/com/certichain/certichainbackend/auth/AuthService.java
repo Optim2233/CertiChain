@@ -94,6 +94,9 @@ public class AuthService {
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        String plainEmail = piiCryptoService.decryptUserField(user.getEmail());
+        emailService.send(plainEmail, "CertiChain: Your password was changed",
+                "Your CertiChain password was just changed. If this wasn't you, reset your password immediately and contact support.");
     }
 
     public void requestPasswordReset(String email) {

@@ -103,7 +103,7 @@ class EncryptionHardeningTest {
         when(crypto.decryptedTitlesByCredential(any(), anyList()))
                 .thenThrow(new IllegalStateException("bad DEK"));
         GraduateServiceImpl service = new GraduateServiceImpl(
-                null, credentialRepository, credentialFieldRepository, null, null, null, null, null,
+                null, credentialRepository, credentialFieldRepository, null, null, null, null, null, null,
                 null, null, currentUser, crypto, TestCrypto.pii());
 
         UUID graduateId = UUID.randomUUID();

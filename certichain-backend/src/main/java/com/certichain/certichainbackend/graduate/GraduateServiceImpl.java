@@ -24,6 +24,7 @@ import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
@@ -55,6 +56,7 @@ public class GraduateServiceImpl implements GraduateService {
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
     private final SupabaseStorageService supabaseStorageService;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUser currentUser;
@@ -326,6 +328,9 @@ public class GraduateServiceImpl implements GraduateService {
                 .status(DisputeStatus.OPEN)
                 .createdAt(Instant.now())
                 .build());
+        userRepository.findByInstitutionId(credential.getInstitutionId())
+                .forEach(u -> notificationService.notify(u.getId(), "Dispute opened",
+                        "A credential you issued was flagged for dispute: " + reason.trim()));
         return piiCryptoService.decryptedFlagCopy(saved, credential.getInstitutionId());
     }
 

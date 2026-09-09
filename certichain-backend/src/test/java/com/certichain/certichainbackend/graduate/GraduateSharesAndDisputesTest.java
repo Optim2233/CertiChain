@@ -20,6 +20,7 @@ import com.certichain.certichainbackend.common.repository.ShareFieldSelectionRep
 import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
+import com.certichain.certichainbackend.common.service.NotificationService;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -47,6 +48,7 @@ class GraduateSharesAndDisputesTest {
     private final DisputeFlagRepository disputeFlagRepository = mock(DisputeFlagRepository.class);
     private final AuditLogEntryRepository auditLogEntryRepository = mock(AuditLogEntryRepository.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
 
     private final UUID meId = UUID.randomUUID();
@@ -54,11 +56,12 @@ class GraduateSharesAndDisputesTest {
     private final GraduateServiceImpl service = new GraduateServiceImpl(
             userRepository, credentialRepository, credentialFieldRepository, shareRepository,
             shareFieldSelectionRepository, disputeFlagRepository, auditLogEntryRepository,
-            auditLogService, null, null, currentUser, null,
+            auditLogService, notificationService, null, null, currentUser, null,
             com.certichain.certichainbackend.support.TestCrypto.pii());
 
     {
         when(currentUser.id()).thenReturn(meId);
+        when(userRepository.findByInstitutionId(any())).thenReturn(List.of());
     }
 
     private Credential myCredential() {
