@@ -794,6 +794,7 @@
     "shareCodePh": "Paste share link (e.g. /share/dd8b52fc-...) or share code",
     "shareOnly": "Only shared credentials are verifiable — ask the graduate for their share link or code.",
     "enterCode": "Enter a share code or link to continue.",
+    "invalidShareInput": "That doesn't look like a share code or link. Double-check the share link from the graduate.",
     "verifyShare": "Verify Share",
     "step1": "1. Paste share code or link",
     "step2": "2. We check the chain",

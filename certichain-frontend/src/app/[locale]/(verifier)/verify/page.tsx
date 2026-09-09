@@ -11,10 +11,14 @@ export default function VerifyPage() {
   const router = useRouter()
   const [shareInput, setShareInput] = useState("")
   const [touched, setTouched] = useState(false)
+  const [invalidInput, setInvalidInput] = useState(false)
   const { data: statsData } = useTrustStats()
   const stats = statsData?.data
 
   const valid = shareInput.trim().length > 0
+  // Share tokens are UUIDs (UUID.randomUUID() on the backend) - anything else pasted in
+  // (e.g. a graduate's own credential page URL) isn't a real share token/link.
+  const TOKEN_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   function submit() {
     setTouched(true)
@@ -24,7 +28,12 @@ export default function VerifyPage() {
     const token = raw.includes("/share/")
       ? raw.substring(raw.lastIndexOf("/share/") + 7).split("?")[0].split("#")[0].trim()
       : raw
-    if (token) router.push(`/share/${token}`)
+    if (!TOKEN_PATTERN.test(token)) {
+      setInvalidInput(true)
+      return
+    }
+    setInvalidInput(false)
+    router.push(`/share/${token}`)
   }
 
   return (
@@ -52,12 +61,16 @@ export default function VerifyPage() {
             type="text"
             placeholder={t("shareCodePh")}
             value={shareInput}
-            onChange={(e) => setShareInput(e.target.value)}
+            onChange={(e) => {
+              setShareInput(e.target.value)
+              setInvalidInput(false)
+            }}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             className="mb-2 w-full rounded border border-[#c5c6cf] px-3.5 py-2.5 text-sm"
           />
           <p className="m-0 mb-4 text-xs text-[#75777f]">{t("shareOnly")}</p>
           {touched && !valid && <p className="mb-4 text-xs text-[#C0392B]">{t("enterCode")}</p>}
+          {touched && valid && invalidInput && <p className="mb-4 text-xs text-[#C0392B]">{t("invalidShareInput")}</p>}
           <button
             type="button"
             onClick={submit}
