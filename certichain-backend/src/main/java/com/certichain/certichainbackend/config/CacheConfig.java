@@ -1,6 +1,7 @@
 package com.certichain.certichainbackend.config;
 
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +24,7 @@ import java.time.Duration;
 @Configuration
 @EnableCaching
 @EnableAsync // email dispatch only (@Async on EmailServiceImpl) - keeps SMTP round-trips off request threads
-public class CacheConfig {
+public class CacheConfig implements CachingConfigurer {
 
     static GenericJacksonJsonRedisSerializer valueSerializer() {
         return GenericJacksonJsonRedisSerializer.builder()
@@ -42,8 +43,9 @@ public class CacheConfig {
                 .build();
     }
 
+    @Override
     @Bean
-    CacheErrorHandler cacheErrorHandler() {
+    public CacheErrorHandler errorHandler() {
         return new SimpleCacheErrorHandler() {
             @Override
             public void handleCacheGetError(RuntimeException ex, org.springframework.cache.Cache cache, Object key) {
