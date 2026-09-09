@@ -36,8 +36,11 @@ export default function GraduateSharesPage() {
 
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
-  // Full-timeline shares are disabled for now (verifier-side rendering not ready),
-  // so every new share is SINGLE_CREDENTIAL. Legacy FULL_TIMELINE shares still display.
+  // Full-timeline shares are deliberately not offered here: SINGLE_CREDENTIAL already
+  // gives per-field selective disclosure, and an all-or-nothing link across a graduate's
+  // whole (and future) record is a much bigger trust surface for a workflow nobody asked
+  // for. Backend support and verifier-side rendering both work; legacy FULL_TIMELINE
+  // shares still display correctly. Not a technical gap - a product decision.
   const [credentialId, setCredentialId] = useState("")
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([])
   const [touched, setTouched] = useState(false)

@@ -75,6 +75,7 @@ public class SecurityConfig {
             "http://172.1[6-9].*.*:*",
             "http://172.2*.*.*:*",
             "http://172.3[0-1].*.*:*",
+            "https://*.vercel.app",
             frontendUrl
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
