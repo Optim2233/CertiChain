@@ -61,6 +61,13 @@ export default function InstitutionDashboardPage() {
 
   return (
     <main className="w-full px-6 py-8">
+      <span
+        className="mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em]"
+        style={{ background: "#02275A", color: "#c9a85c" }}
+      >
+        <span className="material-symbols-outlined text-[14px]">workspace_premium</span>
+        {t("eyebrow")}
+      </span>
       <BriefingCard
         quietTitle={t("allClear")}
         quietDetail={(since) => t("allClearSub", { date: since })}

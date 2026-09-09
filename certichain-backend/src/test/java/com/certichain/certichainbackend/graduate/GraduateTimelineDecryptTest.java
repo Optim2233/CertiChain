@@ -50,7 +50,7 @@ class GraduateTimelineDecryptTest {
     private final CurrentUser currentUser = mock(CurrentUser.class);
 
     private final GraduateServiceImpl service = new GraduateServiceImpl(
-            null, credentialRepository, credentialFieldRepository, null, null, null, null, null,
+            null, credentialRepository, credentialFieldRepository, null, null, null, null, null, null,
             null, null, currentUser, credentialFieldCryptoService,
             com.certichain.certichainbackend.support.TestCrypto.pii());
 
