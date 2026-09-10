@@ -125,6 +125,8 @@
     "andMore": "နောက် {n} ခုကျန်",
     "heroIssuing": "ထုတ်ပေးသော အဖွဲ့အစည်း",
     "heroAccredited": "အသိအမှတ်ပြု အဖွဲ့အစည်း",
+    "heroIssuerSuspended": "ထုတ်ပေးသူအား ယာယီရပ်ဆိုင်းထားသည်",
+    "heroIssuerRevoked": "ထုတ်ပေးသူအား ရုပ်သိမ်းထားသည်",
     "heroVerifiedChain": "လက်မှတ် အတည်ပြုပြီး",
     "heroIssuedTo": "{name} ထံ ထုတ်ပေးသည်",
     "heroReason": "အကြောင်းရင်း: {reason}",

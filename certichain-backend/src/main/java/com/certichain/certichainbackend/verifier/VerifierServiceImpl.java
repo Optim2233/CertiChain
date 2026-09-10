@@ -401,7 +401,16 @@ public class VerifierServiceImpl implements VerifierService {
                     institution, institutionName, institutionStatus);
         }
 
-        if (institution == null || institution.getStatus() != InstitutionStatus.APPROVED) {
+        // A credential issued while the institution was APPROVED stays verifiable even after
+        // the institution is later SUSPENDED or REVOKED - suspension/revocation blocks new
+        // issuance (see the APPROVED-only gate in InstitutionServiceImpl.issue), it does not
+        // retroactively invalidate credentials already issued. The institution's CURRENT
+        // status still rides along on every response (institutionStatus below) so a verifier
+        // can see "issuer is now suspended" - only PENDING/REJECTED/missing institutions (which
+        // should never have issued anything, given the same gate) fail verification outright.
+        if (institution == null
+                || institution.getStatus() == InstitutionStatus.PENDING
+                || institution.getStatus() == InstitutionStatus.REJECTED) {
             return respond(VerificationResult.ISSUER_NOT_ACCREDITED, credential, allFields, visibleFieldIds,
                     institution, institutionName, institutionStatus);
         }

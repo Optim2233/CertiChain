@@ -125,6 +125,8 @@
     "andMore": "and {n} more",
     "heroIssuing": "Issuing institution",
     "heroAccredited": "Accredited Institution",
+    "heroIssuerSuspended": "Issuer currently suspended",
+    "heroIssuerRevoked": "Issuer currently revoked",
     "heroVerifiedChain": "Signature Verified",
     "heroIssuedTo": "Issued to {name}",
     "heroReason": "Reason: {reason}",

@@ -6,10 +6,10 @@ import { institutionAccent } from "./credential-card"
 const QR_CELLS = "M0 0h3v3H0zM7 0h3v3H7zM0 7h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM4 5h2v1H4zM4 7h1v3H4zM6 4h1v1H6zM8 4h2v1H8zM6 6h1v4H6zM8 8h2v2H8z"
 
 export function CertificateHero({
-  title, institutionName, issuedTo, issuedAt, credentialId, hash, registrarName, registrarTitle, revoked, revokeReason,
+  title, institutionName, institutionStatus, issuedTo, issuedAt, credentialId, hash, registrarName, registrarTitle, revoked, revokeReason,
   brandColor, secondaryBrandColor, logoUrl, accentPattern="hatch", accentColor, patternScale, titleFont, watermarkIcon="workspace_premium",
 }: {
-  title: string; institutionName?: string|null; issuedTo?: string|null; issuedAt?: string|null; credentialId?: string|null; hash?: string|null; registrarName?: string|null; registrarTitle?: string|null; revoked?: boolean; revokeReason?: string|null
+  title: string; institutionName?: string|null; institutionStatus?: string|null; issuedTo?: string|null; issuedAt?: string|null; credentialId?: string|null; hash?: string|null; registrarName?: string|null; registrarTitle?: string|null; revoked?: boolean; revokeReason?: string|null
   brandColor?: string|null; secondaryBrandColor?: string|null; logoUrl?: string|null; accentPattern?: string; accentColor?: string|null; patternScale?: string|null; titleFont?: string|null; watermarkIcon?: string|null
 }) {
   const t = useTranslations("common")
@@ -70,7 +70,16 @@ export function CertificateHero({
           </div>
           <div>
             <p className={`${fontCls} m-0 text-[15px] font-bold`}>{institutionName || t("heroIssuing")}</p>
-            <p className="m-0 mt-0.5 text-[11px]" style={{ color: "#d5e3ff", opacity: 0.8 }}>{t("heroAccredited")}</p>
+            <p
+              className="m-0 mt-0.5 text-[11px]"
+              style={{ color: institutionStatus === "SUSPENDED" || institutionStatus === "REVOKED" ? "#ffcf9e" : "#d5e3ff", opacity: 0.9 }}
+            >
+              {institutionStatus === "SUSPENDED"
+                ? t("heroIssuerSuspended")
+                : institutionStatus === "REVOKED"
+                  ? t("heroIssuerRevoked")
+                  : t("heroAccredited")}
+            </p>
           </div>
         </div>
         {revoked ? (

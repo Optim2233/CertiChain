@@ -169,6 +169,7 @@ export default function ShareTimelinePage() {
                     <CertificateHero
                       title={e.credentialTitle ?? tc("credential")}
                       institutionName={e.institutionName}
+                      institutionStatus={e.institutionStatus}
                       issuedTo={e.issuedTo}
                       issuedAt={e.issuedAt}
                       hash={e.signatureDetails}
