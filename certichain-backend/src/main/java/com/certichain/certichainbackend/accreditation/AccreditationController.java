@@ -102,6 +102,17 @@ public class AccreditationController {
                 .body(document.getFileData());
     }
 
+    @GetMapping("/institutions/{id}/documents/url/{kind}")
+    public ResponseEntity<byte[]> downloadUrlDocument(@PathVariable UUID id, @PathVariable String kind) {
+        // Same "inline" reasoning as downloadDocument above - the frontend both previews
+        // (iframe) and force-downloads (blob + <a download>) this response.
+        byte[] data = accreditationService.getUrlDocument(id, kind);
+        return ResponseEntity.ok()
+                .header("Content-Type", MediaType.APPLICATION_PDF_VALUE)
+                .header("Content-Disposition", "inline; filename=\"" + kind + ".pdf\"")
+                .body(data);
+    }
+
     @PostMapping("/institutions/{id}/documents/{documentId}/verify")
     public void verifyDocument(@PathVariable UUID id, @PathVariable UUID documentId) {
         accreditationService.verifyDocument(id, documentId);

@@ -19,6 +19,7 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import com.certichain.certichainbackend.common.service.NotificationService;
+import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -57,6 +58,7 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final CurrentUser currentUser;
     private final EnvelopeEncryptionService envelopeEncryptionService;
     private final PiiCryptoService piiCryptoService;
+    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
@@ -284,6 +286,23 @@ public class AccreditationServiceImpl implements AccreditationService {
                 .fileUrl(document.getFileUrl()).verified(document.isVerified())
                 .uploadedAt(document.getUploadedAt())
                 .build();
+    }
+
+    @Override
+    // Not cached: returns decrypted document bytes, and plaintext PII must not sit in Redis.
+    public byte[] getUrlDocument(UUID institutionId, String kind) {
+        Institution institution = load(institutionId);
+        String path = switch (kind) {
+            case "establishment" -> institution.getEstablishmentDocUrl();
+            case "dica" -> institution.getDicaCertificateUrl();
+            case "tax" -> institution.getTaxClearanceUrl();
+            case "mic" -> institution.getMicPermitUrl();
+            default -> throw new ValidationException("Unknown document kind: " + kind);
+        };
+        if (path == null || path.isBlank()) {
+            throw new ResourceNotFoundException("Document not found");
+        }
+        return supabaseStorageService.downloadDocument(institutionId, path);
     }
 
     private byte[] decryptDocumentBytes(InstitutionDocument document) {

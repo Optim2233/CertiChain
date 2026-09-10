@@ -21,4 +21,10 @@ public interface AccreditationService {
     List<InstitutionDocumentResponse> listDocuments(UUID institutionId);
     InstitutionDocument getDocument(UUID institutionId, UUID documentId);
     void verifyDocument(UUID institutionId, UUID documentId);
+
+    /**
+     * Downloads + decrypts one of the institution's Supabase-backed registration
+     * documents. {@code kind} is one of establishment/dica/tax/mic.
+     */
+    byte[] getUrlDocument(UUID institutionId, String kind);
 }

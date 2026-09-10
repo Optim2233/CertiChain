@@ -28,20 +28,32 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     private final String supabaseUrl;
     private final String serviceRoleKey;
     private final String bucket;
+    // Documents (institution registration proofs) hold real PII/business identity docs and
+    // must never be publicly fetchable - kept in a separate, private bucket from
+    // institution-profiles (logos, which are meant to be public).
+    private final String documentsBucket;
     private final boolean configured;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
+    private final PiiCryptoService piiCryptoService;
 
     public SupabaseStorageServiceImpl(
             @Value("${supabase.url:}") String supabaseUrl,
             @Value("${supabase.service-role-key:}") String serviceRoleKey,
-            @Value("${supabase.bucket:institution-profiles}") String bucket) {
+            @Value("${supabase.bucket:institution-profiles}") String bucket,
+            @Value("${supabase.documents-bucket:institution-documents}") String documentsBucket,
+            CredentialFieldCryptoService credentialFieldCryptoService,
+            PiiCryptoService piiCryptoService) {
         this.supabaseUrl = supabaseUrl != null ? supabaseUrl.trim().replaceAll("/$", "") : "";
         this.serviceRoleKey = serviceRoleKey != null ? serviceRoleKey.trim() : "";
         this.bucket = bucket != null && !bucket.isBlank() ? bucket.trim() : "institution-profiles";
+        this.documentsBucket = documentsBucket != null && !documentsBucket.isBlank() ? documentsBucket.trim() : "institution-documents";
         this.configured = !this.supabaseUrl.isBlank() && !this.serviceRoleKey.isBlank();
+        this.credentialFieldCryptoService = credentialFieldCryptoService;
+        this.piiCryptoService = piiCryptoService;
         if (!configured) {
             log.warn("Supabase storage not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing) - profile image uploads will require a direct URL or will fail if a file is sent");
         } else {
-            log.info("Supabase storage configured: url={} bucket={}", this.supabaseUrl, this.bucket);
+            log.info("Supabase storage configured: url={} bucket={} documentsBucket={}", this.supabaseUrl, this.bucket, this.documentsBucket);
         }
     }
 
@@ -57,30 +69,95 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             // dev fallback: store inline is now handled by caller; here we just fail with clear message
             throw new ValidationException("Supabase storage is not configured - set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
         }
-        // reuse image upload path but with documents/ prefix and pdf handling
-        String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : docKind + ".pdf";
-        String safe = original.replaceAll("[^a-zA-Z0-9._-]", "_");
-        String path = "documents/" + institutionId + "/" + docKind + "/" + UUID.randomUUID() + "_" + safe;
-        String uploadUrl = supabaseUrl + "/storage/v1/object/" + bucket + "/" + path;
+        byte[] plaintext;
         try {
+            plaintext = file.getBytes();
+        } catch (java.io.IOException ioe) {
+            throw new ValidationException("Failed to read document: " + ioe.getMessage());
+        }
+        String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : docKind + ".pdf";
+        return encryptAndUpload(institutionId, docKind, original, plaintext);
+    }
+
+    @Override
+    public String migrateDocument(UUID institutionId, String docKind, String originalFileName, byte[] plaintext) {
+        return encryptAndUpload(institutionId, docKind, originalFileName, plaintext);
+    }
+
+    private String encryptAndUpload(UUID institutionId, String docKind, String originalFileName, byte[] plaintext) {
+        if (!configured) {
+            throw new ValidationException("Supabase storage is not configured - set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+        }
+        String safe = originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String path = institutionId + "/" + docKind + "/" + UUID.randomUUID() + "_" + safe;
+        String uploadUrl = supabaseUrl + "/storage/v1/object/" + documentsBucket + "/" + path;
+        try {
+            byte[] encrypted = piiCryptoService.encryptBytes(plaintext,
+                    credentialFieldCryptoService.institutionDek(institutionId));
             HttpRequest request = HttpRequest.newBuilder(URI.create(uploadUrl))
                     .header("apikey", serviceRoleKey)
                     .header("Authorization", "Bearer " + serviceRoleKey)
-                    .header("Content-Type", ct != null ? ct : "application/pdf")
+                    .header("Content-Type", "application/octet-stream")
                     .header("x-upsert", "true")
                     .timeout(Duration.ofSeconds(20))
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(file.getBytes()))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(encrypted))
                     .build();
             HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("Supabase document upload failed: HTTP {} - {}", response.statusCode(), response.body());
                 throw new ValidationException("Failed to upload document to storage: HTTP " + response.statusCode());
             }
-            return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+            // Path, not a public URL - the documents bucket has no public access.
+            return path;
         } catch (ValidationException ve) { throw ve; }
         catch (Exception ex) {
             log.warn("Supabase document upload exception: {}", ex.getMessage(), ex);
             throw new ValidationException("Failed to upload document: " + ex.getMessage());
+        }
+    }
+
+    @Override
+    public byte[] downloadRawFromUrl(String url) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(20))
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() >= 300) {
+                throw new ValidationException("Failed to download legacy document: HTTP " + response.statusCode());
+            }
+            return response.body();
+        } catch (ValidationException ve) { throw ve; }
+        catch (Exception ex) {
+            throw new ValidationException("Failed to download legacy document: " + ex.getMessage());
+        }
+    }
+
+    @Override
+    public byte[] downloadDocument(UUID institutionId, String path) {
+        if (!configured) {
+            throw new ValidationException("Supabase storage is not configured - set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+        }
+        String downloadUrl = supabaseUrl + "/storage/v1/object/" + documentsBucket + "/" + path;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(downloadUrl))
+                    .header("apikey", serviceRoleKey)
+                    .header("Authorization", "Bearer " + serviceRoleKey)
+                    .timeout(Duration.ofSeconds(20))
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() >= 300) {
+                log.warn("Supabase document download failed: HTTP {}", response.statusCode());
+                throw new ValidationException("Failed to download document from storage: HTTP " + response.statusCode());
+            }
+            return piiCryptoService.decryptBytes(response.body(),
+                    credentialFieldCryptoService.institutionDek(institutionId));
+        } catch (ValidationException ve) { throw ve; }
+        catch (Exception ex) {
+            log.warn("Supabase document download exception: {}", ex.getMessage(), ex);
+            throw new ValidationException("Failed to download document: " + ex.getMessage());
         }
     }
 

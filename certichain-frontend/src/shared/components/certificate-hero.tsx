@@ -23,7 +23,9 @@ export function CertificateHero({
   const bg=secondaryBrandColor ? `linear-gradient(135deg,#02275A,${accent},${secondaryBrandColor})` : `linear-gradient(135deg,#02275A,${accent})`
   const radius="16px" as const
   const fontCls=titleFont==="serif"?"font-serif":titleFont==="mono"?"font-mono":"font-heading"
-  const wmOp=0.04
+  // Gold reads far fainter than white/brand at the same opacity against the dark
+  // hero background - bump it so the pattern is actually visible, not just present.
+  const wmOp=accentColor==="gold"?0.11:0.04
   const wmColor=accentColor==="brand"&&brandColor?brandColor:accentColor==="gold"?"#c9a85c":"#ffffff"
   const showWatermark=accentPattern!=="none"
   const patW=patternScale==="sm"?6:patternScale==="lg"?10:6

@@ -102,7 +102,9 @@ export function CredentialCard({
   const bg = secondaryBrandColor ? `linear-gradient(135deg,#0B1E3D,${accent},${secondaryBrandColor})` : `linear-gradient(135deg,#0B1E3D,${accent})`
   const showWatermark = accentPattern!=="none"
   const wmIcon = resolveWatermarkIcon(watermarkIcon)
-  const wmOp = 0.04
+  // Gold reads far fainter than white/brand at the same opacity against the dark
+  // card background - bump it so the pattern is actually visible, not just present.
+  const wmOp = accentColor==="gold" ? 0.11 : 0.04
   const wmCol = watermarkColor(accentColor, brandColor)
   const patScale = watermarkSize(accentPattern as string, patternScale)
   const medal = medalGradient(brandColor)
@@ -118,19 +120,19 @@ export function CredentialCard({
               </pattern>
             ) : accentPattern==="grid" ? (
               <pattern id={"cardAccent-"+id} width={patScale.w} height={patScale.h} patternUnits="userSpaceOnUse">
-                <path d={`M ${patScale.w} 0 H 0 V ${patScale.h}`} stroke={wmCol} strokeWidth={0.7} fill="none" />
+                <path d={`M ${patScale.w} 0 H 0 V ${patScale.h}`} stroke={wmCol} strokeWidth={1.4} fill="none" />
               </pattern>
             ) : accentPattern==="waves" ? (
               <pattern id={"cardAccent-"+id} width={patScale.w} height={patScale.h} patternUnits="userSpaceOnUse">
-                <path d={`M0 ${patScale.h/2} Q ${patScale.w/4} 0 ${patScale.w/2} ${patScale.h/2} T ${patScale.w} ${patScale.h/2}`} stroke={wmCol} strokeWidth={0.8} fill="none" />
+                <path d={`M0 ${patScale.h/2} Q ${patScale.w/4} 0 ${patScale.w/2} ${patScale.h/2} T ${patScale.w} ${patScale.h/2}`} stroke={wmCol} strokeWidth={1.5} fill="none" />
               </pattern>
             ) : accentPattern==="circles" ? (
               <pattern id={"cardAccent-"+id} width={patScale.w} height={patScale.h} patternUnits="userSpaceOnUse">
-                <circle cx={patScale.w/2} cy={patScale.h/2} r={patScale.w*0.35} stroke={wmCol} strokeWidth={0.6} fill="none" />
+                <circle cx={patScale.w/2} cy={patScale.h/2} r={patScale.w*0.35} stroke={wmCol} strokeWidth={1.2} fill="none" />
               </pattern>
             ) : (
               <pattern id={"cardAccent-"+id} width={patScale.w} height={patScale.h} patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-                <line x1="0" y1="0" x2="0" y2={patScale.h} stroke={wmCol} strokeWidth={1} />
+                <line x1="0" y1="0" x2="0" y2={patScale.h} stroke={wmCol} strokeWidth={1.8} />
               </pattern>
             )}
           </defs>

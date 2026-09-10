@@ -395,9 +395,11 @@ public class InstitutionServiceImpl implements InstitutionService {
                 if (!trimmed.matches("^#[0-9a-fA-F]{6}$")) {
                     throw new ValidationException("brand color must be a #RRGGBB hex value");
                 }
-                if (contrastRatioAgainstWhite(trimmed) < 4.5) {
-                    throw new ValidationException(
-                            "brand color is too light for white text - pick a deeper shade");
+                double ratio = contrastRatioAgainstWhite(trimmed);
+                if (ratio < MIN_CONTRAST_RATIO) {
+                    throw new ValidationException(String.format(
+                            "brand color is too light for white text (contrast %.2f:1, need at least %.1f:1) - pick a deeper shade",
+                            ratio, MIN_CONTRAST_RATIO));
                 }
             }
             if (!java.util.Objects.equals(trimmed, institution.getBrandColor())) {
@@ -419,7 +421,10 @@ public class InstitutionServiceImpl implements InstitutionService {
             String t = secondaryBrandColor.isBlank() ? null : secondaryBrandColor.trim();
             if (t != null) {
                 if (!t.matches("^#[0-9a-fA-F]{6}$")) throw new ValidationException("secondary brand color must be #RRGGBB");
-                if (contrastRatioAgainstWhite(t) < 4.5) throw new ValidationException("secondary brand color too light");
+                double ratio = contrastRatioAgainstWhite(t);
+                if (ratio < MIN_CONTRAST_RATIO) throw new ValidationException(String.format(
+                        "secondary brand color is too light for white text (contrast %.2f:1, need at least %.1f:1)",
+                        ratio, MIN_CONTRAST_RATIO));
             }
             if (!java.util.Objects.equals(t, institution.getSecondaryBrandColor())) { institution.setSecondaryBrandColor(t); changed = true; }
         }
@@ -457,6 +462,10 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     /** WCAG contrast ratio of white (#FFFFFF) against the given #RRGGBB colour. */
+    // WCAG's large/bold-text threshold (not the 4.5 normal-text one) - the card title
+    // this guards is always large, bold text, so 3.0 is the right bar, not 4.5.
+    private static final double MIN_CONTRAST_RATIO = 3.0;
+
     private static double contrastRatioAgainstWhite(String hex) {
         double r = channelLuminance(Integer.parseInt(hex.substring(1, 3), 16));
         double g = channelLuminance(Integer.parseInt(hex.substring(3, 5), 16));
