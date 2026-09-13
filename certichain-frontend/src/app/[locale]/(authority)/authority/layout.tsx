@@ -11,7 +11,7 @@ export interface AuthorityNavItem {
 
 export default async function AuthorityLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("authority")
-  const { common, authority, error } = await getMessages()
+  const { common, authority, error, auth } = await getMessages()
   const navItems: AuthorityNavItem[] = [
     { label: t("dashboard"), href: "/authority", icon: "space_dashboard" },
     { label: t("registry"), href: "/authority/registry", icon: "apartment", badged: true },
@@ -20,7 +20,7 @@ export default async function AuthorityLayout({ children }: { children: React.Re
   ]
 
   return (
-    <NextIntlClientProvider messages={{ common, authority, error }}>
+    <NextIntlClientProvider messages={{ common, authority, error, auth }}>
       <AuthorityShell
         title="CertiChain"
         subtitle={t("portalSubtitle")}

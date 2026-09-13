@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { Link } from "@/i18n/navigation"
 import { useRouter } from "@/i18n/navigation"
 import { useIssueCertificate } from "@/features/institution"
@@ -17,7 +18,6 @@ export default function IssueCertificatePage() {
   const [expiresAt, setExpiresAt] = useState("")
   const [touched, setTouched] = useState({ email: false, title: false, gradDate: false })
   const [extraFields, setExtraFields] = useState<{ name: string; value: string }[]>([])
-  const [success, setSuccess] = useState(false)
 
   const emailValid = /\S+@\S+\.\S+/.test(email)
   const titleValid = title.trim().length > 0
@@ -39,7 +39,7 @@ export default function IssueCertificatePage() {
       },
       {
         onSuccess: () => {
-          setSuccess(true)
+          toast.success(t("issuedOk"))
           setEmail("")
           setTitle("")
           setGradDate("")
@@ -177,20 +177,12 @@ export default function IssueCertificatePage() {
           </div>
         </div>
 
-        {success && (
-          <div className="mt-4 flex items-center gap-2.5 rounded border border-[rgba(16,185,129,0.3)] bg-[rgba(16,185,129,0.1)] px-4 py-3.5">
-            <span className="material-symbols-outlined" style={{ color: "#0d9668" }}>check_circle</span>
-            <p className="m-0 text-sm font-semibold" style={{ color: "#0d9668" }}>
-              {t("issuedOk")}
-            </p>
-          </div>
-        )}
 
         {issue.isError && (
           <div className="mt-4 flex items-center gap-2.5 rounded border border-[rgba(192,57,43,0.3)] bg-[rgba(192,57,43,0.08)] px-4 py-3.5">
             <span className="material-symbols-outlined" style={{ color: "#C0392B" }}>error</span>
             <p className="m-0 text-sm font-semibold" style={{ color: "#C0392B" }}>
-              {issue.error?.message || t("issueFailed")}
+              {t("issueFailed")}
             </p>
           </div>
         )}

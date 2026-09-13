@@ -6,7 +6,7 @@ import { RequireAuth } from "@/shared/hooks/useRequireAuth"
 
 export default async function GraduateLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("graduate")
-  const { common, graduate, error } = await getMessages()
+  const { common, graduate, error, auth } = await getMessages()
   const navItems = [
     { label: t("overview"), href: "/graduate", icon: "home" },
     { label: t("myCredentials"), href: "/graduate/credentials", icon: "badge" },
@@ -16,7 +16,7 @@ export default async function GraduateLayout({ children }: { children: React.Rea
     { label: t("settings"), href: "/graduate/settings", icon: "settings" },
   ]
   return (
-    <NextIntlClientProvider messages={{ common, graduate, error }}>
+    <NextIntlClientProvider messages={{ common, graduate, error, auth }}>
     <div className="flex min-h-screen flex-1 flex-col md:flex-row">
       <PortalSidebar title="CertiChain" subtitle={t("walletSubtitle")} icon="workspace_premium" items={navItems} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-[#f7f9fb]">

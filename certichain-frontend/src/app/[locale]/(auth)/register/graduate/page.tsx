@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { useRouter } from "@/i18n/navigation"
 import { Link } from "@/i18n/navigation"
 import { useSignupCheck, useSignup, useGraduateStore } from "@/features/graduate"
@@ -43,7 +44,12 @@ export default function GraduateRegisterPage() {
     if (!passwordValid || !passwordsMatch) return
     signup.mutate(
       { email, password, firstName, lastName, phone: `${phoneCountry} ${phone}` },
-      { onSuccess: () => router.push("/login") }
+      {
+        onSuccess: () => {
+          toast.success(t("accountCreatedToast"))
+          router.push("/login")
+        },
+      }
     )
   }
 

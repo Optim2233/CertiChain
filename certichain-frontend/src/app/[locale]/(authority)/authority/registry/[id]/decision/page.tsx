@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { useParams } from "next/navigation"
 import { useRouter } from "@/i18n/navigation"
 import {
@@ -26,7 +27,6 @@ export default function ReviewDecisionPage() {
   const reject = useRejectInstitution()
   const requestInfo = useRequestInfo()
 
-  const [infoSent, setInfoSent] = useState(false)
   const [modalType, setModalType] = useState<ModalType>(null)
   const [reason, setReason] = useState("")
   const [touched, setTouched] = useState(false)
@@ -55,7 +55,7 @@ export default function ReviewDecisionPage() {
     if (modalType === "info") {
       requestInfo.mutate(
         { id, note: reason },
-        { onSuccess: () => { setModalType(null); setReason(""); setTouched(false); setInfoSent(true) } }
+        { onSuccess: () => { setModalType(null); setReason(""); setTouched(false); toast.success(t("requestSent")) } }
       )
       return
     }
@@ -97,13 +97,6 @@ export default function ReviewDecisionPage() {
         <p className="mb-5 text-xs font-bold uppercase tracking-wide text-[#44474e]">{t("stepDecision")}</p>
 
         {institution && <InstitutionFacts institution={institution} />}
-
-        {infoSent && (
-          <div className="mb-5 flex items-center gap-2.5 rounded border border-[rgba(4,98,186,0.3)] bg-[rgba(4,98,186,0.08)] px-4 py-3.5">
-            <span className="material-symbols-outlined" style={{ color: "#02275A" }}>mail</span>
-            <p className="m-0 text-sm font-semibold" style={{ color: "#02275A" }}>{t("requestSent")}</p>
-          </div>
-        )}
 
         <p className="mb-3 text-sm font-semibold">{t("decisionFor", { name: institution?.name ?? t("thisInstitution") })}</p>
         <div className="mb-3 grid grid-cols-2 gap-3">

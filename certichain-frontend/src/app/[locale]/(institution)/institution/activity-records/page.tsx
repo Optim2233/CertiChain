@@ -2,18 +2,24 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { Link } from "@/i18n/navigation"
 import { useIssueActivityRecord } from "@/features/institution"
 
+// ponytail: suggested quick-add fields specific to activity records (vs. certificate's
+// degree/gradDate) - not enforced by the backend, which accepts any name/value pair.
+const SUGGESTED_FIELDS = ["Organizer", "Role", "Location"]
+
 export default function ActivityRecordsPage() {
   const t = useTranslations("institution")
+  const tc = useTranslations("common")
   const issue = useIssueActivityRecord()
   const [email, setEmail] = useState("")
   const [date, setDate] = useState("")
   const [title, setTitle] = useState("")
   const [expiresAt, setExpiresAt] = useState("")
   const [touched, setTouched] = useState({ email: false, date: false, title: false })
-  const [success, setSuccess] = useState(false)
+  const [extraFields, setExtraFields] = useState<{ name: string; value: string }[]>([])
 
   const emailValid = /\S+@\S+\.\S+/.test(email)
   const dateValid = date.trim().length > 0
@@ -24,13 +30,20 @@ export default function ActivityRecordsPage() {
     setTouched({ email: true, date: true, title: true })
     if (!allValid) return
     issue.mutate(
-      { graduateEmail: email, activity: title, date, expiresAt: expiresAt || undefined },
+      {
+        graduateEmail: email,
+        activity: title,
+        date,
+        fields: extraFields.filter((f) => f.name.trim() && f.value.trim()),
+        expiresAt: expiresAt || undefined,
+      },
       {
         onSuccess: () => {
-          setSuccess(true)
+          toast.success(t("recordOk"))
           setEmail("")
           setDate("")
           setTitle("")
+          setExtraFields([])
           setExpiresAt("")
           setTouched({ email: false, date: false, title: false })
         },
@@ -99,29 +112,69 @@ export default function ActivityRecordsPage() {
           />
           <p className="mb-4 text-xs text-[#75777f]">{t("expiryHint")}</p>
 
-          <label className="mb-1.5 mt-4 block text-sm font-semibold">{t("descriptionLbl")}</label>
-          {/* ponytail: useIssueActivityRecord only accepts graduateEmail/activity/date -
-              no description field exists on the endpoint, so this stays disabled rather
-              than accepting input that's silently thrown away. */}
-          <textarea
-            rows={3}
-            disabled
-            placeholder={t("notSupported")}
-            className="mb-6 w-full resize-none rounded border border-[#c5c6cf] bg-[#f7f9fb] px-3.5 py-2.5 text-sm text-[#75777f]"
-          />
-
-          {success && (
-            <div className="mb-5 flex items-center gap-2.5 rounded border border-[rgba(16,185,129,0.3)] bg-[rgba(16,185,129,0.1)] px-4 py-3.5">
-              <span className="material-symbols-outlined" style={{ color: "#0d9668" }}>check_circle</span>
-              <p className="m-0 text-sm font-semibold" style={{ color: "#0d9668" }}>{t("recordOk")}</p>
+          <div className="mb-6">
+            {extraFields.map((f, i) => (
+              <div key={i} className="mb-3 grid grid-cols-2 gap-5">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder={t("fieldNamePh")}
+                    value={f.name}
+                    onChange={(e) =>
+                      setExtraFields((rows) => rows.map((r, idx) => (idx === i ? { ...r, name: e.target.value } : r)))
+                    }
+                    className="w-full rounded border border-[#c5c6cf] px-3.5 py-2.5 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder={t("fieldValuePh")}
+                    value={f.value}
+                    onChange={(e) =>
+                      setExtraFields((rows) => rows.map((r, idx) => (idx === i ? { ...r, value: e.target.value } : r)))
+                    }
+                    className="w-full rounded border border-[#c5c6cf] px-3.5 py-2.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setExtraFields((rows) => rows.filter((_, idx) => idx !== i))}
+                    aria-label={tc("remove")}
+                    className="flex shrink-0 items-center justify-center rounded border border-[#c5c6cf] px-2.5 text-[#75777f]"
+                  >
+                    <span className="material-symbols-outlined text-lg">close</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setExtraFields((rows) => [...rows, { name: "", value: "" }])}
+                className="flex items-center gap-1.5 text-sm font-semibold"
+                style={{ color: "#005eb3" }}
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+                {t("addField")}
+              </button>
+              {SUGGESTED_FIELDS.filter((name) => !extraFields.some((f) => f.name === name)).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setExtraFields((rows) => [...rows, { name, value: "" }])}
+                  className="rounded-full border border-[#c5c6cf] px-3 py-1 text-xs font-semibold text-[#44474e]"
+                >
+                  + {name}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {issue.isError && (
             <div className="mb-5 flex items-center gap-2.5 rounded border border-[rgba(192,57,43,0.3)] bg-[rgba(192,57,43,0.08)] px-4 py-3.5">
               <span className="material-symbols-outlined" style={{ color: "#C0392B" }}>error</span>
               <p className="m-0 text-sm font-semibold" style={{ color: "#C0392B" }}>
-                {issue.error?.message || t("recordFailed")}
+                {t("recordFailed")}
               </p>
             </div>
           )}

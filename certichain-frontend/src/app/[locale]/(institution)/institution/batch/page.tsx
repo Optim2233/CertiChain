@@ -185,6 +185,16 @@ export default function BatchIssuancePage() {
       </div>
 
       <div className="mb-6 rounded-lg border border-[#c5c6cf] bg-white p-8">
+        {issueBatch.isPending ? (
+          <div className="flex flex-col items-center rounded-lg border-2 border-dashed border-[#c5c6cf] bg-[#f2f4f6] p-12 text-center">
+            <div
+              className="mb-4 size-16 animate-spin rounded-full border-4 border-[#e0e3e5]"
+              style={{ borderTopColor: "#0462BA" }}
+            />
+            <h3 className="font-heading mb-2 text-xl font-semibold">{t("issuingFile", { file: pendingFile?.name ?? "" })}</h3>
+            <p className="m-0 text-sm text-[#44474e]">{t("issuingSub")}</p>
+          </div>
+        ) : (
         <div
           onClick={() => inputRef.current?.click()}
           className="flex cursor-pointer flex-col items-center rounded-lg border-2 border-dashed border-[#c5c6cf] bg-[#f2f4f6] p-12 text-center"
@@ -205,6 +215,7 @@ export default function BatchIssuancePage() {
             onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
           />
         </div>
+        )}
       </div>
 
       {pendingFile && !results && (
@@ -251,7 +262,7 @@ export default function BatchIssuancePage() {
         <div className="mb-6 flex items-center gap-2.5 rounded border border-[rgba(192,57,43,0.3)] bg-[rgba(192,57,43,0.08)] px-4 py-3.5">
           <span className="material-symbols-outlined" style={{ color: "#C0392B" }}>error</span>
           <p className="m-0 text-sm font-semibold" style={{ color: "#C0392B" }}>
-            {issueBatch.error?.message || t("processFailed")}
+            {t("processFailed")}
           </p>
         </div>
       )}
@@ -290,7 +301,7 @@ export default function BatchIssuancePage() {
                         {isError ? tc("errorLabel") : tc("issued")}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-[13px] text-[#44474e]">{r.error ?? t("readyToIssue")}</td>
+                    <td className="px-4 py-2.5 text-[13px] text-[#44474e]">{r.error ? tc("errorLabel") : t("readyToIssue")}</td>
                   </tr>
                 )
               })}
