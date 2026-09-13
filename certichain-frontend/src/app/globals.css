@@ -19,8 +19,14 @@
   --color-seal: #8b2635;
   --color-card-ink: #0b1220;
   --color-foil: #c9a85c;
-  --font-heading: var(--font-manrope), sans-serif;
-  --font-sans: var(--font-ibm-plex-sans), var(--font-myanmar), sans-serif;
+  /* Family names as registered by the @fontsource packages imported in layout.tsx.
+     next/font used to generate these three variables; it no longer runs. */
+  --font-manrope: "Manrope";
+  --font-ibm-plex-sans: "IBM Plex Sans";
+  --font-myanmar: "Noto Sans Myanmar";
+  /* Tail falls back to a real local face rather than a serif default if a file 404s. */
+  --font-heading: var(--font-manrope), system-ui, "Segoe UI", sans-serif;
+  --font-sans: var(--font-ibm-plex-sans), var(--font-myanmar), system-ui, "Segoe UI", "Myanmar Text", sans-serif;
 }
 
 @layer base {

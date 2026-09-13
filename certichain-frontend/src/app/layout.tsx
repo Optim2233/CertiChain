@@ -1,34 +1,27 @@
 import type { Metadata } from "next"
-import { Manrope, IBM_Plex_Sans, Noto_Sans_Myanmar } from "next/font/google"
 import { Toaster } from "sonner"
 import { Providers } from "./providers"
-import "./globals.css"
 
-// Self-hosted by next/font: removes the render-blocking fonts.googleapis.com
-// round-trip that used to sit in globals.css, and pins the family names to CSS
-// variables consumed by @theme.
-const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
-  variable: "--font-manrope",
-  display: "swap",
-})
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-plex-sans",
-  display: "swap",
-})
-
+// Fonts ship as npm packages rather than next/font/google, which fetched them from
+// fonts.gstatic.com at build time - an intermittently failing network call that could
+// break `next build` entirely. Same families, same upstream files, same versions
+// (Manrope v20, IBM Plex Sans v23, Noto Sans Myanmar v27); the build no longer touches
+// the network. Matches @material-symbols/font-400, already vendored this way below.
+// Only the weights actually used are imported. Fontsource sets font-display: swap.
+import "@fontsource/manrope/400.css"
+import "@fontsource/manrope/600.css"
+import "@fontsource/manrope/700.css"
+import "@fontsource/manrope/800.css"
+import "@fontsource/ibm-plex-sans/400.css"
+import "@fontsource/ibm-plex-sans/500.css"
+import "@fontsource/ibm-plex-sans/600.css"
+import "@fontsource/ibm-plex-sans/700.css"
 // Unicode Myanmar coverage (Manrope/IBM Plex are latin-only).
-// Self-hosted by next/font; falls back in the --font-sans stack.
-const notoSansMyanmar = Noto_Sans_Myanmar({
-  subsets: ["myanmar", "latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-myanmar",
-  display: "swap",
-})
+import "@fontsource/noto-sans-myanmar/400.css"
+import "@fontsource/noto-sans-myanmar/500.css"
+import "@fontsource/noto-sans-myanmar/600.css"
+import "@fontsource/noto-sans-myanmar/700.css"
+import "./globals.css"
 
 export const metadata: Metadata = {
   title: "CertiChain",
@@ -37,7 +30,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`scroll-smooth ${manrope.variable} ${ibmPlexSans.variable} ${notoSansMyanmar.variable}`}>
+    <html lang="en" className="scroll-smooth">
       {/* suppressHydrationWarning: password-manager / form-fill extensions inject
           attributes into inputs (and thus mutate the tree) before React hydrates.
           Only suppresses attribute diffs directly on <body>, not deeper. */}
