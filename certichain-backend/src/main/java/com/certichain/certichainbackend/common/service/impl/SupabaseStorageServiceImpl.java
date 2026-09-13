@@ -1,5 +1,6 @@
 package com.certichain.certichainbackend.common.service.impl;
 
+import com.certichain.certichainbackend.common.exception.StorageUnavailableException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,10 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
+    // 4 attempts => at most ~1.4s of backoff on top of the per-request timeout, so a dead
+    // Supabase fails in bounded time instead of pinning the request thread.
+    private static final int MAX_ATTEMPTS = 4;
+    private static final long BASE_BACKOFF_MS = 200;
 
     private final String supabaseUrl;
     private final String serviceRoleKey;
@@ -102,18 +107,80 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                     .timeout(Duration.ofSeconds(20))
                     .POST(HttpRequest.BodyPublishers.ofByteArray(encrypted))
                     .build();
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("Supabase document upload failed: HTTP {} - {}", response.statusCode(), response.body());
-                throw new ValidationException("Failed to upload document to storage: HTTP " + response.statusCode());
+                throw storageFailure("upload document", response.statusCode());
             }
             // Path, not a public URL - the documents bucket has no public access.
             return path;
-        } catch (ValidationException ve) { throw ve; }
+        } catch (ValidationException | StorageUnavailableException e) { throw e; }
         catch (Exception ex) {
             log.warn("Supabase document upload exception: {}", ex.getMessage(), ex);
-            throw new ValidationException("Failed to upload document: " + ex.getMessage());
+            throw new StorageUnavailableException("Failed to upload document: " + ex.getMessage());
         }
+    }
+
+    /**
+     * Retries transient Supabase failures for both uploads (idempotent upsert, x-upsert: true)
+     * and downloads (GETs).
+     *
+     * <p>The important case is <b>HTTP 5xx/429</b>. Measured against a real socket: the JDK's
+     * HttpClient already retries connection-level failures on its own (5 attempts in ~92ms
+     * before surfacing one IOException) but never retries a status code - a 503 comes straight
+     * back after a single attempt. So an overloaded Supabase was the one failure mode with no
+     * protection at all, while IOException was already being retried twice over.
+     *
+     * <p>Sleeps between attempts with exponential backoff + jitter. The previous version looped
+     * three times with no sleep, which fired all attempts inside a few microseconds - far too
+     * fast to outlast any real blip, and redundant with the JDK's own instant retries.
+     *
+     * <p>4xx other than 429 is returned as-is: a 403/404 will never succeed on retry, and
+     * retrying would turn every miss into several round-trips.
+     */
+    private <T> HttpResponse<T> sendWithRetry(HttpRequest request, HttpResponse.BodyHandler<T> bodyHandler)
+            throws java.io.IOException, InterruptedException {
+        java.io.IOException lastIo = null;
+        HttpResponse<T> lastResponse = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            if (attempt > 1) sleepBeforeRetry(attempt);
+            try {
+                HttpResponse<T> response = HTTP_CLIENT.send(request, bodyHandler);
+                if (!isRetryableStatus(response.statusCode())) return response;
+                lastResponse = response;
+                lastIo = null;
+                log.warn("Supabase attempt {}/{} got retryable HTTP {}", attempt, MAX_ATTEMPTS, response.statusCode());
+            } catch (java.io.IOException ex) {
+                lastIo = ex;
+                lastResponse = null;
+                log.warn("Supabase attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, ex.getMessage());
+            }
+        }
+        if (lastResponse != null) return lastResponse; // caller maps the final 5xx/429
+        throw lastIo;
+    }
+
+    /**
+     * 5xx/429 (retries exhausted) is an upstream outage -> 503, so the caller is told to try
+     * again rather than that their request was malformed. A 4xx really is about the request
+     * (bad path, revoked key) and stays a 400.
+     */
+    private static RuntimeException storageFailure(String action, int status) {
+        String msg = "Failed to " + action + " from storage: HTTP " + status;
+        return isRetryableStatus(status) || status >= 500
+                ? new StorageUnavailableException(msg)
+                : new ValidationException(msg);
+    }
+
+    private static boolean isRetryableStatus(int status) {
+        return status == 429 || status >= 500;
+    }
+
+    /** Exponential backoff with jitter, so concurrent callers don't retry in lockstep. */
+    private static void sleepBeforeRetry(int attempt) throws InterruptedException {
+        long base = BASE_BACKOFF_MS << (attempt - 2); // attempt 2 -> 200ms, 3 -> 400ms, 4 -> 800ms
+        long jitter = java.util.concurrent.ThreadLocalRandom.current().nextLong(base / 2 + 1);
+        Thread.sleep(base + jitter);
     }
 
     @Override
@@ -123,14 +190,14 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                     .timeout(Duration.ofSeconds(20))
                     .GET()
                     .build();
-            HttpResponse<byte[]> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<byte[]> response = sendWithRetry(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() >= 300) {
-                throw new ValidationException("Failed to download legacy document: HTTP " + response.statusCode());
+                throw storageFailure("download legacy document", response.statusCode());
             }
             return response.body();
-        } catch (ValidationException ve) { throw ve; }
+        } catch (ValidationException | StorageUnavailableException e) { throw e; }
         catch (Exception ex) {
-            throw new ValidationException("Failed to download legacy document: " + ex.getMessage());
+            throw new StorageUnavailableException("Failed to download legacy document: " + ex.getMessage());
         }
     }
 
@@ -147,17 +214,17 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                     .timeout(Duration.ofSeconds(20))
                     .GET()
                     .build();
-            HttpResponse<byte[]> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<byte[]> response = sendWithRetry(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() >= 300) {
                 log.warn("Supabase document download failed: HTTP {}", response.statusCode());
-                throw new ValidationException("Failed to download document from storage: HTTP " + response.statusCode());
+                throw storageFailure("download document", response.statusCode());
             }
             return piiCryptoService.decryptBytes(response.body(),
                     credentialFieldCryptoService.institutionDek(institutionId));
-        } catch (ValidationException ve) { throw ve; }
+        } catch (ValidationException | StorageUnavailableException e) { throw e; }
         catch (Exception ex) {
             log.warn("Supabase document download exception: {}", ex.getMessage(), ex);
-            throw new ValidationException("Failed to download document: " + ex.getMessage());
+            throw new StorageUnavailableException("Failed to download document: " + ex.getMessage());
         }
     }
 
@@ -210,19 +277,19 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                     .POST(HttpRequest.BodyPublishers.ofByteArray(file.getBytes()))
                     .build();
 
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithRetry(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("Supabase upload failed: HTTP {} - {}", response.statusCode(), response.body());
-                throw new ValidationException("Failed to upload profile image to storage: HTTP " + response.statusCode());
+                throw storageFailure("upload profile image", response.statusCode());
             }
             String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
             log.info("Uploaded image at {} to {}", path, publicUrl);
             return publicUrl;
-        } catch (ValidationException ve) {
-            throw ve;
+        } catch (ValidationException | StorageUnavailableException e) {
+            throw e;
         } catch (Exception ex) {
             log.warn("Supabase upload exception: {}", ex.getMessage(), ex);
-            throw new ValidationException("Failed to upload profile image: " + ex.getMessage());
+            throw new StorageUnavailableException("Failed to upload profile image: " + ex.getMessage());
         }
     }
 }
