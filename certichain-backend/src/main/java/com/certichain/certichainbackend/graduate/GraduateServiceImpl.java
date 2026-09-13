@@ -238,6 +238,13 @@ public class GraduateServiceImpl implements GraduateService {
         }
         if (shareScope == ShareScope.SINGLE_CREDENTIAL) {
             ownCredential(credentialId);
+            // An empty selection persists no share_field_selection rows, and the verifier
+            // reads "no rows" as "disclose nothing" - so the link verifies but shows an
+            // empty credential. The picker already requires a checkbox; this stops the
+            // same blank share arriving from a direct API call.
+            if (selectedFieldIds == null || selectedFieldIds.isEmpty()) {
+                throw new ValidationException("Select at least one field to share");
+            }
         }
 
         Share share = shareRepository.save(Share.builder()
@@ -250,7 +257,7 @@ public class GraduateServiceImpl implements GraduateService {
                 .createdAt(Instant.now())
                 .build());
 
-        if (shareScope == ShareScope.SINGLE_CREDENTIAL && selectedFieldIds != null) {
+        if (shareScope == ShareScope.SINGLE_CREDENTIAL) {
             List<UUID> ownFieldIds = credentialFieldRepository
                     .findByCredentialIdOrderByMerkleIndex(credentialId).stream()
                     .map(CredentialField::getId)

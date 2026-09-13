@@ -136,6 +136,24 @@ class GraduateSharesAndDisputesTest {
     }
 
     @Test
+    void singleCredentialShareRejectsEmptyFieldSelection() {
+        // A share saved with no selected fields writes no share_field_selection rows, and
+        // the verifier reads "no rows" as "disclose nothing" - so the link verified but
+        // rendered an empty credential. Refuse it at creation instead.
+        Credential mine = myCredential();
+        when(credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(mine.getId()))
+                .thenReturn(List.of(CredentialField.builder().id(UUID.randomUUID())
+                        .credentialId(mine.getId()).fieldName("gpa").fieldValue("3.9").merkleIndex(0).build()));
+
+        assertThrows(ValidationException.class,
+                () -> service.createShare("s", "SINGLE_CREDENTIAL", mine.getId(), List.of()));
+        assertThrows(ValidationException.class,
+                () -> service.createShare("s", "SINGLE_CREDENTIAL", mine.getId(), null));
+
+        verify(shareRepository, never()).save(any(Share.class));
+    }
+
+    @Test
     void validSingleCredentialShareIsSavedAndAudited() {
         Credential mine = myCredential();
         CredentialField f = CredentialField.builder().id(UUID.randomUUID())
