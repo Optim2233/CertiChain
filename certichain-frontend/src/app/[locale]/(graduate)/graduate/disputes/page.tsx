@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useAllDisputes, useFlagCredential, useTimeline, useWithdrawDispute } from "@/features/graduate"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
 import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
-import { translateDisputeReason } from "@/shared/lib/dispute-reason"
+import { splitDisputeReason } from "@/shared/lib/dispute-reason"
 import { toast } from "sonner"
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; key: "underReview" | "upheld" | "dismissed" | "withdrawn" }> = {
@@ -13,6 +13,31 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; ke
   UPHELD: { bg: "rgba(192,57,43,0.1)", color: "#C0392B", icon: "check_circle", key: "upheld" },
   DISMISSED: { bg: "#eef0f3", color: "#75777f", icon: "cancel", key: "dismissed" },
   WITHDRAWN: { bg: "#eef0f3", color: "#75777f", icon: "undo", key: "withdrawn" },
+}
+
+const GRID_COLS = "2.2fr 1.7fr 1fr 1.1fr 1.2fr"
+
+/** A dispute has something to show in the outcome panel once the institution has ruled. */
+function hasOutcome(d: { status: string; resolutionNote: string | null; resolvedAt: string | null }) {
+  return d.status !== "OPEN" && d.status !== "WITHDRAWN" && Boolean(d.resolutionNote || d.resolvedAt)
+}
+
+function OutcomeToggle({ open, label, onClick }: { open: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded text-xs font-semibold text-[#44474e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0462BA]"
+    >
+      <span className="underline underline-offset-4">{label}</span>
+      <span
+        className={`material-symbols-outlined text-[16px] transition-transform duration-300 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+      >
+        expand_more
+      </span>
+    </button>
+  )
 }
 
 export default function GraduateDisputesPage() {
@@ -27,6 +52,8 @@ export default function GraduateDisputesPage() {
   const withdrawDispute = useWithdrawDispute()
 
   const [open, setOpen] = useState(false)
+  // Single-open accordion for the resolution panel, same shape as share/[token].
+  const [expanded, setExpanded] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [credentialId, setCredentialId] = useState("")
   const [reason, setReason] = useState("")
@@ -58,6 +85,78 @@ export default function GraduateDisputesPage() {
     setReason("")
     setExplain("")
     setTouched(false)
+  }
+
+  function WithdrawButton({ dispute }: { dispute: (typeof disputes)[number] }) {
+    const isThisPending = withdrawDispute.isPending && withdrawDispute.variables === dispute.id
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          withdrawDispute.mutate(dispute.id, {
+            onSuccess: () => toast.success(t("withdrawSuccess")),
+            onError: () => toast.error(t("withdrawFailed")),
+          })
+        }
+        disabled={withdrawDispute.isPending}
+        className="shrink-0 whitespace-nowrap rounded text-xs font-semibold text-[#44474e] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0462BA] disabled:opacity-50"
+      >
+        {isThisPending ? t("withdrawing") : t("withdrawDispute")}
+      </button>
+    )
+  }
+
+  /**
+   * The institution's verdict. Previously this was an unlabelled bare line under the row,
+   * which read as part of the graduate's own filing and broke the grid's rhythm.
+   *
+   * Height animates via grid-template-rows 0fr -> 1fr: the CSS-only way to transition to
+   * an auto height, so no JS measurement and no library.
+   */
+  function OutcomePanel({
+    dispute,
+    open: isOpen,
+    pad,
+  }: {
+    dispute: (typeof disputes)[number]
+    open: boolean
+    pad: string
+  }) {
+    if (!hasOutcome(dispute)) return null
+    const style = STATUS_STYLE[dispute.status] ?? STATUS_STYLE.OPEN
+    return (
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
+        <div className="overflow-hidden">
+          <div className={`${pad} pb-4`}>
+            <div
+              className="rounded-md border-l-2 bg-[#f7f9fb] px-4 py-3"
+              style={{ borderLeftColor: style.color }}
+            >
+              <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: style.color }}>
+                  {t("disputeOutcome")}
+                </span>
+                {dispute.resolvedAt && (
+                  <span className="text-[11px] text-[#75777f]">
+                    {t("disputeResolvedOn", { date: new Date(dispute.resolvedAt).toLocaleDateString(locale) })}
+                  </span>
+                )}
+              </div>
+              {dispute.resolutionNote ? (
+                <>
+                  <p className="m-0 text-[13px] leading-relaxed text-[#191c1e]">{dispute.resolutionNote}</p>
+                  <p className="m-0 mt-1.5 text-[11px] text-[#75777f]">{t("disputeFromInstitution")}</p>
+                </>
+              ) : (
+                <p className="m-0 text-[13px] italic text-[#75777f]">{t("disputeNoNote")}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const underReview = disputes.filter((d) => d.status === "OPEN").length
@@ -104,8 +203,8 @@ export default function GraduateDisputesPage() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
-        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: "2.2fr 1.8fr 1.1fr 1.1fr 0.8fr", background: "#02275A" }}>
+      <div className="hidden overflow-hidden rounded-lg border border-[#c5c6cf] bg-white sm:block">
+        <div className="grid gap-4 px-6 py-3.5" style={{ gridTemplateColumns: GRID_COLS, background: "#02275A" }}>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("credential")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("reason")}</span>
           <span className="text-[12px] font-bold uppercase tracking-wide text-white">{tc("filed")}</span>
@@ -113,7 +212,7 @@ export default function GraduateDisputesPage() {
           <span />
         </div>
         {isLoading ? (
-          <TableSkeleton columns="2.2fr 1.8fr 1.1fr 1.1fr 0.8fr" />
+          <TableSkeleton columns={GRID_COLS} />
         ) : isError ? (
           <div className="flex items-center gap-3 p-6 text-sm text-[#44474e]">
             <span>{tc("errorLabel")}</span>
@@ -127,13 +226,27 @@ export default function GraduateDisputesPage() {
           disputes.map((d) => {
             const cred = credentials.find((c) => c.id === d.credentialId)
             const style = STATUS_STYLE[d.status] ?? STATUS_STYLE.OPEN
+            const reason = splitDisputeReason(d.reason, t)
+            const isOpen = expanded === d.id
             return (
               <div key={d.id} className="border-t border-[#c5c6cf]">
-                <div className="grid items-center gap-4 px-6 py-4" style={{ gridTemplateColumns: "2.2fr 1.8fr 1.1fr 1.1fr 0.8fr" }}>
-                  <span className="text-sm font-semibold">
-                    {cred ? (cred.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord")) : tc("credential")}
-                  </span>
-                  <span className="text-[13px] text-[#44474e]">{translateDisputeReason(d.reason, t)}</span>
+                <div className="grid items-start gap-4 px-6 py-4" style={{ gridTemplateColumns: GRID_COLS }}>
+                  <div className="min-w-0">
+                    <p className="m-0 truncate text-sm font-semibold">
+                      {cred
+                        ? credentialTitle(cred, cred.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))
+                        : tc("credential")}
+                    </p>
+                    {cred && (
+                      <p className="m-0 mt-0.5 truncate text-xs text-[#75777f]">{credentialSubtitle(cred)}</p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="m-0 text-[13px] text-[#44474e]">{reason.category}</p>
+                    {reason.detail && (
+                      <p className="m-0 mt-0.5 line-clamp-2 text-xs text-[#75777f]">{reason.detail}</p>
+                    )}
+                  </div>
                   <span className="text-[13px] text-[#44474e]">{new Date(d.createdAt).toLocaleDateString(locale)}</span>
                   <span>
                     <span
@@ -144,30 +257,74 @@ export default function GraduateDisputesPage() {
                       {tc(style.key)}
                     </span>
                   </span>
-                  <span className="text-right">
-                    {d.status === "OPEN" && (() => {
-                      const isThisPending = withdrawDispute.isPending && withdrawDispute.variables === d.id
-                      return (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            withdrawDispute.mutate(d.id, {
-                              onSuccess: () => toast.success(t("withdrawSuccess")),
-                              onError: () => toast.error(t("withdrawFailed")),
-                            })
-                          }
-                          disabled={withdrawDispute.isPending}
-                          className="text-xs font-semibold text-[#44474e] underline underline-offset-4 disabled:opacity-50"
-                        >
-                          {isThisPending ? t("withdrawing") : t("withdrawDispute")}
-                        </button>
-                      )
-                    })()}
-                  </span>
+                  <div className="flex justify-end">
+                    {d.status === "OPEN" ? (
+                      <WithdrawButton dispute={d} />
+                    ) : hasOutcome(d) ? (
+                      <OutcomeToggle open={isOpen} label={t("disputeViewOutcome")} onClick={() => setExpanded(isOpen ? null : d.id)} />
+                    ) : null}
+                  </div>
                 </div>
-                {d.resolutionNote && (
-                  <div className="px-6 pb-4 text-[13px] text-[#44474e]">{d.resolutionNote}</div>
-                )}
+                <OutcomePanel dispute={d} open={isOpen} pad="px-6" />
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Under sm the five columns share ~343px, so the same rows render as cards. */}
+      <div className="flex flex-col gap-3 sm:hidden">
+        {isLoading ? (
+          <p className="rounded-lg border border-[#c5c6cf] bg-white p-6 text-sm text-[#75777f]">{tc("loading")}</p>
+        ) : isError ? (
+          <div className="flex items-center gap-3 rounded-lg border border-[#c5c6cf] bg-white p-6 text-sm text-[#44474e]">
+            <span>{tc("errorLabel")}</span>
+            <button type="button" onClick={() => refetch()} className="font-semibold underline" style={{ color: "#02275A" }}>
+              {tc("retry")}
+            </button>
+          </div>
+        ) : disputes.length === 0 ? (
+          <p className="rounded-lg border border-[#c5c6cf] bg-white p-6 text-sm text-[#75777f]">{t("noDisputes")}</p>
+        ) : (
+          disputes.map((d) => {
+            const cred = credentials.find((c) => c.id === d.credentialId)
+            const style = STATUS_STYLE[d.status] ?? STATUS_STYLE.OPEN
+            const reason = splitDisputeReason(d.reason, t)
+            const isOpen = expanded === d.id
+            return (
+              <div key={d.id} className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
+                <div className="p-4">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="m-0 text-sm font-semibold">
+                        {cred
+                          ? credentialTitle(cred, cred.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))
+                          : tc("credential")}
+                      </p>
+                      {cred && <p className="m-0 mt-0.5 text-xs text-[#75777f]">{credentialSubtitle(cred)}</p>}
+                    </div>
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
+                      style={{ background: style.bg, color: style.color }}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">{style.icon}</span>
+                      {tc(style.key)}
+                    </span>
+                  </div>
+                  <p className="m-0 text-[13px] text-[#44474e]">{reason.category}</p>
+                  {reason.detail && <p className="m-0 mt-0.5 text-xs text-[#75777f]">{reason.detail}</p>}
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-xs text-[#75777f]">
+                      {new Date(d.createdAt).toLocaleDateString(locale)}
+                    </span>
+                    {d.status === "OPEN" ? (
+                      <WithdrawButton dispute={d} />
+                    ) : hasOutcome(d) ? (
+                      <OutcomeToggle open={isOpen} label={t("disputeViewOutcome")} onClick={() => setExpanded(isOpen ? null : d.id)} />
+                    ) : null}
+                  </div>
+                </div>
+                <OutcomePanel dispute={d} open={isOpen} pad="px-4" />
               </div>
             )
           })

@@ -10,11 +10,24 @@ const REASON_KEYS = {
 
 type ReasonLabel = (key: "incorrectDetails" | "notMine" | "other") => string;
 
-export function translateDisputeReason(reason: string, t: ReasonLabel): string {
+/**
+ * Same parse as translateDisputeReason, but keeps the two halves apart so a table can put
+ * the category on its own line and the graduate's free text underneath (where it can be
+ * clamped) instead of running both together in one cell.
+ */
+export function splitDisputeReason(
+  reason: string,
+  t: ReasonLabel,
+): { category: string; detail: string } {
   const idx = reason.indexOf(":");
   const head = (idx < 0 ? reason : reason.slice(0, idx)).trim();
   const key = REASON_KEYS[head as keyof typeof REASON_KEYS];
-  if (!key) return reason;
-  const tail = idx < 0 ? "" : reason.slice(idx + 1).trim();
-  return tail ? `${t(key)}: ${tail}` : t(key);
+  // Unrecognised category (legacy or hand-written): show it verbatim, don't split it.
+  if (!key) return { category: reason, detail: "" };
+  return { category: t(key), detail: idx < 0 ? "" : reason.slice(idx + 1).trim() };
+}
+
+export function translateDisputeReason(reason: string, t: ReasonLabel): string {
+  const { category, detail } = splitDisputeReason(reason, t);
+  return detail ? `${category}: ${detail}` : category;
 }

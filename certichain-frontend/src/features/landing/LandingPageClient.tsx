@@ -492,8 +492,8 @@ function Features() {
   return (
     <section id="features" className="px-6 py-16 lg:px-10" style={{ background: "linear-gradient(135deg, #fafbfd 0%, #6f7ef0 100%)" }}>
       <div className="mx-auto max-w-[1200px]">
-        <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: "#efe6ec" }}>{t("features.kicker")}</p>
-        <h2 className="font-heading m-0 mb-9 text-[28px] font-extrabold text-white">{t("features.title")}</h2>
+        <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: "#02275A" }}>{t("features.kicker")}</p>
+        <h2 className="font-heading m-0 mb-9 text-[28px] font-extrabold" style={{ color: "#02275A" }}>{t("features.title")}</h2>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
             <div key={item.title} className="rounded-xl border border-[#e5e7eb] bg-white p-6">
