@@ -44,11 +44,11 @@ export default function BulkVerifyPage() {
   const flaggedCount = (rows?.length ?? 0) - verifiedCount
 
   return (
-    <main className="mx-auto max-w-[1100px] px-6 py-12">
+    <main className="mx-auto max-w-[1100px] px-4 py-8 sm:px-6 sm:py-12">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <p className="m-0 mb-1.5 text-xs font-bold uppercase tracking-wide text-[#75777f]">{t("forEmployers")}</p>
-          <h1 className="font-heading m-0 mb-2 text-[32px] font-extrabold">{t("bulkTitle")}</h1>
+          <h1 className="font-heading m-0 mb-2 text-2xl/8 font-extrabold sm:text-[32px]/[1.5]">{t("bulkTitle")}</h1>
           <p className="m-0 max-w-[560px] text-[15px] text-[#44474e]">
             {t("bulkSub")}
           </p>
@@ -99,9 +99,9 @@ export default function BulkVerifyPage() {
         </div>
       </div>
 
-      <div className="mb-6 rounded-lg border border-[#c5c6cf] bg-white p-8">
+      <div className="mb-6 rounded-lg border border-[#c5c6cf] bg-white p-4 sm:p-8">
         {isVerifying ? (
-          <div className="flex flex-col items-center rounded-lg border-2 border-dashed border-[#c5c6cf] bg-[#f7f9fb] p-10 text-center">
+          <div className="flex flex-col items-center rounded-lg border-2 border-dashed border-[#c5c6cf] bg-[#f7f9fb] p-6 text-center sm:p-10">
             <div
               className="mb-3.5 size-14 animate-spin rounded-full border-4 border-[#e0e3e5]"
               style={{ borderTopColor: "#0462BA" }}
@@ -114,7 +114,7 @@ export default function BulkVerifyPage() {
         ) : (
           <div
             onClick={() => inputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center rounded-lg border-2 border-dashed border-[#c5c6cf] bg-[#f7f9fb] p-10 text-center"
+            className="flex cursor-pointer flex-col items-center rounded-lg border-2 border-dashed border-[#c5c6cf] bg-[#f7f9fb] p-6 text-center sm:p-10"
           >
             <div className="mb-3.5 flex size-14 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.08)]">
               <span className="material-symbols-outlined text-[28px]" style={{ color: "#02275A" }}>cloud_upload</span>
@@ -140,14 +140,14 @@ export default function BulkVerifyPage() {
         <div className="mb-6 flex items-center gap-2.5 rounded border border-[rgba(192,57,43,0.3)] bg-[rgba(192,57,43,0.08)] px-4 py-3.5">
           <span className="material-symbols-outlined" style={{ color: "#C0392B" }}>error</span>
           <p className="m-0 text-sm font-semibold" style={{ color: "#C0392B" }}>
-            {verifyBulk.error?.message || t("verifyFailed")}
+            {t("verifyFailed")}
           </p>
         </div>
       )}
 
       {fileName && rows && (
         <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
-          <div className="flex items-center justify-between border-b border-[#c5c6cf] px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#c5c6cf] px-4 py-4 sm:px-6 sm:py-5">
             <div>
               <h3 className="font-heading m-0 text-lg font-semibold">{t("resultsFor", { file: fileName })}</h3>
               <p className="m-0 mt-1 text-[13px] text-[#44474e]">
@@ -155,6 +155,7 @@ export default function BulkVerifyPage() {
               </p>
             </div>
           </div>
+          <div className="hidden overflow-x-auto sm:block">
           <table className="w-full border-collapse">
             <thead>
               <tr style={{ background: "#02275A" }} className="text-xs uppercase tracking-wide text-white">
@@ -195,6 +196,39 @@ export default function BulkVerifyPage() {
               })}
             </tbody>
           </table>
+          </div>
+
+          {/* Under sm the 4-column table (36-char mono share code) can't fit, so the
+              same rows render as stacked cards instead of scrolling sideways. */}
+          <div className="divide-y divide-[#c5c6cf] sm:hidden">
+            {rows.map((r, i) => {
+              const style = RESULT_STYLE[r.result]
+              const token = shareToken(r.input)
+              return (
+                <div key={i} className="p-4" style={{ background: r.result === "VERIFIED" ? "#fff" : "#fff6f5" }}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: style.bg, color: style.color }}>
+                      <span className="material-symbols-outlined text-[14px]">{style.icon}</span>
+                      {tc(style.key)}
+                    </span>
+                    <Link
+                      href={`/share/${token}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[13px] font-semibold underline underline-offset-4"
+                      style={{ color: "#0462BA" }}
+                    >
+                      {tc("view")}
+                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                    </Link>
+                  </div>
+                  <p className="m-0 mb-1 text-sm font-semibold">{r.credentialTitle ?? "—"}</p>
+                  <p className="m-0 text-[11px] uppercase tracking-wide text-[#75777f]">{t("shareCodeHdr")}</p>
+                  <p className="m-0 break-all font-mono text-xs text-[#44474e]">{r.input}</p>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </main>

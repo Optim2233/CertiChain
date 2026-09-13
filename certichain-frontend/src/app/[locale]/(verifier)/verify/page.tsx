@@ -28,14 +28,14 @@ export default function VerifyPage() {
   }
 
   return (
-    <main className="relative flex flex-col items-center overflow-hidden px-6 pb-16 pt-20">
+    <main className="relative flex flex-col items-center overflow-hidden px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-20">
       {/* Rosette watermark: the same seal motif from the shield mark, oversized and
           faint, behind the verification form — this page's one job is authenticity,
           so the mark that promises it sits literally behind the mechanism that checks it. */}
       <svg
         aria-hidden="true"
         viewBox="0 0 200 200"
-        className="pointer-events-none absolute left-1/2 top-0 h-[520px] w-[520px] -translate-x-1/2 -translate-y-[18%] opacity-[0.05]"
+        className="pointer-events-none absolute left-1/2 top-0 h-[320px] w-[320px] -translate-x-1/2 -translate-y-[18%] opacity-[0.05] sm:h-[520px] sm:w-[520px]"
       >
         <circle cx="100" cy="100" r="92" fill="none" stroke="#02275A" strokeWidth="2" />
         <circle cx="100" cy="100" r="76" fill="none" stroke="#02275A" strokeWidth="1" strokeDasharray="2 6" />
@@ -51,7 +51,7 @@ export default function VerifyPage() {
           <span className="material-symbols-outlined text-[14px]">workspace_premium</span>
           {t("verifyEyebrow")}
         </span>
-        <h1 className="font-heading m-0 mb-4 text-[40px] font-extrabold" style={{ color: "#02275A" }}>{t("verifyTitle")}</h1>
+        <h1 className="font-heading m-0 mb-4 text-[26px] font-extrabold sm:text-[40px]" style={{ color: "#02275A" }}>{t("verifyTitle")}</h1>
         <p className="m-0 text-base text-[#44474e]">
           {t("verifySub")}
         </p>
@@ -70,7 +70,7 @@ export default function VerifyPage() {
         className="relative mb-5 w-full max-w-[600px] rounded-lg border bg-white p-2"
         style={{ borderColor: "#c5c6cf", boxShadow: "0 8px 30px rgba(2,39,90,0.06), 0 0 0 1px rgba(201,168,92,0.08)" }}
       >
-        <div className="px-6 pb-6 pt-6">
+        <div className="p-4 sm:px-6 sm:pb-6 sm:pt-6">
           <label className="mb-1.5 block text-sm font-bold">{t("shareCodeLabel")}</label>
           <input
             type="text"
@@ -93,7 +93,7 @@ export default function VerifyPage() {
           </button>
         </div>
 
-        <div className="flex justify-center gap-5 border-t px-6 py-4" style={{ borderColor: "#eef0fb" }}>
+        <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 border-t px-4 py-4 sm:px-6" style={{ borderColor: "#eef0fb" }}>
           <span className="flex items-center gap-1.5 text-xs text-[#75777f]">
             <span className="material-symbols-outlined text-[15px]" style={{ color: "#8b2635" }}>lock</span>
             {t("tamperRecord")}
@@ -105,7 +105,7 @@ export default function VerifyPage() {
         </div>
       </div>
 
-      <div className="relative mb-14 mt-6 flex flex-wrap justify-center gap-10">
+      <div className="relative mb-10 mt-6 flex flex-wrap justify-center gap-x-8 gap-y-6 sm:mb-14 sm:gap-10">
         <Step n={1} icon="edit_note" label={t("step1")} />
         <Step n={2} icon="link" label={t("step2")} />
         <Step n={3} icon="bolt" label={t("step3")} />

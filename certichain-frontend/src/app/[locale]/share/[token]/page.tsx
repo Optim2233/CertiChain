@@ -99,7 +99,7 @@ export default function ShareTimelinePage() {
         <p className="m-0 text-sm text-[#44474e] sm:text-base">{t("shareSub")}</p>
       </div>
 
-      <div className="rounded-lg border border-[#c5c6cf] bg-white p-5 shadow-[0_4px_40px_rgba(2,39,90,0.05)] sm:p-8">
+      <div className="rounded-lg border border-[#c5c6cf] bg-white p-3 shadow-[0_4px_40px_rgba(2,39,90,0.05)] sm:p-8">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#c5c6cf] pb-5">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full font-heading font-bold text-white sm:size-11" style={{ background: "#02275A" }}>
@@ -131,8 +131,8 @@ export default function ShareTimelinePage() {
               ? { bg: "#ffdad6", color: "#C0392B", icon: "cancel", label: tc("revoked") }
               : { bg: "#d5e3ff", color: "#02275A", icon: "check_circle", label: tc("verified") }
           return (
-            <div key={i} className="flex gap-3 sm:gap-4">
-              <div className="flex flex-col items-center">
+            <div key={i} className="flex gap-2 sm:gap-4">
+              <div className="relative z-10 flex flex-col items-center">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-full" style={{ background: dimmed ? "#f1f2f7" : "#d5e3ff" }}>
                   <span className="material-symbols-outlined text-lg" style={{ color: dimmed ? "#9aa0aa" : "#02275A" }}>
                     {expired ? "schedule" : dimmed ? "cancel" : "school"}
@@ -165,7 +165,7 @@ export default function ShareTimelinePage() {
                 </button>
 
                 {isOpen && (
-                  <div className="mt-4">
+                  <div className="mt-4 -ml-[44px] sm:ml-0">
                     <CertificateHero
                       title={e.credentialTitle ?? tc("credential")}
                       institutionName={e.institutionName}

@@ -35,7 +35,7 @@ export function CertificateHero({
   const medalSizeCls="size-12"
 
   return (
-    <div className="relative overflow-hidden p-9 text-white shadow-[0_12px_32px_rgba(2,39,90,0.3)] sm:p-10" style={{ background: bg, borderRadius: radius }}>
+    <div className="relative overflow-hidden p-4 text-white shadow-[0_12px_32px_rgba(2,39,90,0.3)] sm:p-9 md:p-10" style={{ background: bg, borderRadius: radius }}>
       {showWatermark && (
         <svg width="100%" height="100%" className="pointer-events-none absolute inset-0" style={{ opacity: wmOp }}>
           <defs>
@@ -54,9 +54,9 @@ export function CertificateHero({
           <rect width="100%" height="100%" fill="url(#heroAccent)" />
         </svg>
       )}
-      {wmIcon && <span className="material-symbols-outlined absolute right-5 top-1/2 -translate-y-1/2" style={{ fontSize: 180, opacity: wmOp-0.02 }}>{wmIcon}</span>}
+      {wmIcon && <span className="material-symbols-outlined absolute right-5 top-1/2 -translate-y-1/2" style={{ fontSize: "clamp(96px, 30vw, 180px)", opacity: wmOp-0.02 }}>{wmIcon}</span>}
 
-      <div className="relative mb-7 flex items-start justify-between">
+      <div className="relative mb-5 flex flex-wrap items-start justify-between gap-3 sm:mb-7">
         <div className="flex items-center gap-3">
           <div className={`flex shrink-0 items-center justify-center overflow-hidden ${logoRnd} ${medalSizeCls} rounded-full`} style={{ background: medalBg, border: "2px solid #c9a85c" }}>
             {logoUrl ? (
@@ -89,30 +89,30 @@ export function CertificateHero({
         )}
       </div>
 
-      <div className="relative mb-8">
-        <p className={`${fontCls} m-0 mb-1.5 text-[28px] font-extrabold leading-tight tracking-tight`}>{title}</p>
+      <div className="relative mb-6 sm:mb-8">
+        <p className={`${fontCls} m-0 mb-1.5 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl md:text-[28px]`}>{title}</p>
         {issuedTo && <p className="m-0 text-[15px]" style={{ color: "#d5e3ff" }}>{t("heroIssuedTo", { name: issuedTo })}</p>}
         {revoked && revokeReason && <p className="mt-2 text-sm text-red-300">{t("heroReason", { reason: revokeReason })}</p>}
       </div>
 
-      <div className="relative flex flex-wrap items-end justify-between gap-6">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-8">
+      <div className="relative flex flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-6">
+        <div className="flex w-full min-w-0 flex-wrap gap-x-6 gap-y-3 sm:flex-1 sm:gap-8">
           {issuedAt && <div><p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroIssueDate")}</p><p className="m-0 text-[13px] font-semibold">{new Date(issuedAt).toLocaleDateString(locale)}</p></div>}
           {credentialId && <div><p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroCredId")}</p><p className="m-0 text-[13px] font-semibold">{credentialId}</p></div>}
           {hash && <div className="min-w-0 max-w-full"><p className="m-0 mb-0.5 text-[11px] uppercase tracking-wide" style={{ color: "#a8c8ff" }}>{t("heroHash")}</p><p className="m-0 break-all font-mono text-xs">{hash}</p><p className="m-0 mt-1 text-[10px]" style={{ color: "#a8c8ff" }}>{t("heroHashNote")}</p></div>}
         </div>
-        <div className="shrink-0 rounded-md bg-white p-1.5" style={{ width: 56, height: 56 }}>
+        <div className="size-14 shrink-0 rounded-md bg-white p-1.5 sm:size-16">
           <svg viewBox="0 0 10 10" width="100%" height="100%"><rect width="10" height="10" fill="#fff" /><path d={QR_CELLS} fill="#02275A" /></svg>
         </div>
       </div>
 
       {(registrarName || hash) && (
-        <div className="relative mt-7 flex items-end justify-between border-t border-white/25 pt-3.5">
+        <div className="relative mt-5 flex flex-wrap items-end justify-between gap-3 border-t border-white/25 pt-3.5 sm:mt-7">
           <div>
             {registrarName && <div className="mb-1 h-3.5 w-[120px] border-b italic" style={{ borderColor: "#a8c8ff", fontFamily: "Manrope,sans-serif", fontSize: 14, color: "#d5e3ff" }}>{registrarName}</div>}
             <p className="m-0 text-[11px]" style={{ color: "#a8c8ff" }}>{signOffLabel}</p>
           </div>
-          {hash && <button type="button" onClick={()=>copyToClipboard(hash)} className="flex items-center gap-1.5 rounded border border-white/40 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white">{copyLabel}</button>}
+          {hash && <button type="button" onClick={()=>copyToClipboard(hash)} className="flex shrink-0 items-center gap-1.5 rounded border border-white/40 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white">{copyLabel}</button>}
         </div>
       )}
     </div>
