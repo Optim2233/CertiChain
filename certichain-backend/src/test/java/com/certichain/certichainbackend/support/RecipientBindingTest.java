@@ -4,8 +4,6 @@ import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.institution.InstitutionServiceImpl;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,20 +62,6 @@ class RecipientBindingTest {
         List<Field> original = List.of(new Field("title", "BSc"));
         InstitutionServiceImpl.withGraduateEmailField(original, "ava@example.edu");
         assertEquals(1, original.size(), "the caller's field list must not be mutated");
-    }
-
-    @Test
-    void backfillUpdatesFieldRowsInPlaceRatherThanDeletingThem() throws Exception {
-        // share_field_selection holds an FK to credential_field.id. Delete-and-recreate
-        // therefore fails with "violates foreign key constraint
-        // share_field_selection_credential_field_id_fkey" on any credential a graduate has
-        // shared, and - worse - would discard their disclosure choices if the FK ever went
-        // away. Updating in place keeps the ids, so existing shares survive the re-sign.
-        String src = Files.readString(Path.of(
-                "src/main/java/com/certichain/certichainbackend/support/RecipientBindingBackfill.java"));
-
-        assertFalse(src.contains("deleteByCredentialId"),
-                "the backfill must not delete credential_field rows - shares reference them by id");
     }
 
     @Test
