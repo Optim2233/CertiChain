@@ -91,6 +91,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         if (userRepository.existsByEmailHmac(piiCryptoService.emailHmac(req.getEmail()))) throw new ValidationException("Email already registered");
         if (req.getPhone() != null && req.getPhone().length() > 50) throw new ValidationException("phone too long (max 50)");
         if (req.getWebsite() != null && req.getWebsite().length() > 255) throw new ValidationException("website too long (max 255)");
+        validateMyanmarFormats(req);
 
         String type = req.getInstitutionType() != null ? req.getInstitutionType().trim().toLowerCase() : null;
         // backward compat: old clients send ministry but no institutionType -> treat as private
@@ -237,6 +238,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         if (institution.getStatus() != InstitutionStatus.REJECTED) {
             throw new ValidationException("Only a REJECTED application can be resubmitted");
         }
+        validateMyanmarFormats(req);
         UUID id = institution.getId();
         if (req.getName() != null && !req.getName().isBlank()) institution.setName(req.getName().trim());
         if (req.getPhone() != null) institution.setPhone(piiCryptoService.encryptInstitutionField(trimToNull(req.getPhone()), id));
@@ -706,7 +708,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         try {
             return CredentialType.valueOf(type.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
-            throw new ValidationException("Unknown type: " + type + " (expected certificate or activity_record)");
+            throw new ValidationException("This row's \"type\" is \"" + type + "\" - it must be either certificate or activity_record.");
         }
     }
 
@@ -718,7 +720,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         try {
             return LocalDate.parse(expiresAt.trim()).atStartOfDay(ZoneOffset.UTC).toInstant();
         } catch (DateTimeParseException ex) {
-            throw new ValidationException("Invalid expires_at (expected YYYY-MM-DD): " + expiresAt);
+            throw new ValidationException("This row's expiry date \"" + expiresAt + "\" isn't a valid date. Use the format YYYY-MM-DD, for example 2026-12-31.");
         }
     }
 
@@ -742,12 +744,20 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     @Transactional
     @CacheEvict(cacheNames = "institution", allEntries = true)
-    public Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt) {
+    public Credential issueActivityRecord(String graduateEmail, String activity, String date,
+            List<Map<String, String>> extraFields, Instant expiresAt) {
         requireText(activity, "activity");
         requireText(date, "date");
+        List<Field> fields = new ArrayList<>(List.of(new Field("activity", activity), new Field("date", date)));
+        if (extraFields != null) {
+            for (Map<String, String> field : extraFields) {
+                String fieldName = field.get("name");
+                requireText(fieldName, "field name");
+                fields.add(new Field(fieldName, field.getOrDefault("value", "")));
+            }
+        }
         return piiCryptoService.decryptedCredentialCopy(issue(graduateEmail,
-                List.of(new Field("activity", activity), new Field("date", date)),
-                CredentialType.ACTIVITY_RECORD, expiresAt));
+                fields, CredentialType.ACTIVITY_RECORD, expiresAt));
     }
 
     @Override
@@ -774,7 +784,7 @@ public class InstitutionServiceImpl implements InstitutionService {
             result.put("graduate", email);
             try {
                 if (email == null || email.isBlank()) {
-                    throw new ValidationException("missing graduate_email");
+                    throw new ValidationException("This row has no graduate email. Every row needs one in the graduate_email column.");
                 }
                 CredentialType type = parseBatchType(row.get("type"));
                 Instant expiresAt = parseBatchExpiry(row.get("expires_at"));
@@ -784,9 +794,18 @@ public class InstitutionServiceImpl implements InstitutionService {
                         .map(e -> new Field(e.getKey(), e.getValue()))
                         .toList();
                 if (fields.isEmpty()) {
-                    throw new ValidationException("no credential fields in row");
+                    throw new ValidationException("This row has nothing to issue. Add at least one column besides graduate_email, such as a degree or activity name.");
                 }
-                Credential credential = issue(email, fields, type, expiresAt, batchId);
+                // Graduate-facing card title comes from a field literally named "title" (see
+                // InstitutionServiceImpl#issueCertificate). Batch rows name that column freely
+                // (degree, certification_name, ...), so alias the first field as "title" too
+                // when the row didn't already supply one - otherwise the card falls back to
+                // showing the credential type instead of the degree/cert name.
+                if (fields.stream().noneMatch(f -> f.name().equals("title"))) {
+                    fields = new ArrayList<>(fields);
+                    fields.add(new Field("title", fields.get(0).value()));
+                }
+                Credential credential = issue(email, fields, type, expiresAt, batchId, trimmedBatchName);
                 result.put("status", "OK");
                 result.put("credentialId", credential.getId());
                 result.put("batchId", batchId);
@@ -815,6 +834,11 @@ public class InstitutionServiceImpl implements InstitutionService {
         Credential credential = ownCredential(credentialId);
         if (credential.getStatus() != CredentialStatus.REVOKED) {
             throw new ValidationException("Credential is not revoked");
+        }
+        if (isSupersededByActiveDuplicate(credential)) {
+            throw new ValidationException(
+                    "This credential can't be restored because an identical one has since been issued"
+                            + " to the same graduate. Revoke that newer copy first, then restore this one.");
         }
         applyRestoration(credential);
     }
@@ -866,6 +890,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 ? null : new java.util.HashSet<>(credentialIds);
         int restored = 0;
         int alreadyActive = 0;
+        int superseded = 0;
         for (Credential credential : members) {
             if (selection != null && !selection.contains(credential.getId())) {
                 continue;
@@ -874,10 +899,16 @@ public class InstitutionServiceImpl implements InstitutionService {
                 alreadyActive++;
                 continue;
             }
+            // Skip rather than throw: one superseded credential shouldn't abort the
+            // transaction and leave the rest of the batch un-restored.
+            if (isSupersededByActiveDuplicate(credential)) {
+                superseded++;
+                continue;
+            }
             applyRestoration(credential);
             restored++;
         }
-        return new BatchUnrevokeResult(restored, alreadyActive);
+        return new BatchUnrevokeResult(restored, alreadyActive, superseded);
     }
 
     /** Shared revoke behaviour: status + reason + timestamp, audit entry, graduate notification. */
@@ -900,6 +931,19 @@ public class InstitutionServiceImpl implements InstitutionService {
      * ever happened. Revoke never touches merkleRoot/signature (see applyRevocation),
      * so restoring doesn't need to re-sign either — it's a status-field flip both ways.
      */
+    /**
+     * Restoring flips a row back to active, so it collides with the partial unique index
+     * uq_credential_institution_merkle_active when an identical credential was re-issued
+     * while this one was revoked. Callers check this first: otherwise the constraint fires
+     * mid-transaction and the request dies as a bare 409 naming neither the credential nor
+     * what to do about it.
+     */
+    private boolean isSupersededByActiveDuplicate(Credential credential) {
+        return credential.getMerkleRoot() != null
+                && credentialRepository.existsByInstitutionIdAndMerkleRootAndStatusNot(
+                        credential.getInstitutionId(), credential.getMerkleRoot(), CredentialStatus.REVOKED);
+    }
+
     private void applyRestoration(Credential credential) {
         credential.setStatus(CredentialStatus.ISSUED);
         credential.setRevokeReason(null);
@@ -1089,6 +1133,13 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     /** Re-signs a credential's field set and replaces its stored fields with the signed result. */
     private void resignFields(Credential credential, List<Field> toSign) {
+        // Re-signing must keep the recipient binding. Both callers can pass a field list
+        // straight from the request, which would drop graduate_email and produce a root
+        // that no longer identifies the holder - so restore it here, once, rather than in
+        // each caller. Idempotent, so a list that already has it is untouched.
+        toSign = withGraduateEmailField(toSign,
+                piiCryptoService.decryptUserField(credential.getGraduateEmail()));
+
         // ponytail: unique field names guard before delete to avoid transient constraint violation
         java.util.Set<String> seen = new java.util.HashSet<>();
         for (Field f : toSign) {
@@ -1116,16 +1167,32 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     /**
+     * Canonical name of the field that binds a credential to its recipient. Public so the
+     * one-time re-sign backfill uses the identical convention - if these ever drift, every
+     * backfilled root stops matching what issuance produces.
+     */
+    public static final String GRADUATE_EMAIL_FIELD = "graduate_email";
+
+    /**
+     * Returns {@code fields} with the normalized graduate email appended as a signed field.
+     * Idempotent: a field set that already carries one is returned unchanged, so re-signing
+     * (edits, backfill) never appends a duplicate.
+     */
+    public static List<Field> withGraduateEmailField(List<Field> fields, String normalizedEmail) {
+        if (fields.stream().anyMatch(f -> GRADUATE_EMAIL_FIELD.equalsIgnoreCase(f.name()))) {
+            return fields;
+        }
+        List<Field> out = new ArrayList<>(fields);
+        out.add(new Field(GRADUATE_EMAIL_FIELD, normalizedEmail));
+        return out;
+    }
+
+    /**
      * The single issuance path - single certificates, activity records and every batch row
      * funnel through here, so the APPROVED gate cannot be bypassed on one of them.
      */
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type, Instant expiresAt) {
         return issue(graduateEmail, fields, type, expiresAt, null, null);
-    }
-
-    private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
-                             Instant expiresAt, UUID batchId) {
-        return issue(graduateEmail, fields, type, expiresAt, batchId, null);
     }
 
     private Credential issue(String graduateEmail, List<Field> fields, CredentialType type,
@@ -1140,7 +1207,15 @@ public class InstitutionServiceImpl implements InstitutionService {
                             + institution.getStatus() + ")");
         }
 
-        SignedCredential signed = signingService.signCredential(fields, institutionId);
+        // Bind the recipient into the signed field set. Without this the merkle root covers
+        // only the academic fields, which had two consequences: the signature did not prove
+        // WHO a credential belongs to (swapping graduate_email in the DB still verified
+        // clean), and dedup collapsed a whole cohort into one row - an institution could
+        // issue "BSc Software Engineering, 2026-06-01" exactly once, to anyone.
+        // Every issuance path funnels through here, so this is the only insertion point.
+        List<Field> signedFields = withGraduateEmailField(fields, normGradEmail);
+
+        SignedCredential signed = signingService.signCredential(signedFields, institutionId);
 
         // Reject an exact re-issue. The DB's uq_credential_institution_merkle_active is the
         // race-safe guarantee; this check just turns it into a clean message instead of a
@@ -1170,7 +1245,7 @@ public class InstitutionServiceImpl implements InstitutionService {
                 .expiresAt(expiresAt)
                 .build());
 
-for (SignedCredential.FieldWithIndex field : signed.fields()) {
+        for (SignedCredential.FieldWithIndex field : signed.fields()) {
             CredentialField toSave = CredentialField.builder()
                     .credentialId(credential.getId())
                     .fieldName(field.name())
@@ -1226,6 +1301,57 @@ for (SignedCredential.FieldWithIndex field : signed.fields()) {
             rows.add(row);
         }
         return rows;
+    }
+
+    // Myanmar input formats, mirroring certichain-frontend/src/features/institution/utils/myanmar.ts.
+    // Client validation is bypassable, so the same rules are enforced here.
+    private static final java.util.regex.Pattern MM_PHONE_RE = java.util.regex.Pattern.compile("^\\+959\\d{6,10}$");
+    private static final java.util.regex.Pattern POSTAL_RE = java.util.regex.Pattern.compile("^\\d{5}$");
+    private static final java.util.regex.Pattern NRC_RE =
+            java.util.regex.Pattern.compile("^(?:[1-9]|1[0-4])/[A-Za-z]{2,8}\\((?:TH|[NEPTSA])\\)\\d{6}$");
+    private static final java.util.regex.Pattern PASSPORT_RE = java.util.regex.Pattern.compile("^[A-Za-z]{1,2}\\d{6,8}$");
+    // ponytail: only the 15 top-level divisions are mirrored here; the district and
+    // township tables are ~330 rows and live only in the frontend picker. Mirror them
+    // if free-text district/township values ever need rejecting.
+    private static final java.util.Set<String> STATE_REGIONS = java.util.Set.of(
+            "Ayeyarwady", "Bago", "Chin", "Kachin", "Kayah", "Kayin", "Magway", "Mandalay",
+            "Mon", "Nay Pyi Taw", "Rakhine", "Sagaing", "Shan", "Tanintharyi", "Yangon");
+
+    /**
+     * Validates the Myanmar-specific formats shared by apply() and resubmit().
+     * Blank/null values are left to the existing required-field checks.
+     */
+    private static void validateMyanmarFormats(ApplyInstitutionRequest req) {
+        String phone = trimToNull(req.getPhone());
+        if (phone != null && phone.startsWith("+95") && !MM_PHONE_RE.matcher(phone).matches())
+            throw new ValidationException("Invalid Myanmar phone number (expected +959XXXXXXX)");
+
+        String postal = trimToNull(req.getPostalCode());
+        if (postal != null && !POSTAL_RE.matcher(postal).matches())
+            throw new ValidationException("Invalid postalCode (expected 5 digits)");
+
+        String stateRegion = trimToNull(req.getStateRegion());
+        if (stateRegion != null && !STATE_REGIONS.contains(stateRegion))
+            throw new ValidationException("Invalid stateRegion: " + stateRegion);
+
+        validatePersonNrcs(req.getFoundersJson(), "founder");
+        validatePersonNrcs(req.getAdministratorJson(), "administrator");
+    }
+
+    /** Checks nrcOrPassport on each person in a founders array or administrator object. */
+    private static void validatePersonNrcs(String json, String label) {
+        if (json == null || json.isBlank()) return;
+        tools.jackson.databind.JsonNode root;
+        try { root = new tools.jackson.databind.ObjectMapper().readTree(json.trim()); }
+        catch (Exception e) { throw new ValidationException("Invalid " + label + " JSON"); }
+        for (tools.jackson.databind.JsonNode person : root.isArray() ? root : java.util.List.of(root)) {
+            tools.jackson.databind.JsonNode nrc = person.get("nrcOrPassport");
+            if (nrc == null || !nrc.isTextual()) continue;
+            String v = nrc.asString().trim();
+            if (v.isEmpty()) continue;
+            if (!NRC_RE.matcher(v).matches() && !PASSPORT_RE.matcher(v).matches())
+                throw new ValidationException("Invalid " + label + " NRC or passport number: " + v);
+        }
     }
 
     private static String trimToNull(String s) {
