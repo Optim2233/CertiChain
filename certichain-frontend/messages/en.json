@@ -533,6 +533,7 @@
     "unrevokingBatch": "Restoring…",
     "selectRestoreRecipients": "Recipients to restore",
     "unrevokeBatchToast": "{restored, plural, one {# restored} other {# restored}}{already, plural, =0 {} one {, # already active} other {, # already active}}",
+    "unrevokeSupersededToast": "{n, plural, one {# couldn't be restored — a newer identical credential exists.} other {# couldn't be restored — newer identical credentials exist.}}",
     "disputesTitle": "Disputes",
     "disputesSub": "Entries graduates have flagged as inaccurate.",
     "noDisputes": "No disputes filed.",
@@ -644,6 +645,7 @@
     "thDetail": "Detail",
     "errorsFound": "{n, plural, one {# error found} other {# errors found}}",
     "readyToIssue": "Ready to issue",
+    "batchRowIssued": "Issued and signed",
     "clear": "Clear",
     "fieldNamePh": "Field name (e.g., Minor, Honors)",
     "fieldValuePh": "Value",
@@ -703,7 +705,11 @@
     "toastFailed": "Failed",
     "toastPwUpdated": "Password updated",
     "toastUnsupported": "Unsupported type",
-    "toastTooLarge": "Too large"
+    "toastTooLarge": "Too large",
+    "batchSearchPh": "Search batches by name...",
+    "batchNoMatch": "No batches match your search or filter.",
+    "batchPartial": "Partly revoked",
+    "batchNameCol": "Batch name"
   },
   "graduate": {
     "eyebrow": "Your credential wallet",
@@ -1038,6 +1044,17 @@
         "title": "Activity Records",
         "desc": "Issue verifiable activity records as digital credentials."
       }
+    },
+    "registry": {
+      "kicker": "The Registry",
+      "title": "Accredited institutions issuing on CertiChain",
+      "subtitle": "Every issuer here was reviewed and accredited by the Accreditation Authority. A credential is only as trustworthy as the institution behind it — so the list is public.",
+      "accredited": "Accredited",
+      "suspended": "Suspended",
+      "since": "Since {year}",
+      "viewAll": "View all institutions",
+      "empty": "The registry opens once the first institution is accredited.",
+      "loadFailed": "Couldn't load the registry just now."
     },
     "stats": {
       "verified": "Certificates Verified",

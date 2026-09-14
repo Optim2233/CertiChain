@@ -54,7 +54,7 @@ describe('BatchesPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Batches' })).toBeInTheDocument()
     expect(screen.getByText('Untitled batch')).toBeInTheDocument()
-    expect(screen.getByText('2 / 10')).toBeInTheDocument()
+    expect(screen.getByText('Partly revoked · 2/10')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Revoke batch' })).toBeInTheDocument()
   })
 
@@ -91,7 +91,44 @@ describe('BatchesPage', () => {
     render(<BatchesPage />, { wrapper: makeWrapper() })
     expect(screen.queryByRole('button', { name: 'Revoke batch' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Restore batch' })).toBeInTheDocument()
-    expect(screen.getByText('5 / 5')).toBeInTheDocument()
+    expect(screen.getAllByText('Revoked').some((el) => el.tagName === 'SPAN')).toBe(true)
+  })
+
+  it('labels a batch with nothing revoked as active', () => {
+    useBatchesMock.mockReturnValue(batchesResult({
+      data: { data: [{ batchId: 'b1', batchName: null, issuedAt: '2026-01-01T10:00:00Z', total: 5, revoked: 0 }] },
+    } as never))
+    render(<BatchesPage />, { wrapper: makeWrapper() })
+    expect(screen.getAllByText('Active').some((el) => el.tagName === 'SPAN')).toBe(true)
+  })
+
+  it('filters to fully-revoked batches only', async () => {
+    const user = userEvent.setup()
+    useBatchesMock.mockReturnValue(batchesResult({
+      data: { data: [
+        { batchId: 'b1', batchName: 'Still active', issuedAt: '2026-01-01T10:00:00Z', total: 5, revoked: 0 },
+        { batchId: 'b2', batchName: 'All revoked', issuedAt: '2026-01-02T10:00:00Z', total: 5, revoked: 5 },
+      ] },
+    } as never))
+    render(<BatchesPage />, { wrapper: makeWrapper() })
+
+    await user.click(screen.getByRole('button', { name: 'Revoked' }))
+    expect(screen.queryByText('Still active')).not.toBeInTheDocument()
+    expect(screen.getByText('All revoked')).toBeInTheDocument()
+  })
+
+  it('searches by batch name and shows a no-match message', async () => {
+    const user = userEvent.setup()
+    useBatchesMock.mockReturnValue(batchesResult({
+      data: { data: [
+        { batchId: 'b1', batchName: 'Fall 2026 Cohort', issuedAt: '2026-01-01T10:00:00Z', total: 5, revoked: 0 },
+      ] },
+    } as never))
+    render(<BatchesPage />, { wrapper: makeWrapper() })
+
+    await user.type(screen.getByRole('searchbox'), 'spring')
+    expect(screen.queryByText('Fall 2026 Cohort')).not.toBeInTheDocument()
+    expect(screen.getByText('No batches match your search or filter.')).toBeInTheDocument()
   })
 
   it('blocks revoke until a reason is entered, then calls mutate with batchId + reason', async () => {

@@ -101,12 +101,12 @@ export default function ShareTimelinePage() {
 
       <div className="rounded-lg border border-[#c5c6cf] bg-white p-3 shadow-[0_4px_40px_rgba(2,39,90,0.05)] sm:p-8">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#c5c6cf] pb-5">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full font-heading font-bold text-white sm:size-11" style={{ background: "#02275A" }}>
               {(list[0]?.issuedTo ?? "?").slice(0, 2).toUpperCase()}
             </div>
-            <div>
-              <h2 className="font-heading m-0 text-base font-semibold sm:text-lg">{list[0]?.issuedTo}</h2>
+            <div className="min-w-0">
+              <h2 className="font-heading m-0 break-all text-base font-semibold sm:text-lg">{list[0]?.issuedTo}</h2>
               <p className="m-0 mt-0.5 text-xs text-[#75777f] sm:text-[13px]">{t("sharedTimeline", { n: list.length })}</p>
             </div>
           </div>

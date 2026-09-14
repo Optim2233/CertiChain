@@ -1,13 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { useBatches, useBatchMembers, useRevokeBatch, useUnrevokeBatch } from "@/features/institution"
 import type { BatchSummary } from "@/features/institution"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
+import { Pager } from "@/shared/components/ui/pager"
 
 const GRID_COLS = "1.2fr 1.4fr 1fr 1fr 1.2fr"
+const PAGE_SIZE = 10
+
+type BatchFilter = "ALL" | "ACTIVE" | "REVOKED"
 
 function fmtDate(iso: string, locale: string) {
   return new Date(iso).toLocaleString(locale, {
@@ -23,6 +27,37 @@ export default function BatchesPage() {
   const batches = data?.data ?? []
   const revoke = useRevokeBatch()
   const unrevoke = useUnrevokeBatch()
+
+  const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState<BatchFilter>("ALL")
+  const [page, setPage] = useState(0)
+
+  // The endpoint returns every batch in one payload, so search and filter run
+  // client-side - no round trip per keystroke, same as the institution directory.
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return batches.filter((b) => {
+      const name = (b.batchName ?? "").toLowerCase()
+      if (q && !name.includes(q)) return false
+      // "Active" = anything still issuing; a partly-revoked batch is still active.
+      if (filter === "ACTIVE") return b.revoked < b.total
+      if (filter === "REVOKED") return b.revoked >= b.total
+      return true
+    })
+  }, [batches, search, filter])
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+  // Deleting or filtering can strand you past the last page - clamp rather than
+  // render an empty table.
+  const safePage = Math.min(page, totalPages - 1)
+  const pageRows = visible.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+  const pageEnvelope = {
+    number: safePage,
+    totalPages,
+    totalElements: visible.length,
+    first: safePage === 0,
+    last: safePage >= totalPages - 1,
+  }
 
   const [revokeTarget, setRevokeTarget] = useState<BatchSummary | null>(null)
   const [unrevokeTarget, setUnrevokeTarget] = useState<BatchSummary | null>(null)
@@ -88,6 +123,8 @@ export default function BatchesPage() {
       {
         onSuccess: (res) => {
           toast.success(t("unrevokeBatchToast", { restored: res.data.restored, already: res.data.alreadyActive ?? 0 }))
+          // Surfaced separately: skipping these is the one outcome the user has to act on.
+          if (res.data.superseded) toast.warning(t("unrevokeSupersededToast", { n: res.data.superseded }))
           closeModal()
         },
         onError: (e: unknown) => { console.error(e); toast.error(t("restoreToastFail")) },
@@ -104,15 +141,49 @@ export default function BatchesPage() {
         </p>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] flex-1 sm:max-w-[360px]">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#75777f]">search</span>
+          <input
+            type="search"
+            name="batch-search"
+            autoComplete="off"
+            aria-label={t("batchSearchPh")}
+            placeholder={t("batchSearchPh")}
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+            className="w-full rounded-lg border border-[#c5c6cf] bg-white py-2.5 pl-10 pr-3.5 text-sm"
+          />
+        </div>
+        <div className="flex gap-2">
+          {([
+            { key: "ALL", label: tc("all") },
+            { key: "ACTIVE", label: tc("active") },
+            { key: "REVOKED", label: tc("revoked") },
+          ] as const).map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              aria-pressed={filter === f.key}
+              onClick={() => { setFilter(f.key); setPage(0) }}
+              className="rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
+              style={filter === f.key ? { background: "#02275A", color: "#fff" } : { background: "#eef0f3", color: "#44474e" }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-lg border border-[#c5c6cf] bg-white">
         <div
           className="grid gap-4 border-b border-[#c5c6cf] bg-[#02275A] px-4 py-3 text-xs uppercase tracking-wide text-white"
           style={{ gridTemplateColumns: GRID_COLS }}
         >
-          <span>{t("batchNameLabel")}</span>
+          <span>{t("batchNameCol")}</span>
           <span>{tc("issued")}</span>
           <span>{tc("credential")}</span>
-          <span>{tc("revoked")}</span>
+          <span>{tc("status")}</span>
           <span />
         </div>
 
@@ -122,8 +193,10 @@ export default function BatchesPage() {
           <p className="px-4 py-8 text-sm text-[#C0392B]">{t("loadBatchesFailed")}</p>
         ) : batches.length === 0 ? (
           <p className="px-4 py-8 text-sm text-[#44474e]">{t("noBatches")}</p>
+        ) : pageRows.length === 0 ? (
+          <p className="px-4 py-8 text-sm text-[#44474e]">{t("batchNoMatch")}</p>
         ) : (
-          batches.map((b) => {
+          pageRows.map((b) => {
             const fullyRevoked = b.revoked >= b.total
             return (
               <div
@@ -144,7 +217,11 @@ export default function BatchesPage() {
                         : { background: "rgba(16,185,129,0.1)", color: "#0d9668" }
                   }
                 >
-                  {b.revoked} / {b.total}
+                  {fullyRevoked
+                    ? tc("revoked")
+                    : b.revoked > 0
+                      ? `${t("batchPartial")} · ${b.revoked}/${b.total}`
+                      : tc("active")}
                 </span>
                 <span className="flex justify-end gap-2 text-right">
                   {!fullyRevoked && (
@@ -170,6 +247,8 @@ export default function BatchesPage() {
             )
           })
         )}
+
+        <Pager page={pageEnvelope} onPageChange={setPage} />
       </div>
 
       {revokeTarget && (

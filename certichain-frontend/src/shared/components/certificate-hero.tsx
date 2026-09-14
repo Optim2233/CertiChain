@@ -91,7 +91,7 @@ export function CertificateHero({
 
       <div className="relative mb-6 sm:mb-8">
         <p className={`${fontCls} m-0 mb-1.5 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl md:text-[28px]`}>{title}</p>
-        {issuedTo && <p className="m-0 text-[15px]" style={{ color: "#d5e3ff" }}>{t("heroIssuedTo", { name: issuedTo })}</p>}
+        {issuedTo && <p className="m-0 break-words text-[15px]" style={{ color: "#d5e3ff" }}>{t("heroIssuedTo", { name: issuedTo })}</p>}
         {revoked && revokeReason && <p className="mt-2 text-sm text-red-300">{t("heroReason", { reason: revokeReason })}</p>}
       </div>
 

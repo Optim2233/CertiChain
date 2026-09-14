@@ -4,7 +4,9 @@ import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@/i18n/navigation"
 import { LocaleToggle } from "@/shared/components/locale-toggle"
-import { useTrustStats } from "@/features/verifier"
+import { usePublicInstitutions, useTrustStats } from "@/features/verifier"
+import type { PublicInstitution } from "@/features/verifier"
+import { institutionAccent } from "@/shared/components/credential-card"
 
 const QR_PATH = "M0 0h3v3H0zM7 0h3v3H7zM0 7h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM4 5h2v1H4zM4 7h1v3H4zM6 4h1v1H6zM8 4h2v1H8zM6 6h1v4H6zM8 8h2v2H8z"
 
@@ -35,6 +37,7 @@ export function LandingPageClient() {
       <HowItWorks />
       <InstantVerification mode={mode} setMode={setMode} certId={certId} setCertId={setCertId} onVerify={goVerify} />
       <Features />
+      <Registry />
       <StatsBar stats={stats} />
       <CtaBanner />
       <Footer />
@@ -507,6 +510,116 @@ function Features() {
         </div>
       </div>
     </section>
+  )
+}
+
+/**
+ * Registry teaser. The full directory (search, every column) already lives at
+ * /institutions - this is the credibility proof on the way there, so it shows a
+ * handful of real issuers and links out rather than duplicating the table.
+ */
+function Registry() {
+  const t = useTranslations("landing")
+  const { data, isLoading, isError } = usePublicInstitutions()
+  const all: PublicInstitution[] = data?.data ?? []
+  // Accredited first, then most recently accredited - the newest approvals are
+  // the ones worth showing off, and a suspended issuer shouldn't lead.
+  const shown = [...all]
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === "APPROVED" ? -1 : 1
+      return (b.decidedAt ?? "").localeCompare(a.decidedAt ?? "")
+    })
+    .slice(0, 6)
+
+  return (
+    <section id="institutions" className="px-6 py-16 lg:px-10">
+      <div className="mx-auto max-w-[1200px]">
+        <div className="mb-9 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-[640px]">
+            <p className="m-0 mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: "#0462BA" }}>{t("registry.kicker")}</p>
+            <h2 className="font-heading m-0 mb-3 text-[28px] font-extrabold leading-tight">{t("registry.title")}</h2>
+            <p className="m-0 text-sm leading-relaxed text-[#44474e]">{t("registry.subtitle")}</p>
+          </div>
+          {all.length > 0 && (
+            <Link
+              href="/institutions"
+              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-md border border-[#0462BA] px-5 py-2.5 text-sm font-bold transition-colors hover:bg-[#0462BA] hover:text-white md:self-auto"
+              style={{ color: "#0462BA" }}
+            >
+              {t("registry.viewAll")}
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </Link>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-[104px] animate-pulse rounded-xl border border-[#e5e7eb] bg-[#f4f5f8]" />
+            ))}
+          </div>
+        ) : isError ? (
+          <p className="m-0 text-sm text-[#75777f]">{t("registry.loadFailed")}</p>
+        ) : shown.length === 0 ? (
+          <p className="m-0 text-sm text-[#75777f]">{t("registry.empty")}</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {shown.map((inst) => (
+              <RegistryCard key={inst.id} inst={inst} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** One issuer. The left rule carries the institution's own brand colour, so this
+ *  section gets its variety from the data rather than from decoration. */
+function RegistryCard({ inst }: { inst: PublicInstitution }) {
+  const t = useTranslations("landing")
+  const accent = inst.brandColor || institutionAccent(inst.name)
+  const suspended = inst.status === "SUSPENDED"
+  const year = inst.decidedAt ? new Date(inst.decidedAt).getFullYear() : null
+  const monogram = inst.name.trim().split(/\s+/).filter((w) => /[a-z0-9]/i.test(w[0] ?? "")).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("")
+
+  return (
+    <Link
+      href="/institutions"
+      className="group flex h-full min-w-0 items-start gap-3.5 rounded-xl border border-[#e5e7eb] bg-white p-5 transition-shadow hover:shadow-[0_6px_20px_rgba(2,39,90,0.08)]"
+      style={{ borderLeft: `3px solid ${accent}` }}
+    >
+      <span
+        className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-extrabold text-white"
+        style={{ background: accent }}
+        aria-hidden="true"
+      >
+        {inst.profileImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={inst.profileImageUrl} alt="" className="size-full object-cover" />
+        ) : (
+          monogram
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="font-heading m-0 block truncate text-sm font-bold group-hover:underline">{inst.name}</span>
+        {inst.ministry && <span className="m-0 mt-0.5 block truncate text-xs text-[#75777f]">{inst.ministry}</span>}
+        <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 pt-px">
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+            style={suspended
+              ? { background: "rgba(192,57,43,0.1)", color: "#a33227" }
+              : { background: "rgba(16,185,129,0.12)", color: "#0d9668" }}
+          >
+            <span className="material-symbols-outlined text-[13px]">{suspended ? "pause_circle" : "verified"}</span>
+            {suspended ? t("registry.suspended") : t("registry.accredited")}
+          </span>
+          {year && !suspended && (
+            <span className="text-[11px] text-[#75777f]">{t("registry.since", { year })}</span>
+          )}
+        </span>
+      </span>
+    </Link>
   )
 }
 
