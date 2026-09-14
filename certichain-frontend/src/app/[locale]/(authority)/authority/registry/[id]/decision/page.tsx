@@ -107,14 +107,6 @@ export default function ReviewDecisionPage() {
             {t("reject")}
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setModalType("info")}
-          className="flex w-full items-center justify-center gap-2 rounded border border-dashed border-[#c5c6cf] bg-white px-4 py-3 text-[13px] font-semibold text-[#44474e]"
-        >
-          <span className="material-symbols-outlined text-lg">help</span>
-          {t("requestInfo")}
-        </button>
       </div>
 
       {confirmingApprove && (
