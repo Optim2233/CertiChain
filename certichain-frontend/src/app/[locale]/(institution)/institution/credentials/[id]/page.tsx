@@ -12,6 +12,7 @@ import {
   useEditCredential,
   useUpholdDispute,
   useDisputes,
+  useInstitutionMe,
 } from "@/features/institution"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
@@ -35,6 +36,9 @@ function CredentialDetailContent() {
   const credential = credData?.data
   const { data: fieldsData } = useCredentialFields(id)
   const fields = fieldsData?.data ?? []
+  // The issuing institution is always the signed-in one here, so its branding comes
+  // from /institution/me rather than being added to every credential response.
+  const { data: me } = useInstitutionMe()
   const { data: disputesData } = useDisputes()
   const resolvingDispute = disputesData?.data.find((d) => d.id === disputeId)
 
@@ -98,14 +102,23 @@ function CredentialDetailContent() {
 
       <div className="mb-6">
         <CertificateHero
-          title={credential.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord")}
-          institutionName="Univ. of Info Tech"
+          title={fields.find((f) => f.fieldName === "title")?.fieldValue
+            || (credential.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))}
+          institutionName={me?.name}
           issuedTo={credential.graduateEmail}
           issuedAt={credential.issuedAt}
           credentialId={credential.id}
           hash={credential.merkleRoot ?? credential.signature}
           revoked={credential.status === "REVOKED"}
           revokeReason={credential.revokeReason}
+          brandColor={me?.brandColor}
+          secondaryBrandColor={me?.secondaryBrandColor}
+          logoUrl={me?.profileImageUrl}
+          accentPattern={me?.accentPattern ?? undefined}
+          accentColor={me?.accentColor}
+          patternScale={me?.patternScale}
+          titleFont={me?.titleFont}
+          watermarkIcon={me?.watermarkIcon ?? undefined}
         />
       </div>
 
