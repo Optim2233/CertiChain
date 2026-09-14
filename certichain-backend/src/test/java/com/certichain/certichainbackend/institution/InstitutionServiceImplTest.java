@@ -215,7 +215,7 @@ class InstitutionServiceImplTest {
     @Test
     void updateRejectsTooLightBrandColor() {
         callerIsApprovedInstitution();
-        // #ffffff on white fails the 4.5 contrast rule
+        // #ffffff on white is 1.0:1 - unreadable at any threshold
         assertThrows(ValidationException.class, () -> service.updateOwnInstitution(
                 null, null, null, null, null, "#ffffff", null, null, null, null, null, null, null));
     }
@@ -471,5 +471,94 @@ class InstitutionServiceImplTest {
         assertEquals(1, analytics.topVerified().size());
         assertEquals("BSc Computer Science", analytics.topVerified().get(0).title());
         assertEquals(c.getId().toString(), analytics.topVerified().get(0).credentialId());
+    }
+
+    // --- Myanmar input formats (mirrors certichain-frontend .../utils/myanmar.ts) ---
+
+    /** apply() request carrying only the Myanmar-format fields under test. */
+    private ApplyInstitutionRequest mmReq(java.util.function.Consumer<ApplyInstitutionRequest.ApplyInstitutionRequestBuilder> tweak) {
+        ApplyInstitutionRequest.ApplyInstitutionRequestBuilder b = ApplyInstitutionRequest.builder()
+                .name("UIT").email("e@x.com").password("password1").institutionType("private");
+        tweak.accept(b);
+        return b.build();
+    }
+
+    @Test
+    void applyRejectsMalformedMyanmarPhone() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        // leading zero not stripped, and too few digits
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b -> b.phone("+9509123456789"))));
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b -> b.phone("+95912"))));
+        verify(institutionRepository, never()).save(any());
+    }
+
+    @Test
+    void applyAcceptsCanonicalMyanmarPhoneAndLeavesOtherCountriesAlone() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(institutionRepository.save(any(Institution.class))).thenAnswer(i -> {
+            Institution inst = i.getArgument(0);
+            inst.setId(UUID.randomUUID());
+            return inst;
+        });
+        assertEquals("+959123456789", service.apply(mmReq(b -> b.phone("+959123456789"))).getPhone());
+        // a non-+95 number is not subject to the Myanmar rule
+        assertEquals("+6591234567", service.apply(mmReq(b -> b.phone("+6591234567"))).getPhone());
+    }
+
+    @Test
+    void applyRejectsBadPostalCodeAndUnknownStateRegion() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b -> b.postalCode("1118"))));
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b -> b.postalCode("abcde"))));
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b -> b.stateRegion("Yangoon"))));
+        verify(institutionRepository, never()).save(any());
+    }
+
+    @Test
+    void applyRejectsMalformedFounderNrc() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b ->
+                b.foundersJson("[{\"fullName\":\"Aung Ko\",\"nrcOrPassport\":\"12/MaBaNa(N)12345\"}]"))));
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b ->
+                b.foundersJson("[{\"fullName\":\"Aung Ko\",\"nrcOrPassport\":\"15/MaBaNa(N)123456\"}]"))));
+        assertThrows(ValidationException.class, () -> service.apply(mmReq(b ->
+                b.administratorJson("{\"fullName\":\"Aung Ko\",\"nrcOrPassport\":\"not-an-nrc\"}"))));
+        verify(institutionRepository, never()).save(any());
+    }
+
+    @Test
+    void applyAcceptsWellFormedNrcPassportAndAddress() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(institutionRepository.save(any(Institution.class))).thenAnswer(i -> {
+            Institution inst = i.getArgument(0);
+            inst.setId(UUID.randomUUID());
+            return inst;
+        });
+        Institution result = service.apply(mmReq(b -> b
+                .phone("+959123456789").stateRegion("Yangon").district("Yangon West").township("Bahan")
+                .postalCode("11201")
+                .foundersJson("[{\"fullName\":\"Aung Ko\",\"nrcOrPassport\":\"12/MaBaNa(N)123456\"},"
+                        + "{\"fullName\":\"Jane Doe\",\"nrcOrPassport\":\"MA123456\"}]")
+                .administratorJson("{\"fullName\":\"Aye Aye\",\"nrcOrPassport\":\"9/MaHaMa(TH)654321\"}")));
+        assertEquals(InstitutionStatus.PENDING, result.getStatus());
+        assertEquals("Yangon", result.getStateRegion());
+        assertEquals("11201", result.getPostalCode());
+    }
+
+    @Test
+    void applyIgnoresBlankOptionalMyanmarFields() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(institutionRepository.save(any(Institution.class))).thenAnswer(i -> {
+            Institution inst = i.getArgument(0);
+            inst.setId(UUID.randomUUID());
+            return inst;
+        });
+        // blank strings must not trip the format checks
+        Institution result = service.apply(mmReq(b -> b.phone("  ").postalCode("").stateRegion("   ")
+                .foundersJson("[{\"fullName\":\"Aung Ko\",\"nrcOrPassport\":\"\"}]")));
+        assertEquals(InstitutionStatus.PENDING, result.getStatus());
     }
 }

@@ -464,9 +464,12 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     /** WCAG contrast ratio of white (#FFFFFF) against the given #RRGGBB colour. */
-    // WCAG's large/bold-text threshold (not the 4.5 normal-text one) - the card title
-    // this guards is always large, bold text, so 3.0 is the right bar, not 4.5.
-    private static final double MIN_CONTRAST_RATIO = 3.0;
+    // Deliberately below WCAG's 3.0 large-text bar. An institution's real brand colour is
+    // not ours to reject, and this is the only place it can be entered - so the check now
+    // only stops colours that are genuinely unreadable (near-white), not merely light.
+    // ponytail: the readable fix is to darken the hero text when the background is light,
+    // rather than constrain the palette; raise this back to 3.0 if that ever lands.
+    private static final double MIN_CONTRAST_RATIO = 1.5;
 
     private static double contrastRatioAgainstWhite(String hex) {
         double r = channelLuminance(Integer.parseInt(hex.substring(1, 3), 16));
