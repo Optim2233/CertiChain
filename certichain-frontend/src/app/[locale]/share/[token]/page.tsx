@@ -176,6 +176,14 @@ export default function ShareTimelinePage() {
                       registrarName="Registrar"
                       revoked={e.result === "REVOKED"}
                       revokeReason={e.revokeReason}
+                      brandColor={e.institutionBrandColor}
+                      secondaryBrandColor={e.institutionSecondaryBrandColor}
+                      logoUrl={e.institutionLogoUrl}
+                      accentPattern={e.institutionAccentPattern ?? undefined}
+                      accentColor={e.institutionAccentColor}
+                      patternScale={e.institutionPatternScale}
+                      titleFont={e.institutionTitleFont}
+                      watermarkIcon={e.institutionWatermarkIcon ?? undefined}
                     />
                     {e.disclosedFields.length > 0 && (
                       <div className="border-border bg-card mt-4 rounded-lg border p-5">
