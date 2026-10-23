@@ -1,10 +1,13 @@
 package com.certichain.certichainbackend.auth;
 
+import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.entity.PasswordResetToken;
 import com.certichain.certichainbackend.common.entity.User;
+import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.Role;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.PasswordResetTokenRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.EmailService;
@@ -17,10 +20,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,9 +45,11 @@ class AuthServiceTest {
     private final PasswordResetTokenRepository resetTokenRepository = mock(PasswordResetTokenRepository.class);
     private final EmailService emailService = mock(EmailService.class);
     private final PiiCryptoService pii = TestCrypto.pii();
+    private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
 
     private final AuthService service = new AuthService(
-            userRepository, passwordEncoder, resetTokenRepository, emailService, pii);
+            userRepository, passwordEncoder, resetTokenRepository, emailService, pii,
+            credentialRepository);
 
     {
         ReflectionTestUtils.setField(service, "emailBaseUrl", "http://localhost:3000");
@@ -273,5 +281,96 @@ class AuthServiceTest {
         org.junit.jupiter.api.Assertions.assertNotEquals("new@x.com", saved.getValue().getEmail());
         assertEquals(pii.emailHmac("new@x.com"), saved.getValue().getEmailHmac());
         assertEquals("new@x.com", pii.decryptUserField(saved.getValue().getEmail()));
+    }
+
+    // --- signup claims credentials issued before the account existed ---
+    // Regression: the graduate registration page posts to /api/auth/signup, but the claim
+    // loop used to live only in GraduateServiceImpl.signup, so those users saw an empty
+    // wallet. See audit/findings.md #1.
+
+    private Credential pendingCredential() {
+        return Credential.builder()
+                .id(UUID.randomUUID())
+                .status(CredentialStatus.PENDING_CLAIM)
+                .build();
+    }
+
+    @Test
+    void signupClaimsPendingCredentialsForGraduates() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            if (u.getId() == null) u.setId(UUID.randomUUID());
+            return u;
+        });
+        Credential a = pendingCredential();
+        Credential b = pendingCredential();
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(
+                pii.emailHmac("grad@x.com"), CredentialStatus.PENDING_CLAIM))
+                .thenReturn(List.of(a, b));
+
+        AuthService.AuthResult result = service.signup("grad@x.com", "password1", Role.GRADUATE, null);
+
+        // Both credentials are attached to the new account and flipped out of PENDING_CLAIM.
+        for (Credential c : List.of(a, b)) {
+            assertEquals(CredentialStatus.ISSUED, c.getStatus());
+            assertEquals(result.userId(), c.getGraduateUserId());
+        }
+        verify(credentialRepository).saveAll(List.of(a, b));
+    }
+
+    @Test
+    void signupWithNothingPendingWritesNoCredentials() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            if (u.getId() == null) u.setId(UUID.randomUUID());
+            return u;
+        });
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(anyString(), any()))
+                .thenReturn(List.of());
+
+        service.signup("fresh@x.com", "password1", Role.GRADUATE, null);
+
+        verify(credentialRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void signupDoesNotClaimForNonGraduateRoles() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            if (u.getId() == null) u.setId(UUID.randomUUID());
+            return u;
+        });
+
+        service.signup("registrar@x.com", "password1", Role.INSTITUTION, UUID.randomUUID());
+
+        // An institution account must never sweep up credentials by email.
+        verify(credentialRepository, never()).findByGraduateEmailHmacAndStatus(anyString(), any());
+        verify(credentialRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void signupNormalizesEmailBeforeLookingUpPendingCredentials() {
+        when(userRepository.existsByEmailHmac(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            if (u.getId() == null) u.setId(UUID.randomUUID());
+            return u;
+        });
+        Credential c = pendingCredential();
+        // Issued against the normalized address; signup arrives mixed-case with padding.
+        when(credentialRepository.findByGraduateEmailHmacAndStatus(
+                pii.emailHmac("grad@x.com"), CredentialStatus.PENDING_CLAIM))
+                .thenReturn(List.of(c));
+
+        service.signup("  GRAD@X.com  ", "password1", Role.GRADUATE, null);
+
+        assertEquals(CredentialStatus.ISSUED, c.getStatus());
     }
 }

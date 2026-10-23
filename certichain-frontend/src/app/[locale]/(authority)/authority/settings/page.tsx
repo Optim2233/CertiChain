@@ -2,12 +2,14 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { useAuthStore, useChangePassword } from "@/features/auth"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export default function AuthoritySettingsPage() {
   const t = useTranslations("authority")
   const tc = useTranslations("common")
+  const ta = useTranslations("auth")
   const user = useAuthStore((s) => s.user)
   const changePassword = useChangePassword()
   const [currentPassword, setCurrentPassword] = useState("")
@@ -22,7 +24,10 @@ export default function AuthoritySettingsPage() {
     if (!passwordsMatch) return
     changePassword.mutate(
       { currentPassword, newPassword },
-      { onSuccess: () => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword("") } }
+      {
+        onSuccess: () => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); toast.success(ta("pwUpdated")) },
+        onError: () => { toast.error(ta("pwUpdateFailed")) },
+      }
     )
   }
 

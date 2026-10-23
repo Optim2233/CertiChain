@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { useAuthStore, useChangePassword } from "@/features/auth"
 import { useGraduateProfile, useUpdateGraduateProfile } from "@/features/graduate"
 import { Skeleton } from "@/shared/components/ui/skeleton"
@@ -80,7 +81,10 @@ export default function GraduateSettingsPage() {
     if (!passwordsMatch) return
     changePassword.mutate(
       { currentPassword, newPassword },
-      { onSuccess: () => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword("") } }
+      {
+        onSuccess: () => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); toast.success(ta("pwUpdated")) },
+        onError: () => { toast.error(ta("pwUpdateFailed")) },
+      }
     )
   }
 

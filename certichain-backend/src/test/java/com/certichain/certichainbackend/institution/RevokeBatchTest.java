@@ -19,6 +19,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -158,6 +159,50 @@ class RevokeBatchTest {
         when(credentialRepository.findById(issued.getId())).thenReturn(java.util.Optional.of(issued));
 
         assertThrows(ValidationException.class, () -> service.unrevokeCredential(issued.getId()));
+    }
+
+    @Test
+    void unrevokeRejectsCredentialSupersededByAnIdenticalReissue() {
+        // Restoring would put two active rows with the same merkle root in the table, which
+        // the uq_credential_institution_merkle_active index rejects - previously that
+        // surfaced as a bare 409 DATA_CONFLICT naming neither the credential nor the fix.
+        currentUserIsInstitution();
+        Credential revoked = member(CredentialStatus.REVOKED);
+        revoked.setMerkleRoot("dup-root");
+        when(credentialRepository.findById(revoked.getId())).thenReturn(java.util.Optional.of(revoked));
+        when(credentialRepository.existsByInstitutionIdAndMerkleRootAndStatusNot(
+                institutionId, "dup-root", CredentialStatus.REVOKED)).thenReturn(true);
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> service.unrevokeCredential(revoked.getId()));
+
+        assertTrue(ex.getMessage().contains("identical one has since been issued"),
+                "message should say why, got: " + ex.getMessage());
+        assertEquals(CredentialStatus.REVOKED, revoked.getStatus(), "must not be restored");
+    }
+
+    @Test
+    void unrevokeBatchSkipsSupersededMembersAndRestoresTheRest() {
+        // One conflicting member must not abort the transaction and block the others.
+        currentUserIsInstitution();
+        Credential ok = member(CredentialStatus.REVOKED);
+        ok.setMerkleRoot("free-root");
+        Credential blocked = member(CredentialStatus.REVOKED);
+        blocked.setMerkleRoot("dup-root");
+        when(credentialRepository.findByInstitutionIdAndBatchId(institutionId, batchId))
+                .thenReturn(List.of(ok, blocked));
+        when(credentialRepository.existsByInstitutionIdAndMerkleRootAndStatusNot(
+                institutionId, "dup-root", CredentialStatus.REVOKED)).thenReturn(true);
+        when(credentialRepository.existsByInstitutionIdAndMerkleRootAndStatusNot(
+                institutionId, "free-root", CredentialStatus.REVOKED)).thenReturn(false);
+
+        BatchUnrevokeResult result = service.unrevokeBatch(batchId, null);
+
+        assertEquals(1, result.restored());
+        assertEquals(1, result.superseded());
+        assertEquals(0, result.alreadyActive());
+        assertEquals(CredentialStatus.ISSUED, ok.getStatus());
+        assertEquals(CredentialStatus.REVOKED, blocked.getStatus(), "superseded member stays revoked");
     }
 
     @Test

@@ -40,6 +40,27 @@ public class EmailServiceImpl implements EmailService {
         this.configured = gmailAddress != null && !gmailAddress.isBlank();
     }
 
+    // Send outcomes, so a dead SMTP pipeline is visible in aggregate rather than as
+    // one easily-missed WARN per message. Read by EmailHealthIndicator.
+    private final java.util.concurrent.atomic.AtomicLong sent = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong failed = new java.util.concurrent.atomic.AtomicLong();
+    private volatile String lastFailure;
+
+    /** @return sent count, failed count, and the most recent failure message (null if none). */
+    public EmailDeliveryStats deliveryStats() {
+        return new EmailDeliveryStats(configured, sent.get(), failed.get(), lastFailure);
+    }
+
+    public record EmailDeliveryStats(boolean configured, long sent, long failed, String lastFailure) {}
+
+    private void recordFailure(String to, Exception ex) {
+        long n = failed.incrementAndGet();
+        lastFailure = ex.getClass().getSimpleName() + ": " + ex.getMessage();
+        // ERROR, not WARN: an undelivered password reset blocks the user entirely.
+        log.error("Email delivery FAILED to {} ({} failures so far, {} delivered): {}",
+                to, n, sent.get(), lastFailure);
+    }
+
     @PostConstruct
     void logConfigState() {
         if (!configured) log.warn("GMAIL_ADDRESS is not set - email notifications are disabled (in-app notifications still work).");
@@ -65,8 +86,9 @@ public class EmailServiceImpl implements EmailService {
             String html = templateEngine.process("email/password-reset", ctx);
             String text = "Reset your CertiChain password\n\nClick the link (expires in 30 minutes):\n" + resetLink + "\n\nIf you didn't request this, ignore this email.";
             sendMime(to, "Reset your CertiChain password", text, html);
+            sent.incrementAndGet();
         } catch (Exception ex) {
-            log.warn("Failed to send password-reset email to {}: {}", to, ex.getMessage());
+            recordFailure(to, ex);
         }
     }
 
@@ -74,9 +96,9 @@ public class EmailServiceImpl implements EmailService {
     public void sendNotification(String to, String type, String message) {
         String ctaUrl = null; String ctaLabel = null;
         String lower = type != null ? type.toLowerCase() : "";
-        if (lower.contains("certificate")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
+        if (lower.contains("issuing institution") || lower.contains("certificate")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
         else if (lower.contains("approv") || lower.contains("reinstat")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Sign in"; }
-        else if (lower.contains("reject") || lower.contains("information requested") || lower.contains("suspend")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Review application"; }
+        else if (lower.contains("reject") || lower.contains("information requested") || lower.contains("suspend") || lower.contains("revok")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Review application"; }
         sendInternal(to, "CertiChain: " + type, message, ctaUrl, ctaLabel);
     }
 
@@ -93,8 +115,9 @@ public class EmailServiceImpl implements EmailService {
             ctx.setVariable("ctaLabel", ctaLabel);
             String html = templateEngine.process("email/notification", ctx);
             sendMime(to, subject, body, html);
+            sent.incrementAndGet();
         } catch (Exception ex) {
-            log.warn("Failed to send email to {}: {}", to, ex.getMessage());
+            recordFailure(to, ex);
         }
     }
 

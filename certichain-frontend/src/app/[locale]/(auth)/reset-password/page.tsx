@@ -68,8 +68,7 @@ function ResetForm() {
         </div>
         {reset.isError && (
           <p className="rounded-lg bg-[#fef2f2] px-3 py-2 text-xs font-medium text-[#C0392B] ring-1 ring-[#fecaca]">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(reset.error as any)?.response?.data?.message ?? t("invalidLink")}
+            {t("invalidLink")}
           </p>
         )}
         <button

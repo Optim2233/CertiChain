@@ -1,9 +1,9 @@
-graduate_email,type,degree,graduationDate,expires_at
-alice.win@test.local,certificate,BSc Computer Science,2026-06-01,
-bo.kyaw@test.local,certificate,BEng Civil Engineering,2026-06-01,
-carol.aung@test.local,activity_record,Student Council President,2026-01-10,2026-12-31
-,certificate,BSc Physics,2026-06-01,
-dana.hla@test.local,certificate,,2026-06-01,
-erik.thu@test.local,bogus_type,BA History,2026-06-01,
-fiona.moe@test.local,certificate,BSc Mathematics,not-a-date,
-grace.zin@test.local,certificate,BSc Chemistry,2026-06-01,
+graduate_email,type,title,graduationDate,activity,date,expires_at
+sunandon8484984@gmail.com,certificate,Postgraduate Diploma in Data Engineering,2026-06-01,,,
+sunandmn8484984@gmail.com,certificate,Bachelor of Software Engineering,2026-06-01,,,
+sunandmo8484984@gmail.com,certificate,Certificate in Cloud Infrastructure (AWS Track),2026-03-15,,,2028-03-15
+sunandmoo484984@gmail.com,activity_record,"Lead Organiser, UIT Open Source Week",,"Lead Organiser, UIT Open Source Week",2026-02-20,2026-12-31
+sunandmoon84984@gmail.com,activity_record,"Mentor, Women in Tech Yangon",,"Mentor, Women in Tech Yangon",2026-04-05,
+sunandmoon84984@gmail.com,certificate,Bachelor of Information Systems,2026-06-01,,,
+sunandmoon84984@gmail.com,bogus_type,Bachelor of Applied Mathematics,2026-06-01,,,
+sunandmoon84884@gmail.com,certificate,Bachelor of Renewable Energy Engineering,2026-06-01,,,2031-06-01

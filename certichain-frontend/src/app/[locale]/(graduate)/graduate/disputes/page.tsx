@@ -32,7 +32,8 @@ function OutcomeToggle({ open, label, onClick }: { open: boolean; label: string;
     >
       <span className="underline underline-offset-4">{label}</span>
       <span
-        className={`material-symbols-outlined text-[16px] transition-transform duration-300 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+        aria-hidden="true"
+        className={`material-symbols-outlined w-4 shrink-0 text-[16px] leading-none transition-transform duration-300 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
       >
         expand_more
       </span>
@@ -99,9 +100,13 @@ export default function GraduateDisputesPage() {
           })
         }
         disabled={withdrawDispute.isPending}
-        className="shrink-0 whitespace-nowrap rounded text-xs font-semibold text-[#44474e] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0462BA] disabled:opacity-50"
+        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded text-xs font-semibold text-[#44474e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0462BA] disabled:opacity-50"
       >
-        {isThisPending ? t("withdrawing") : t("withdrawDispute")}
+        <span className="underline underline-offset-4">
+          {isThisPending ? t("withdrawing") : t("withdrawDispute")}
+        </span>
+        {/* Empty lane matching OutcomeToggle's chevron, so both labels right-align. */}
+        <span aria-hidden="true" className="w-4 shrink-0" />
       </button>
     )
   }
@@ -364,13 +369,15 @@ export default function GraduateDisputesPage() {
                 <select
                   value={credentialId}
                   onChange={(e) => setCredentialId(e.target.value)}
-                  className="mb-3 w-full rounded-md border px-3 py-2 text-sm"
+                  className="mb-3 block w-full max-w-full truncate rounded-md border px-3 py-2 text-sm"
                   style={{ borderColor: showError && !credentialId ? "#C0392B" : "#c5c6cf", background: showError && !credentialId ? "#fff6f5" : "#fff" }}
                 >
                   <option value="">{t("selectCred")}</option>
                   {eligibleCredentials.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {credentialTitle(c, c.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))} — {credentialSubtitle(c)}
+                      {credentialTitle(c, c.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))}
+                      {" · "}
+                      {new Date(c.issuedAt).getFullYear()}
                     </option>
                   ))}
                 </select>

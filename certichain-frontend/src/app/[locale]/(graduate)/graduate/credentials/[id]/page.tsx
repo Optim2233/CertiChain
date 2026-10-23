@@ -87,8 +87,13 @@ export default function CredentialDetailPage() {
           revoked={credential.status === "REVOKED"}
           revokeReason={credential.revokeReason}
           brandColor={credential.institutionBrandColor}
+          secondaryBrandColor={credential.institutionSecondaryBrandColor}
           logoUrl={credential.institutionLogoUrl}
           accentPattern={credential.institutionAccentPattern as "hatch" | "dots" | "none"}
+          accentColor={credential.institutionAccentColor}
+          patternScale={credential.institutionPatternScale}
+          titleFont={credential.institutionTitleFont}
+          watermarkIcon={credential.institutionWatermarkIcon}
         />
       </div>
 

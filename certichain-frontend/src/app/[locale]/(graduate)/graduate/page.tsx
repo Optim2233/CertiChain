@@ -181,8 +181,14 @@ function GraduateOverviewContent() {
                 expiresAt={c.expiresAt}
                 institutionName={c.institutionName}
                 brandColor={c.institutionBrandColor}
+                secondaryBrandColor={c.institutionSecondaryBrandColor}
                 logoUrl={c.institutionLogoUrl}
                 accentPattern={c.institutionAccentPattern as "hatch" | "dots" | "none"}
+                accentColor={c.institutionAccentColor}
+                patternScale={c.institutionPatternScale}
+                titleFont={c.institutionTitleFont}
+                medalPosition={c.institutionMedalPosition}
+                watermarkIcon={c.institutionWatermarkIcon}
               />
             </Link>
           ))}

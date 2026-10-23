@@ -10,6 +10,12 @@ const STATUS_MAP: Record<string, { key: string; className: string }> = {
   OPEN: { key: "underReview", className: "bg-amber-50 text-amber-700" },
   UPHELD: { key: "upheld", className: "bg-red-50 text-destructive" },
   DISMISSED: { key: "dismissed", className: "bg-[#eef0f3] text-muted-foreground" },
+  PENDING: { key: "underReview", className: "bg-amber-50 text-amber-700" },
+  APPROVED: { key: "approved", className: "bg-emerald-50 text-emerald-700" },
+  SUSPENDED: { key: "suspended", className: "bg-[#eef0f3] text-muted-foreground" },
+  REJECTED: { key: "rejected", className: "bg-red-50 text-destructive" },
+  WITHDRAWN: { key: "withdrawn", className: "bg-[#eef0f3] text-muted-foreground" },
+  EXPIRED: { key: "expired", className: "bg-[#eef0f3] text-muted-foreground" },
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -17,7 +23,7 @@ export function StatusBadge({ status }: { status: string }) {
   const entry = STATUS_MAP[status]
   return (
     <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold", entry?.className ?? "bg-[#eef0f3] text-muted-foreground")}>
-      {entry ? t(entry.key) : status}
+      {entry ? t(entry.key) : t("unknown")}
     </span>
   )
 }

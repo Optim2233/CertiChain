@@ -83,12 +83,19 @@ export const institutionService = {
     graduateEmail: string,
     activity: string,
     date: string,
+    fields?: CredentialFieldInput[],
     expiresAt?: string,
     headers?: Record<string, string>
   ) {
     return apiClient.post<Credential>(
       '/api/institution/activity-records',
-      issueActivityRecordSchema.parse({ graduate_email: graduateEmail, activity, date, expires_at: expiresAt || undefined }),
+      issueActivityRecordSchema.parse({
+        graduate_email: graduateEmail,
+        activity,
+        date,
+        fields,
+        expires_at: expiresAt || undefined,
+      }),
       headers
     );
   },

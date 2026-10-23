@@ -81,8 +81,7 @@ export default function ForgotPasswordPage() {
             {touched && !emailValid && <p className="mt-1.5 text-xs font-medium text-[#C0392B]">{t("invalidEmail")}</p>}
             {forgot.isError && (
               <p className="mt-3 rounded-lg bg-[#fef2f2] px-3 py-2 text-xs font-medium text-[#C0392B] ring-1 ring-[#fecaca]">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(forgot.error as any)?.response?.data?.message ?? t("resetFailed")}
+                {t("resetFailed")}
               </p>
             )}
             <button

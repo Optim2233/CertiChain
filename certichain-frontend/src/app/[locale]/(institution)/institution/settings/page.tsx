@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl"
 import { useInstitutionMe, useUpdateInstitution } from "@/features/institution"
 import { useChangePassword } from "@/features/auth"
 import { CredentialCard } from "@/shared/components/credential-card"
+import { StatusBadge } from "@/shared/components/status-badge"
 import { toast } from "sonner"
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
@@ -124,7 +125,7 @@ export default function InstitutionSettingsPage() {
           </div>
           <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleFileChange} />
           <h3 className="font-heading m-0 text-lg font-bold">{institution?.name ?? "—"}</h3>
-          <p className="m-0 mb-2 mt-1 text-[13px] text-[#75777f]">{institution?.status==="APPROVED"?t("accredited"):institution?.status??"—"}</p>
+          <p className="m-0 mb-2 mt-1 text-[13px] text-[#75777f]">{institution?.status==="APPROVED"?t("accredited"):institution?.status?<StatusBadge status={institution.status} />:"—"}</p>
           <div className="mt-4 flex flex-col gap-2">
             <button type="button" onClick={()=>fileInputRef.current?.click()} className="rounded border border-[#c5c6cf] bg-white px-4 py-2 text-xs font-semibold"> {displayImage?t("changeLogo"):t("uploadLogo")} </button>
             {displayImage && <button type="button" onClick={handleRemoveImage} className="text-xs text-[#C0392B] underline">{tc("remove")}</button>}

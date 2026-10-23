@@ -139,7 +139,8 @@
     "heroHashNote": "Merkle root + လက်မှတ် — ထုတ်ပေးသူအဖွဲ့အစည်း၏ key ဖြင့် အတည်ပြုနိုင်သည်၊ blockchain မှတ်တမ်း မဟုတ်ပါ။",
     "heroCopyHash": "Hash ကူးယူရန်",
     "heroCopied": "ကူးယူပြီးပါပြီ ✓",
-    "registrarFallback": "မှတ်ပုံတင်အရာရှိ"
+    "registrarFallback": "မှတ်ပုံတင်အရာရှိ",
+    "pending": "ဆိုင်းငံ့ဆဲ"
   },
   "auth": {
     "loginTitle": "သင့်ပေါ်တယ်သို့ ဝင်ရောက်ပါ",

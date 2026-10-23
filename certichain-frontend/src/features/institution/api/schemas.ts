@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { NRC_RE, PASSPORT_RE, POSTAL_RE } from '../utils/myanmar';
+
+// +95 numbers must be canonical; other country codes only need to look like E.164.
+const phoneField = z.string().trim().refine((v) =>
+  v.startsWith('+95') ? /^\+959\d{6,10}$/.test(v) : /^\+?\d{6,20}$/.test(v));
 
 // Request-body contracts for /api/institution/*.
 // applyInstitution is multipart/form-data (fields below + document file parts).
@@ -22,7 +27,7 @@ const personSchema = z.object({
   nationality: z.string().trim().optional().or(z.literal('')),
   race: z.string().trim().optional().or(z.literal('')),
   religion: z.string().trim().optional().or(z.literal('')),
-  nrcOrPassport: z.string().trim().optional().or(z.literal('')),
+  nrcOrPassport: z.string().trim().refine((v) => !v || NRC_RE.test(v) || PASSPORT_RE.test(v)).optional().or(z.literal('')),
   dateOfBirth: z.string().trim().optional().or(z.literal('')),
   educationalQualification: z.string().trim().optional().or(z.literal('')),
   currentAddress: z.string().trim().optional().or(z.literal('')),
@@ -38,7 +43,7 @@ export const applyInstitutionSchema = z.object({
   institutionCategory: institutionCategoryEnum.optional().or(z.literal('')),
   email: z.string().trim().email(),
   password: z.string().min(8),
-  phone: z.string().trim().min(6),
+  phone: phoneField,
   website: z.string().trim().optional().or(z.literal('')),
   // address
   stateRegion: z.string().trim().optional().or(z.literal('')),
@@ -46,7 +51,7 @@ export const applyInstitutionSchema = z.object({
   township: z.string().trim().optional().or(z.literal('')),
   ward: z.string().trim().optional().or(z.literal('')),
   street: z.string().trim().optional().or(z.literal('')),
-  postalCode: z.string().trim().optional().or(z.literal('')),
+  postalCode: z.string().trim().regex(POSTAL_RE).optional().or(z.literal('')),
   // public
   governingMinistry: z.string().trim().optional().or(z.literal('')),
   yearEstablished: z.coerce.number().int().min(1800).max(2100).optional(),
@@ -92,6 +97,7 @@ export const issueActivityRecordSchema = z.object({
   graduate_email: z.string().trim().email(),
   activity: z.string().trim().min(1),
   date: z.string().trim().min(1),
+  fields: z.array(credentialFieldInputSchema).optional(),
   expires_at: z.string().trim().min(1).optional(),
 });
 

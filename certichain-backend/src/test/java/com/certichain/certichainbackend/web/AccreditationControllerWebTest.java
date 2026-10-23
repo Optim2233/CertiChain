@@ -41,7 +41,8 @@ class AccreditationControllerWebTest {
 
     @Test
     void everyEndpointRequiresAaRole() throws Exception {
-        mvc.perform(get("/api/aa/institutions")).andExpect(status().isForbidden());
+        // Unauthenticated is 401; the two wrong-role cases below stay 403.
+        mvc.perform(get("/api/aa/institutions")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/aa/institutions").with(user(uid).roles("INSTITUTION")))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/aa/institutions").with(user(uid).roles("GRADUATE")))

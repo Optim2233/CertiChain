@@ -112,6 +112,8 @@ export interface BatchRevokeResult {
 export interface BatchUnrevokeResult {
   restored: number;
   alreadyActive: number;
+  /** Skipped: an identical credential was issued while this one was revoked. */
+  superseded: number;
 }
 
 export type DisputeStatus = 'OPEN' | 'UPHELD' | 'DISMISSED' | 'WITHDRAWN';

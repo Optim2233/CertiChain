@@ -51,7 +51,8 @@ class GraduateAndNotificationWebTest {
 
     @Test
     void timelineRequiresGraduateRole() throws Exception {
-        mvc.perform(get("/api/graduate/timeline")).andExpect(status().isForbidden());
+        // Unauthenticated is 401, authenticated-but-wrong-role is 403.
+        mvc.perform(get("/api/graduate/timeline")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/graduate/timeline").with(user(uid).roles("INSTITUTION")))
                 .andExpect(status().isForbidden());
     }
@@ -85,7 +86,7 @@ class GraduateAndNotificationWebTest {
 
     @Test
     void notificationsRequireAuthentication() throws Exception {
-        mvc.perform(get("/api/notifications")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/notifications")).andExpect(status().isUnauthorized());
     }
 
     @Test

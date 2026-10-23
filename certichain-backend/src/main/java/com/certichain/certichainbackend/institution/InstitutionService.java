@@ -35,7 +35,8 @@ public interface InstitutionService {
     InstitutionAnalytics getAnalytics(int days);
     Credential issueCertificate(String graduateEmail, List<Map<String, String>> fields, Instant expiresAt);
     List<Map<String, Object>> issueBatch(MultipartFile spreadsheet, String batchName);
-    Credential issueActivityRecord(String graduateEmail, String activity, String date, Instant expiresAt);
+    Credential issueActivityRecord(String graduateEmail, String activity, String date,
+            List<Map<String, String>> extraFields, Instant expiresAt);
     void revokeCredential(UUID credentialId, String reason);
     void unrevokeCredential(UUID credentialId);
     List<BatchSummaryRow> listBatches();

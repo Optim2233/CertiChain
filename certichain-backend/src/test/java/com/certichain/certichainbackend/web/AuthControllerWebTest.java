@@ -73,7 +73,8 @@ class AuthControllerWebTest {
 
     @Test
     void meRequiresAuthentication() throws Exception {
-        mvc.perform(get("/api/auth/me")).andExpect(status().isForbidden());
+        // Anonymous -> 401 so the frontend session-expiry interceptor fires (findings #3).
+        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
     }
 
     @Test

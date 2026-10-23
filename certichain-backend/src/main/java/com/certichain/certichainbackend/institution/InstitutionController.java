@@ -223,8 +223,9 @@ public class InstitutionController {
     @GetMapping("/credentials/batch/template")
     @PreAuthorize("hasRole('INSTITUTION')")
     public ResponseEntity<byte[]> batchTemplate() {
-        String csv = "graduate_email,type,degree,graduationDate,expires_at\n"
-                + "student@example.edu,certificate,BSc Computer Science,2026-06-01,\n";
+        String csv = "graduate_email,type,degree,graduationDate,activity,date,expires_at\n"
+                + "student@example.edu,certificate,BSc Computer Science,2026-06-01,,,\n"
+                + "student@example.edu,activity_record,,,Student Union President,2026-03-15,\n";
         return ResponseEntity.ok()
                 .header("Content-Disposition", ContentDisposition.attachment().filename("batch-template.csv").build().toString())
                 .contentType(MediaType.parseMediaType("text/csv"))
@@ -233,10 +234,12 @@ public class InstitutionController {
 
     @PostMapping("/activity-records")
     @PreAuthorize("hasRole('INSTITUTION')")
-    public CredentialResponse issueActivityRecord(@RequestBody Map<String, String> body) {
+    public CredentialResponse issueActivityRecord(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, String>> fields = (List<Map<String, String>>) body.get("fields");
         return CredentialResponse.from(institutionService.issueActivityRecord(
-                body.get("graduate_email"), body.get("activity"), body.get("date"),
-                parseExpiresAt(body.get("expires_at"))));
+                (String) body.get("graduate_email"), (String) body.get("activity"), (String) body.get("date"),
+                fields, parseExpiresAt((String) body.get("expires_at"))));
     }
 
     /** Optional, date-only (YYYY-MM-DD) from the frontend's date input; blank means never expires. */

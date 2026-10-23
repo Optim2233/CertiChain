@@ -301,7 +301,7 @@ export default function BatchIssuancePage() {
                         {isError ? tc("errorLabel") : tc("issued")}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-[13px] text-[#44474e]">{r.error ? tc("errorLabel") : t("readyToIssue")}</td>
+                    <td className="px-4 py-2.5 text-[13px] text-[#44474e]">{r.error ? r.error : t("batchRowIssued")}</td>
                   </tr>
                 )
               })}

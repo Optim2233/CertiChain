@@ -2,6 +2,7 @@ package com.certichain.certichainbackend.accreditation;
 
 import com.certichain.certichainbackend.auth.CurrentUser;
 import com.certichain.certichainbackend.common.entity.AuditLogEntry;
+import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.entity.Institution;
 import com.certichain.certichainbackend.common.entity.InstitutionDocument;
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
@@ -180,6 +181,10 @@ public class AccreditationServiceImpl implements AccreditationService {
         transition(id, InstitutionStatus.SUSPENDED, reason, InstitutionStatus.APPROVED);
         audit("Institution suspended", id,
                 "Your institution was suspended. Reason: " + reason.trim());
+        notifyGraduates(id, "Issuing institution suspended",
+                "An institution that issued you a credential has been suspended pending review. Reason: "
+                        + reason.trim() + " Credentials already issued to you remain individually verifiable - "
+                        + "this only affects the institution's ability to issue new ones.");
     }
 
     @Override
@@ -212,6 +217,35 @@ public class AccreditationServiceImpl implements AccreditationService {
                 InstitutionStatus.APPROVED, InstitutionStatus.SUSPENDED);
         audit("Institution revoked", id,
                 "Your institution was revoked. Reason: " + reason.trim());
+        notifyGraduates(id, "Issuing institution revoked",
+                "An institution that issued you a credential has had its accreditation revoked. Reason: "
+                        + reason.trim() + " Credentials already issued to you remain individually verifiable - "
+                        + "this only affects the institution's ability to issue new ones.");
+    }
+
+    /**
+     * Notifies every graduate who holds a credential from this institution - one
+     * notification per graduate, not per credential, so someone with several credentials
+     * from the same institution isn't emailed once per credential. Claimed credentials
+     * (graduateUserId set) get an in-app row + email via notify(); unclaimed ones
+     * (issued but the graduate never signed up) get email-only via notifyEmail(), since
+     * there's no account to attach an in-app row to.
+     */
+    private void notifyGraduates(UUID institutionId, String type, String message) {
+        java.util.Set<UUID> notifiedUserIds = new java.util.HashSet<>();
+        java.util.Set<String> notifiedEmails = new java.util.HashSet<>();
+        for (Credential credential : credentialRepository.findByInstitutionId(institutionId)) {
+            if (credential.getGraduateUserId() != null) {
+                if (notifiedUserIds.add(credential.getGraduateUserId())) {
+                    notificationService.notify(credential.getGraduateUserId(), type, message);
+                }
+            } else {
+                String email = piiCryptoService.decryptUserField(credential.getGraduateEmail());
+                if (email != null && notifiedEmails.add(email)) {
+                    notificationService.notifyEmail(email, type, message);
+                }
+            }
+        }
     }
 
     @Override

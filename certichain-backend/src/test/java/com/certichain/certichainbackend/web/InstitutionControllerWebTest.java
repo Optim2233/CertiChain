@@ -47,7 +47,8 @@ class InstitutionControllerWebTest {
 
     @Test
     void meRequiresAuthentication() throws Exception {
-        mvc.perform(get("/api/institution/me")).andExpect(status().isForbidden());
+        // Anonymous -> 401; a wrong-role caller still gets 403 (see meForbiddenForWrongRole).
+        mvc.perform(get("/api/institution/me")).andExpect(status().isUnauthorized());
     }
 
     @Test

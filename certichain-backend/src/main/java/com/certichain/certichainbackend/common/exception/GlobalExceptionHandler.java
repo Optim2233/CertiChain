@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse("This request conflicts with existing data.", "DATA_CONFLICT"));
+                .body(new ErrorResponse("That change clashes with something already saved. Refresh and try again.", "DATA_CONFLICT"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

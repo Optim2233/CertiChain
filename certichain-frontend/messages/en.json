@@ -139,7 +139,8 @@
     "heroHashNote": "Merkle root + signature, verifiable against the issuing institution's key — not an on-chain record.",
     "heroCopyHash": "Copy Hash",
     "heroCopied": "Copied ✓",
-    "registrarFallback": "Registrar"
+    "registrarFallback": "Registrar",
+    "pending": "Pending"
   },
   "auth": {
     "loginTitle": "Log in to your portal",

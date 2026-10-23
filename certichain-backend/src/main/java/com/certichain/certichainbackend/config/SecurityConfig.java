@@ -12,6 +12,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
@@ -51,6 +53,12 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
+                // Unauthenticated requests must answer 401, not Spring's default 403.
+                // The frontend session-expiry interceptor (axioconfig.ts) redirects to
+                // /login on 401 only; a 403 left users stranded on a dead page with a
+                // stale cookie. 403 still covers authenticated-but-forbidden (@PreAuthorize).
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(verifyRateLimitFilter, JwtAuthenticationFilter.class);

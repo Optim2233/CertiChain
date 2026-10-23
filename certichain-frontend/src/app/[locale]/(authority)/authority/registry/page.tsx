@@ -16,8 +16,8 @@ export default function InstitutionRegistryPage() {
   const locale = useLocale()
 
   const STATUS_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
-    PENDING: { bg: "#e0e3e5", color: "#44474e", icon: "schedule", label: t("pendingReview") },
-    APPROVED: { bg: "#d8e2ff", color: "#02275A", icon: "check_circle", label: t("approved") },
+    PENDING: { bg: "#e0e3e5", color: "#44474e", icon: "schedule", label: tc("pending") },
+    APPROVED: { bg: "#d8e2ff", color: "#02275A", icon: "check_circle", label: tc("approved") },
     SUSPENDED: { bg: "#eef0f3", color: "#75777f", icon: "pause_circle", label: t("suspended") },
     REJECTED: { bg: "#ffdad6", color: "#C0392B", icon: "cancel", label: tc("rejected") },
     REVOKED: { bg: "#ffdad6", color: "#C0392B", icon: "cancel", label: t("revoked") },

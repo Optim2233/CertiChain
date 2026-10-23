@@ -1,9 +1,12 @@
 package com.certichain.certichainbackend.auth;
 
+import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.entity.User;
+import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.Role;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.entity.PasswordResetToken;
 import com.certichain.certichainbackend.common.repository.PasswordResetTokenRepository;
@@ -15,11 +18,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -33,6 +38,7 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
     private final PiiCryptoService piiCryptoService;
+    private final CredentialRepository credentialRepository;
 
     // Base URL stamped into password-reset links. Separate from the dev LAN frontend
     // URL - emailed links must be publicly reachable (see EMAIL_PUBLIC_BASE_URL).
@@ -50,6 +56,7 @@ public class AuthService {
                 user.getRole(), user.getInstitutionId());
     }
 
+    @Transactional
     public AuthResult signup(String email, String password, Role role, UUID institutionId) {
         String norm = PiiCryptoService.normalizeEmail(email);
         if (userRepository.existsByEmailHmac(piiCryptoService.emailHmac(norm))) {
@@ -70,7 +77,28 @@ public class AuthService {
 
         var savedUser = userRepository.save(user);
 
+        // Graduates may already have credentials issued to their email before they had an
+        // account; those sit in PENDING_CLAIM. Claim them here so every signup path behaves
+        // the same - GraduateServiceImpl.signup does the same thing for its own endpoint.
+        // Same transaction as the account creation, so a half-claimed account can't exist.
+        if (savedUser.getRole() == Role.GRADUATE) {
+            claimPendingCredentials(norm, savedUser.getId());
+        }
+
         return new AuthResult(savedUser.getId(), norm, savedUser.getRole(), savedUser.getInstitutionId());
+    }
+
+    /** Attaches credentials already issued to {@code normEmail} to a newly created graduate. */
+    private void claimPendingCredentials(String normEmail, UUID graduateUserId) {
+        List<Credential> pending = credentialRepository.findByGraduateEmailHmacAndStatus(
+                piiCryptoService.emailHmac(normEmail), CredentialStatus.PENDING_CLAIM);
+        if (pending.isEmpty()) return;
+        for (Credential credential : pending) {
+            credential.setGraduateUserId(graduateUserId);
+            credential.setStatus(CredentialStatus.ISSUED);
+        }
+        credentialRepository.saveAll(pending);
+        log.info("Claimed {} pending credential(s) for new graduate {}", pending.size(), graduateUserId);
     }
 
     public UserResponse findByUserId(UUID userId) {
@@ -84,8 +112,8 @@ public class AuthService {
 
     @CacheEvict(cacheNames = "currentUser", allEntries = true)
     public void changePassword(UUID userId, String currentPassword, String newPassword) {
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new ValidationException("newPassword is required");
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new ValidationException("Password must be at least 8 characters");
         }
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

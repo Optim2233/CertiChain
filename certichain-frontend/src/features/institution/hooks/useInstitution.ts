@@ -158,13 +158,15 @@ export function useIssueActivityRecord() {
       graduateEmail,
       activity,
       date,
+      fields,
       expiresAt,
     }: {
       graduateEmail: string;
       activity: string;
       date: string;
+      fields?: CredentialFieldInput[];
       expiresAt?: string;
-    }) => institutionService.issueActivityRecord(graduateEmail, activity, date, expiresAt),
+    }) => institutionService.issueActivityRecord(graduateEmail, activity, date, fields, expiresAt),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['institution-credentials'] }),
   });

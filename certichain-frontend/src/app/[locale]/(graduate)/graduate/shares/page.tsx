@@ -7,7 +7,7 @@ import type { Share } from "@/features/graduate"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { TableSkeleton } from "@/shared/components/ui/skeletons"
-import { credentialSubtitle, credentialTitle } from "@/shared/components/credential-card"
+import { credentialTitle } from "@/shared/components/credential-card"
 import { toast } from "sonner"
 
 // Pulls the qrcode lib out of the initial bundle - it's only needed once the
@@ -317,12 +317,14 @@ export default function GraduateSharesPage() {
                 setCredentialId(e.target.value)
                 setSelectedFieldIds([])
               }}
-              className="mb-1 w-full rounded-md border border-[#c5c6cf] px-3 py-2 text-sm"
+              className="mb-1 block w-full max-w-full truncate rounded-md border border-[#c5c6cf] px-3 py-2 text-sm"
             >
               <option value="">{t("selectCred")}</option>
               {credentials.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {credentialTitle(c, c.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))} — {credentialSubtitle(c)}
+                  {credentialTitle(c, c.type === "CERTIFICATE" ? tc("certificate") : tc("activityRecord"))}
+                  {" · "}
+                  {new Date(c.issuedAt).getFullYear()}
                 </option>
               ))}
             </select>

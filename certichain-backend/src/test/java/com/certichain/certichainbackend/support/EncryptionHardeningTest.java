@@ -131,7 +131,7 @@ class EncryptionHardeningTest {
                 institutionRepository, null, mock(AuditLogService.class),
                 mock(NotificationService.class), mock(
                         com.certichain.certichainbackend.common.repository.UserRepository.class),
-                null, null, currentUser, envelope, TestCrypto.pii());
+                null, null, currentUser, envelope, TestCrypto.pii(), null);
 
         UUID id = UUID.randomUUID();
         Institution institution = Institution.builder().id(id).name("Old Uni")
