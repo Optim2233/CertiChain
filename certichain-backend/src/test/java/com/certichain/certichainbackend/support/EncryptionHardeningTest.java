@@ -16,8 +16,10 @@ import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.NotificationService;
+import com.certichain.certichainbackend.common.service.SigningService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.EnvelopeEncryptionServiceImpl;
+import com.certichain.certichainbackend.common.service.impl.InstitutionSigningKeyService;
 import com.certichain.certichainbackend.common.service.impl.MerkleServiceImpl;
 import com.certichain.certichainbackend.graduate.CredentialListItem;
 import com.certichain.certichainbackend.graduate.GraduateServiceImpl;
@@ -66,7 +68,10 @@ class EncryptionHardeningTest {
                 new CredentialFieldCryptoService(envelope, institutionRepository);
         VerifierServiceImpl service = new VerifierServiceImpl(
                 credentialRepository, credentialFieldRepository, institutionRepository,
-                null, null, merkleService, mock(AuditLogService.class), null, crypto,
+                null, null, merkleService, mock(SigningService.class),
+                mock(com.certichain.certichainbackend.common.service.LedgerService.class),
+                mock(com.certichain.certichainbackend.common.repository.LedgerAnchorRepository.class),
+                mock(AuditLogService.class), null, crypto,
                 TestCrypto.pii());
 
         UUID credentialId = UUID.randomUUID();
@@ -131,7 +136,11 @@ class EncryptionHardeningTest {
                 institutionRepository, null, mock(AuditLogService.class),
                 mock(NotificationService.class), mock(
                         com.certichain.certichainbackend.common.repository.UserRepository.class),
-                null, null, currentUser, envelope, TestCrypto.pii(), null);
+                null, null, currentUser, envelope, TestCrypto.pii(), null,
+                // reinstate() now also mints the signing keypair right after the DEK, so
+                // this needs the real RSA generation, not a null that would NPE.
+                mock(CredentialFieldCryptoService.class),
+                new InstitutionSigningKeyService(envelope, mock(CredentialFieldCryptoService.class)));
 
         UUID id = UUID.randomUUID();
         Institution institution = Institution.builder().id(id).name("Old Uni")
@@ -144,5 +153,9 @@ class EncryptionHardeningTest {
         assertEquals(InstitutionStatus.APPROVED, institution.getStatus());
         assertNotNull(institution.getDekWrapped());
         assertNotNull(institution.getDekIv());
+        // Reinstate also mints the signing keypair (real RSA here, mock DEK lookup is
+        // never reached because the DEK is minted in the same call).
+        assertNotNull(institution.getPublicKey());
+        assertEquals("RSA", institution.getKeyAlgorithm());
     }
 }

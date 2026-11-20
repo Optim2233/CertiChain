@@ -53,4 +53,14 @@ public class VerifierController {
     public TrustStats stats() {
         return verifierService.getTrustStats();
     }
+
+    /**
+     * Public chain-integrity check: walks the whole ledger, recomputes every hash, and
+     * reports validity, length, the current head hash, and the most recent Sepolia
+     * anchor (when anchoring is enabled) so anyone can confirm the head on-chain.
+     */
+    @GetMapping("/ledger")
+    public LedgerStatus ledgerStatus() {
+        return verifierService.ledgerStatus();
+    }
 }

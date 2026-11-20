@@ -83,13 +83,12 @@ backwards. Disclose one field, prove it's genuine, leak nothing else.
 That's selective disclosure, and it's the same primitive Bitcoin light clients use
 to verify a transaction without downloading the chain.
 
-**The honest caveat**, and you should say it before an examiner does: the Merkle
-work is real, but the *signature* over the root currently uses one shared
-application-wide HMAC secret, not a per-institution keypair — `SigningServiceImpl`
-says so in its own class comment. So today a signature proves "issued by this
-backend", not "issued by this specific institution". The `Institution.publicKey` /
-`privateKeyEnc` columns exist and are unpopulated — that's the upgrade path, and
-it's a Tier-2 follow-up rather than a hidden bug.
+**What shipped over the old caveat here:** the signature over the root is now a real
+per-institution RSA-2048 signature — each institution gets a keypair at AA approval
+(`InstitutionSigningKeyService`), the private key is DEK-encrypted at rest, and the
+signature proves "issued by this specific institution". Credentials signed before
+the keypair rollout keep verifying via a legacy shared-HMAC fallback in
+`SigningServiceImpl.signatureValid`, so nothing that used to verify stopped.
 
 ---
 
@@ -223,24 +222,31 @@ Supabase Storage for uploaded documents (envelope-encrypted before upload).
 
 ---
 
-## 8. What this is honestly *not*
+## 8. What this honestly is now
 
-Being precise here is worth more marks than overclaiming, and every item is already
-acknowledged in the code's own comments.
+The three gaps this section used to list are closed:
 
-It's **blockchain-inspired**, not a blockchain. Specifically missing:
+1. **Per-institution signing keys — shipped.** RSA-2048 keypair minted at AA approval
+   (`InstitutionSigningKeyService`), private key DEK-encrypted at rest; a one-time
+   backfill (`BACKFILL_SIGNING_KEYS`) keyed institutions approved before the rollout.
+   Pre-rollout credentials keep verifying through the legacy shared-HMAC fallback.
+2. **A hash-chained ledger — shipped.** `ledger_entry` is append-only; every
+   credential event (issued/amended/revoked/restored) appends a signed entry whose
+   hash covers the previous entry's hash, its payload and its timestamp.
+   `LedgerService.validateChain()` — exposed at `GET /api/verify/ledger` — detects
+   any edit to any historical row by recomputation.
+3. **Distributed consensus — deliberately replaced by anchoring.** The system doesn't
+   run its own node network; instead the current chain head is periodically stamped
+   onto Ethereum Sepolia as a zero-value transaction carrying the head hash
+   (`LedgerAnchorService`), with the Etherscan link surfaced on the verify page.
+   That closes the "rewrite the whole ledger from scratch" attack: on-chain anchors
+   prove what the head was at a given time, on a chain this backend does not control.
+   This is the anchoring model (BlockCerts-style), not mining-style consensus — an
+   honest distinction worth stating out loud.
 
-1. **Per-institution signing keys** — one shared HMAC secret today (§3).
-2. **A hash-chained ledger** — `audit_log_entry` is a flat, mutable table. No entry
-   references the previous entry's hash, so someone with DB write access could edit
-   history undetectably. It's a *useful audit log*, not a tamper-evident one.
-3. **Distributed consensus** — one Postgres, one backend. Nothing independent has to
-   agree before a fact is final. This is the part that actually earns the word
-   "blockchain".
-
-What it *does* legitimately have is the cryptographic verification primitive —
-Merkle-proof selective disclosure — which is real, correctly implemented, and the
-genuinely interesting part of the system.
+What remains true: one Postgres, one backend. The ledger makes piecemeal tampering
+detectable; the anchors make wholesale rewrites detectable. Neither makes the
+*system itself* decentralized — Ethereum is the decentralized witness.
 
 ---
 

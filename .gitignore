@@ -26,3 +26,8 @@ certichain-frontend/playwright-report/
 # Vendored seed-script dependencies (reinstall via npm in scripts/seed)
 scripts/seed/node_modules/
 .neon
+
+# Local environment files (never commit real credentials)
+.env
+certichain-backend/.env
+certichain-frontend/.env

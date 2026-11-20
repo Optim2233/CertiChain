@@ -7,8 +7,10 @@ file wins** unless the person working with you says otherwise.
 
 ## What this project is
 
-CertiChain is a blockchain-inspired academic credential verification system,
-scoped to Myanmar's higher education context. It's a university capstone
+CertiChain is a blockchain-anchored academic credential verification system —
+per-institution RSA signing, a hash-chained append-only event ledger, and periodic
+Ethereum Sepolia anchors as an independent witness — scoped to Myanmar's higher
+education context. It's a university capstone
 project (Java course), built by a team of six, over a 7-week timeline.
 
 The core problem it solves: certificate fraud, and the fact that most existing

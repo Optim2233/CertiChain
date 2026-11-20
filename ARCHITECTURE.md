@@ -125,11 +125,12 @@ com.certichain.certichainbackend
 - Role re-read from DB on every request (stale token reflects current state)
 
 ### Data Integrity
-- **Merkle tree** per credential: fields → leaves → root → HMAC signature
+- **Merkle tree** per credential: fields → leaves → root → per-institution RSA signature
 - Tamper detection: verify recomputes root; mismatch → `INVALID_NOT_FOUND`
 - Optimistic locking (`@Version`) on Institution, Credential, DisputeFlag, Share
-- Signing is currently a **shared app-wide HMAC secret** (`SigningServiceImpl`), not per-institution asymmetric keys — proves "issued by this backend," not "issued by this institution." `Institution.publicKey`/`privateKeyEnc` columns exist but are unpopulated scaffolding for a future real keypair.
-- Not a blockchain: single Postgres DB, single backend, no hash-chained/append-only ledger, no distributed consensus. "Blockchain-inspired" refers to the Merkle-proof verification model only.
+- **Per-institution RSA-2048 signing keys** (`InstitutionSigningKeyService`): keypair minted at AA approval, private key DEK-encrypted at rest — the signature proves "issued by this institution." Credentials signed before the rollout keep verifying via the legacy shared-HMAC fallback in `SigningServiceImpl.signatureValid`.
+- **Hash-chained append-only ledger** (`ledger_entry`, `LedgerService`): every ISSUED/AMENDED/REVOKED/RESTORED event appends a signed entry whose hash covers the previous entry's hash — piecemeal history edits are detectable by recomputing the chain (`GET /api/verify/ledger`).
+- **On-chain anchoring** (`LedgerAnchorService`): the chain head is periodically stamped onto Ethereum Sepolia (zero-value tx carrying the head hash, Etherscan link surfaced on the verify page), so even a fully compromised backend cannot undetectably rewrite history. Not distributed *consensus* — a public blockchain as an independent witness (the anchoring model, not the mining model).
 
 ### PII Encryption
 - **Envelope encryption**: AES-256-GCM, random 12-byte IV per call, 128-bit auth tag (`EnvelopeEncryptionServiceImpl`)

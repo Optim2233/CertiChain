@@ -95,6 +95,13 @@
             <version>0.12.6</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- Sepolia anchor: sends the ledger head hash on-chain every few minutes.
+             The only Ethereum integration in the app - see LedgerAnchorService. -->
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>core</artifactId>
+            <version>4.12.3</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>

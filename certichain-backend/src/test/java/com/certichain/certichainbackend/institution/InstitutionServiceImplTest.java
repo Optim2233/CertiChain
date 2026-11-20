@@ -64,6 +64,8 @@ class InstitutionServiceImplTest {
     private final DisputeFlagRepository disputeFlagRepository = mock(DisputeFlagRepository.class);
     private final AuditLogEntryRepository auditLogEntryRepository = mock(AuditLogEntryRepository.class);
     private final SigningService signingService = mock(SigningService.class);
+    private final com.certichain.certichainbackend.common.service.LedgerService ledgerService =
+            mock(com.certichain.certichainbackend.common.service.LedgerService.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
@@ -82,7 +84,7 @@ class InstitutionServiceImplTest {
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
             institutionRepository, institutionDocumentRepository, userRepository, credentialRepository,
             credentialFieldRepository, disputeFlagRepository, auditLogEntryRepository,
-            signingService, auditLogService,
+            signingService, ledgerService, auditLogService,
             notificationService, null, passwordEncoder, currentUser, credentialFieldCryptoService,
             pii);
 

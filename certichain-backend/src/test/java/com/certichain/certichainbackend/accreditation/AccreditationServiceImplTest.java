@@ -54,6 +54,10 @@ class AccreditationServiceImplTest {
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
     private final SupabaseStorageService supabaseStorageService = mock(SupabaseStorageService.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
+    private final com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService
+            credentialFieldCryptoService = mock(com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService.class);
+    private final com.certichain.certichainbackend.common.service.impl.InstitutionSigningKeyService
+            institutionSigningKeyService = mock(com.certichain.certichainbackend.common.service.impl.InstitutionSigningKeyService.class);
     // Real (not mocked) crypto - approve() actually generates and wraps a DEK, so this needs
     // to do real AES-GCM work rather than return nulls that would NPE inside encrypt().
     private final EnvelopeEncryptionService envelopeEncryptionService =
@@ -61,10 +65,18 @@ class AccreditationServiceImplTest {
     private final com.certichain.certichainbackend.common.service.impl.PiiCryptoService pii =
             TestCrypto.pii();
 
+    {
+        // approve()/reinstate() mint the signing keypair after the DEK; the keypair
+        // generation itself is unit-tested in InstitutionSigningKeyServiceTest.
+        when(institutionSigningKeyService.generate(any())).thenAnswer(inv ->
+                new com.certichain.certichainbackend.common.service.impl.InstitutionSigningKeyService
+                        .GeneratedKeys("pub-test", "priv-enc-test"));
+    }
+
     private final AccreditationServiceImpl service = new AccreditationServiceImpl(
             institutionRepository, null, auditLogService, notificationService, userRepository,
             institutionDocumentRepository, credentialRepository, currentUser, envelopeEncryptionService, pii,
-            supabaseStorageService);
+            supabaseStorageService, credentialFieldCryptoService, institutionSigningKeyService);
 
     private Institution institutionWith(InstitutionStatus status) {
         Institution institution = Institution.builder()
@@ -89,6 +101,12 @@ class AccreditationServiceImplTest {
         verify(auditLogService).log(eq("Institution approved"), any(), eq(institution.getId()), isNull());
         assertNotNull(institution.getDekWrapped());
         assertNotNull(institution.getDekIv());
+        // Approval also mints the per-institution signing keypair (stubbed here; the
+        // real RSA generation is covered by InstitutionSigningKeyServiceTest).
+        assertEquals("pub-test", institution.getPublicKey());
+        assertEquals("RSA", institution.getKeyAlgorithm());
+        assertNotNull(institution.getPrivateKeyEnc());
+        assertNotNull(institution.getKeyGeneratedAt());
     }
 
     @Test
@@ -127,6 +145,10 @@ class AccreditationServiceImplTest {
 
         assertEquals(InstitutionStatus.APPROVED, institution.getStatus());
         assertEquals(null, institution.getStatusReason());
+        // Reinstate mints the signing keypair for pre-keys institutions on the way
+        // back to APPROVED, same one-time guard as approve().
+        assertEquals("pub-test", institution.getPublicKey());
+        assertEquals("RSA", institution.getKeyAlgorithm());
     }
 
     @Test

@@ -40,11 +40,22 @@ class BulkRealValuesTest {
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final MerkleServiceImpl merkleService = new MerkleServiceImpl(null);
     private final CredentialFieldCryptoService credentialFieldCryptoService = passthroughCrypto();
+    private final com.certichain.certichainbackend.common.service.SigningService signingService =
+            mock(com.certichain.certichainbackend.common.service.SigningService.class);
     private final VerifierServiceImpl verifierService = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
             mock(ShareRepository.class), mock(ShareFieldSelectionRepository.class),
-            merkleService, auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService,
+            merkleService, signingService,
+            mock(com.certichain.certichainbackend.common.service.LedgerService.class),
+            mock(com.certichain.certichainbackend.common.repository.LedgerAnchorRepository.class),
+            auditLogService, mock(AuditLogEntryRepository.class), credentialFieldCryptoService,
             com.certichain.certichainbackend.support.TestCrypto.pii());
+
+    {
+        // Seeded credentials carry opaque "sig" strings; the signature check just must
+        // not block the bulk flows these tests are about.
+        when(signingService.signatureValid(any(), any(), any())).thenReturn(true);
+    }
 
     private static CredentialFieldCryptoService passthroughCrypto() {
         CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);

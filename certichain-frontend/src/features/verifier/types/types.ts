@@ -34,6 +34,10 @@ export interface VerificationResponse {
   institutionMedalShape: string | null;
   institutionMedalSize: string | null;
   institutionWatermarkIcon: string | null;
+  // Per-credential ledger provenance (null for credentials predating the ledger):
+  // latest chain event + the Sepolia anchor tx covering it, when one exists.
+  ledgerEvent: string | null;
+  ledgerAnchorTxUrl: string | null;
   // Only present on SHARE_REVOKED - the backend returns a distinct
   // {result, message} shape for a revoked share *link* (vs a revoked credential).
   message?: string;

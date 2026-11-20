@@ -198,6 +198,23 @@ export default function ShareTimelinePage() {
                         </div>
                       </div>
                     )}
+                    {e.ledgerEvent && (
+                      <p className="m-0 mt-4 flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-[#75777f]">
+                        <span className="material-symbols-outlined text-[15px]" style={{ color: "#0462BA" }}>link</span>
+                        {e.ledgerAnchorTxUrl ? t("ledgerAnchored") : t("ledgerRecorded")}
+                        {e.ledgerAnchorTxUrl && (
+                          <a
+                            href={e.ledgerAnchorTxUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline"
+                            style={{ color: "#0462BA" }}
+                          >
+                            {t("ledgerViewTx")}
+                          </a>
+                        )}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

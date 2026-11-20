@@ -12,6 +12,9 @@ public interface VerifierService {
     Object verifyByShareToken(String token);
     List<Institution> publicInstitutionDirectory();
     List<BulkVerifyRow> verifyBulk(MultipartFile csv);
+
+    /** Public chain-integrity status: validity, length, first broken entry, head hash. */
+    LedgerStatus ledgerStatus();
     TrustStats getTrustStats();
     int countApprovedInstitutions();
     int countVerifications();

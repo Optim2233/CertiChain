@@ -136,7 +136,7 @@
     "heroIssueDate": "Issue Date",
     "heroCredId": "Credential ID",
     "heroHash": "Cryptographic Signature",
-    "heroHashNote": "Merkle root + signature, verifiable against the issuing institution's key — not an on-chain record.",
+    "heroHashNote": "Merkle root + signature, verifiable against the issuing institution's key and recorded on the CertiChain ledger.",
     "heroCopyHash": "Copy Hash",
     "heroCopied": "Copied ✓",
     "registrarFallback": "Registrar",
@@ -919,6 +919,9 @@
     "sharedTimeline": "Shared timeline · {n} credentials",
     "shareVerified": "Share Verified",
     "verifyAnother": "Verify another",
+    "ledgerRecorded": "Recorded on the CertiChain ledger.",
+    "ledgerAnchored": "Recorded on the CertiChain ledger and anchored on Ethereum —",
+    "ledgerViewTx": "View transaction",
     "shareFooter": "CertiChain is a cryptographically signed credential network."
   },
   "landing": {

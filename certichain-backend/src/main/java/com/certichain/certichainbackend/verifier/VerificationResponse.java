@@ -30,7 +30,13 @@ public record VerificationResponse(
         String institutionMedalStyle,
         String institutionMedalShape,
         String institutionMedalSize,
-        String institutionWatermarkIcon
+        String institutionWatermarkIcon,
+        // Per-credential ledger provenance: the credential's latest chain event
+        // (ISSUED/AMENDED/REVOKED/RESTORED) and, when an on-chain anchor covers that
+        // entry, the Sepolia transaction URL. Both null for credentials that predate
+        // the ledger - the frontend hides the line entirely for those.
+        String ledgerEvent,
+        String ledgerAnchorTxUrl
 ) {
     public record DisclosedField(String name, String value) {}
 }

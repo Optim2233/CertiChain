@@ -33,6 +33,8 @@ import static org.mockito.Mockito.when;
 class RevokeBatchTest {
 
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
+    private final com.certichain.certichainbackend.common.service.LedgerService ledgerService =
+            mock(com.certichain.certichainbackend.common.service.LedgerService.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
     private final CurrentUser currentUser = mock(CurrentUser.class);
@@ -45,7 +47,7 @@ class RevokeBatchTest {
 
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
             null, null, null, credentialRepository, null, null, null, null,
-            auditLogService, notificationService, null, null, currentUser, null, pii);
+            ledgerService, auditLogService, notificationService, null, null, currentUser, null, pii);
 
     private Credential member(CredentialStatus status) {
         return Credential.builder()

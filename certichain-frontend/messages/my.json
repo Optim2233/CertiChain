@@ -136,7 +136,7 @@
     "heroIssueDate": "ထုတ်ပေးသည့်ရက်",
     "heroCredId": "အထောက်အထား ID",
     "heroHash": "လက်ရေးမူ (Cryptographic Signature)",
-    "heroHashNote": "Merkle root + လက်မှတ် — ထုတ်ပေးသူအဖွဲ့အစည်း၏ key ဖြင့် အတည်ပြုနိုင်သည်၊ blockchain မှတ်တမ်း မဟုတ်ပါ။",
+    "heroHashNote": "Merkle root + လက်မှတ် — ထုတ်ပေးသူအဖွဲ့အစည်း၏ key ဖြင့် အတည်ပြုနိုင်သည်၊ CertiChain ledger တွင် မှတ်တမ်းတင်ထားသည်။",
     "heroCopyHash": "Hash ကူးယူရန်",
     "heroCopied": "ကူးယူပြီးပါပြီ ✓",
     "registrarFallback": "မှတ်ပုံတင်အရာရှိ",
@@ -919,6 +919,9 @@
     "sharedTimeline": "မျှဝေထားသော အချိန်ဇယား · အထောက်အထား {n} ခု",
     "shareVerified": "မျှဝေမှု အတည်ပြုပြီး",
     "verifyAnother": "အခြားတစ်ခု အတည်ပြုရန်",
+    "ledgerRecorded": "CertiChain ledger တွင် မှတ်တမ်းတင်ထားသည်။",
+    "ledgerAnchored": "CertiChain ledger တွင် မှတ်တမ်းတင်ပြီး Ethereum ပေါ်တွင် ချိတ်ဆက် (anchor) ထားသည် —",
+    "ledgerViewTx": "transaction ကို ကြည့်ရန်",
     "shareFooter": "CertiChain မှာ လျှို့ဝှက်နည်းစနစ်ဖြင့် လက်မှတ်ရေးထိုးထားသော အထောက်အထားကွန်ရက်ဖြစ်သည်။"
   },
   "landing": {

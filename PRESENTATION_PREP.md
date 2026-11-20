@@ -6,28 +6,38 @@ academic/rigor questions (do you understand the theory underneath what you built
 
 ---
 
-## 1. "You call this blockchain-inspired — what's actually missing to be a real blockchain?"
+## 1. "Is this actually blockchain, or just 'blockchain-inspired'?"
 
-**Answer:** Three things, in order of how much they'd actually cost:
-1. **Real per-institution signing keys.** Right now every institution's credentials are
-   signed with one shared application-wide HMAC secret (`SigningServiceImpl`). It proves
-   "issued by this backend," not "issued by this specific institution." The
-   `Institution.publicKey`/`privateKeyEnc` columns exist but nothing populates them yet.
-2. **A hash-chained, append-only ledger.** Our audit log (`AuditLogEntry`) is a flat,
-   mutable table — no entry references the hash of the previous entry, so someone with
-   DB access could edit history without it being detectable.
-3. **Distributed consensus.** Single Postgres DB, single backend. No independent nodes
-   have to agree before something is "final." This is the part that actually earns the
-   word "blockchain" — everything else is "tamper-evident log," which is a real and
-   useful property, just not decentralization.
+**Answer:** It's blockchain-anchored now — the three formerly-missing pieces are closed:
+1. **Real per-institution signing keys.** RSA-2048 per institution, minted at AA
+   approval (`InstitutionSigningKeyService`); the private key is DEK-encrypted at
+   rest. A credential's signature proves "issued by this specific institution," not
+   "issued by this backend."
+2. **A hash-chained, append-only ledger.** Every credential event
+   (issued/amended/revoked/restored) appends a signed entry (`ledger_entry`) whose
+   hash covers the previous entry's hash. Editing any historical row breaks every
+   hash after it — detectable at `GET /api/verify/ledger`.
+3. **Independent confirmation.** The current chain head is periodically anchored on
+   Ethereum Sepolia as a zero-value transaction carrying the head hash
+   (`LedgerAnchorService`), with the Etherscan link surfaced on the verify page.
+   Even a fully compromised backend cannot undetectably rewrite history, because the
+   witness lives on a chain it doesn't control.
 
-**Follow-up they might ask: "So why call it blockchain-inspired at all?"**
+**The honest caveat — name it before they do:** this is the *anchoring* model, not a
+mining/consensus network. No independent nodes run *this* system; Ethereum is the
+external witness. Anchoring runs on a 1-minute cycle, so the window between an event
+and its on-chain proof is brief — the verify page says "recorded on the
+ledger" during that window and shows the anchor link once it closes. That's the same
+architecture BlockCerts uses, and stating it precisely reads as judgment, not as a
+gap.
+
+**Follow-up they might ask: "So why is the Merkle tree the right primitive anyway?"**
 Because the verification model borrows blockchain's core idea — a Merkle tree per
 credential lets a verifier check that specific disclosed fields are genuinely part of
 a larger signed record without seeing the whole record (selective disclosure), and
 recomputing the root detects tampering. That's the same cryptographic primitive
-blockchains use for light-client verification (see: Bitcoin SPV proofs). We just don't
-have the distributed-consensus layer around it.
+blockchains use for light-client verification (see: Bitcoin SPV proofs) — now with
+the per-institution signatures and on-chain anchor behind it.
 
 ---
 
@@ -62,9 +72,9 @@ No — the proof alone only proves internal consistency (these leaves hash up to
 root). It says nothing about whether the *root itself* is legitimate. That's what the
 signature is for: the signature over the root is the actual trust anchor. An attacker
 could build a self-consistent fake tree all day; they can't produce a valid signature
-over its root without the signing key. **This is exactly why the shared-HMAC-secret
-gap matters** — if that secret leaks, anyone can sign any fake tree for any
-institution.
+over its root without the institution's private key — which is exactly why the
+per-institution keypair design matters: leaking one institution's key compromises
+that institution only, not every other issuer.
 
 ---
 
@@ -162,12 +172,16 @@ at higher scale). This is a good one to preempt yourself rather than get caught 
 
 ## Delivery advice
 
-- When a gap comes up (KEK-in-env-var, shared-HMAC signing, no real consensus), **name
-  it before they do** and immediately state the fix and why it wasn't in scope. That
-  reads as engineering judgment, not as something you missed.
+- When a remaining gap comes up (KEK-in-env-var, anchoring being periodic rather than
+  per-event, no multi-node consensus), **name it before they do** and immediately
+  state the fix and why it wasn't in scope. That reads as engineering judgment, not
+  as something you missed.
 - If asked something you genuinely don't know, say "I'd need to check the exact
   implementation, but conceptually the answer should be X because Y" — reasoning from
   principle is what's actually being graded, not memorized facts.
-- Don't over-claim decentralization. If a teacher asks "is this a blockchain," the
-  correct answer is "no, and here's specifically why" — that answer demonstrates more
-  understanding than pretending it is one.
+- Be precise about what "blockchain" means here: per-institution signatures, a
+  hash-chained append-only ledger, and periodic Ethereum anchors as an independent
+  witness. If a teacher asks "is this a blockchain in the consensus sense," the
+  correct answer is "no — it's a blockchain-*anchored* system, and here's exactly
+  why that's the right design for credential verification" — precision reads as
+  understanding, not as a concession.

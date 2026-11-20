@@ -34,7 +34,8 @@ class VerifierControllerWebTest {
     private VerificationResponse verified() {
         return new VerificationResponse(VerificationResult.VERIFIED, "BSc", "a@x.com",
                 "UIT", "APPROVED", null, null, null, null, List.of(), "sig",
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null);
     }
 
     @Test

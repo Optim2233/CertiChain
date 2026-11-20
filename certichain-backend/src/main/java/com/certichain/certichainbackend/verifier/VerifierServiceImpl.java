@@ -3,6 +3,7 @@ package com.certichain.certichainbackend.verifier;
 import com.certichain.certichainbackend.common.entity.Credential;
 import com.certichain.certichainbackend.common.entity.CredentialField;
 import com.certichain.certichainbackend.common.entity.Institution;
+import com.certichain.certichainbackend.common.entity.LedgerAnchor;
 import com.certichain.certichainbackend.common.entity.Share;
 import com.certichain.certichainbackend.common.entity.ShareFieldSelection;
 import com.certichain.certichainbackend.common.enums.CredentialStatus;
@@ -13,12 +14,15 @@ import com.certichain.certichainbackend.common.repository.AuditLogEntryRepositor
 import com.certichain.certichainbackend.common.repository.CredentialFieldRepository;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
+import com.certichain.certichainbackend.common.repository.LedgerAnchorRepository;
 import com.certichain.certichainbackend.common.repository.ShareFieldSelectionRepository;
 import com.certichain.certichainbackend.common.repository.ShareRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.LedgerService;
 import com.certichain.certichainbackend.common.service.MerkleService;
+import com.certichain.certichainbackend.common.service.SigningService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +60,9 @@ public class VerifierServiceImpl implements VerifierService {
     private final ShareRepository shareRepository;
     private final ShareFieldSelectionRepository shareFieldSelectionRepository;
     private final MerkleService merkleService;
+    private final SigningService signingService;
+    private final LedgerService ledgerService;
+    private final LedgerAnchorRepository ledgerAnchorRepository;
     private final AuditLogService auditLogService;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final CredentialFieldCryptoService credentialFieldCryptoService;
@@ -335,6 +342,19 @@ public class VerifierServiceImpl implements VerifierService {
         return new TrustStats(approved, verifications);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public LedgerStatus ledgerStatus() {
+        LedgerService.ChainValidation chain = ledgerService.validateChain();
+        LedgerAnchor anchor = ledgerAnchorRepository.findTopByOrderByIdDesc().orElse(null);
+        return new LedgerStatus(
+                chain.valid(), chain.entries(), chain.brokenAtId(), chain.headHash(),
+                anchor != null ? anchor.getTxHash() : null,
+                anchor != null ? anchor.getHeadHash() : null,
+                anchor != null ? anchor.getAnchoredAt() : null,
+                anchor != null ? LedgerService.SEPOLIA_TX_URL_PREFIX + anchor.getTxHash() : null);
+    }
+
     @Cacheable(cacheNames = "verifier", key = "'trustStatsApproved'")
     public int countApprovedInstitutions() {
         return institutionRepository.countByStatus(InstitutionStatus.APPROVED);
@@ -424,6 +444,15 @@ public class VerifierServiceImpl implements VerifierService {
             return notFound();
         }
 
+        // The signature binds this credential to its issuer's keypair (per-institution RSA,
+        // or the legacy shared-HMAC for credentials predating it). Root recomputation above
+        // catches field tampering; this catches a forged issuer or a swapped signature.
+        // Same indistinguishable-not-found rule as root mismatch.
+        if (!signingService.signatureValid(credential.getInstitutionId(),
+                credential.getMerkleRoot(), credential.getSignature())) {
+            return notFound();
+        }
+
         return respond(VerificationResult.VERIFIED, credential, allFields, visibleFieldIds,
                 institution, institutionName, institutionStatus);
     }
@@ -447,6 +476,10 @@ public class VerifierServiceImpl implements VerifierService {
         String event = result == VerificationResult.REVOKED
                 ? AuditEvents.VERIFY_REVOKED_EVENT : AuditEvents.VERIFY_EVENT;
         auditLogService.log(event, null, credential.getInstitutionId(), credential.getId());
+
+        // Per-credential provenance: latest chain event + the on-chain anchor covering it
+        // (null for credentials that predate the ledger, so the frontend hides the line).
+        LedgerService.AnchorInfo anchor = ledgerService.anchorInfoFor(credential.getId());
 
         return new VerificationResponse(
                 result,
@@ -473,7 +506,9 @@ public class VerifierServiceImpl implements VerifierService {
                 institution != null ? institution.getMedalStyle() : null,
                 institution != null ? institution.getMedalShape() : null,
                 institution != null ? institution.getMedalSize() : null,
-                institution != null ? institution.getWatermarkIcon() : null);
+                institution != null ? institution.getWatermarkIcon() : null,
+                anchor != null ? anchor.event() : null,
+                anchor != null ? anchor.anchorTxUrl() : null);
     }
 
     private String title(List<CredentialField> fields, Credential credential) {
@@ -489,6 +524,7 @@ public class VerifierServiceImpl implements VerifierService {
     private static VerificationResponse notFound() {
         return new VerificationResponse(VerificationResult.INVALID_NOT_FOUND,
                 null, null, null, null, null, null, null, null, List.of(), null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null);
     }
 }

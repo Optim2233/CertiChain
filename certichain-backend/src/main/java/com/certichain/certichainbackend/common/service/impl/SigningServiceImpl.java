@@ -1,9 +1,11 @@
 package com.certichain.certichainbackend.common.service.impl;
 
 import com.certichain.certichainbackend.common.entity.Credential;
+import com.certichain.certichainbackend.common.entity.Institution;
 import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.VerificationResult;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
+import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.service.DisclosureProof;
 import com.certichain.certichainbackend.common.service.Field;
 import com.certichain.certichainbackend.common.service.MerkleService;
@@ -24,32 +26,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Signing implementation - INTERIM / KNOWN LIMITATION.
+ * Credential signing with per-institution RSA keys, plus a legacy shared-HMAC fallback.
  *
  * <p>The Merkle root computation delegated to {@link MerkleServiceImpl} is real and
- * correct. The "signature" produced here is NOT real per-institution cryptographic
- * signing. There is currently no institution keypair schema (no public/private key
- * columns anywhere in the Institution entity or migration), so this implementation signs
- * every institution's merkle root with a single, application-wide HMAC-SHA256 secret
- * (property {@code certichain.signing.interim-hmac-secret}). This means:
- * <ul>
- *   <li>Any two institutions' credentials are indistinguishable by signature alone -
- *       the signature currently proves "signed by this backend", not "signed by this
- *       specific institution".</li>
- *   <li>Anyone with the shared secret (i.e. anyone with backend deploy access) can forge
- *       a signature for any institution.</li>
- * </ul>
+ * unchanged. Signing is now asymmetric: at AA approval each institution gets an RSA-2048
+ * keypair (see {@link InstitutionSigningKeyService}); the merkle root is signed with that
+ * institution's private key and verifiable by anyone against its published public key.
+ * The signature proves "issued by this institution", not "issued by this backend".
  *
- * <p><b>Recommended upgrade path</b> (tracked as a Tier-2 follow-up, not solved here):
- * generate an RSA or EC keypair per institution at approval time (AA approve action),
- * encrypt the private key at rest (e.g. via a KMS or an app-level encryption key separate
- * from the DB), and sign with {@link java.security.Signature} (e.g.
- * {@code SHA256withRSA} / {@code SHA256withECDSA}) using that institution's private key
- * instead of a shared HMAC secret. Verification would then use the institution's public
- * key, which is safe to expose in the public institution directory.
- *
- * ponytail: shared-secret HMAC placeholder, upgrade to per-institution asymmetric
- * keypairs (RSA/EC) once institution key management is designed - see class doc above.
+ * <p>Credentials issued before this shipped still carry the old shared-HMAC signature,
+ * so both {@link #signCredential} and {@link #signatureValid} keep the HMAC path:
+ * keyless institutions sign the legacy way, and verification accepts either a valid
+ * RSA signature or the matching legacy HMAC. Once every environment has run
+ * SigningKeyBackfill the HMAC path is reachability-dead, but it stays until then so no
+ * existing credential stops verifying.
  */
 @Service
 @RequiredArgsConstructor
@@ -57,6 +47,8 @@ public class SigningServiceImpl implements SigningService {
 
     private final MerkleService merkleService;
     private final CredentialRepository credentialRepository;
+    private final InstitutionRepository institutionRepository;
+    private final InstitutionSigningKeyService signingKeyService;
 
     @Value("${certichain.signing.interim-hmac-secret}")
     private String hmacSecret;
@@ -70,7 +62,12 @@ public class SigningServiceImpl implements SigningService {
         }
 
         String root = merkleService.computeRoot(fields);
-        String signature = hmac(root + "|" + institutionId);
+        // Per-institution RSA when the issuer has keys; legacy shared HMAC for the
+        // keyless window between this upgrade and SigningKeyBackfill having run.
+        Institution institution = institutionRepository.findById(institutionId).orElse(null);
+        String signature = institution != null && institution.getPublicKey() != null
+                ? signingKeyService.sign(institution, root)
+                : hmac(root + "|" + institutionId);
         return new SignedCredential(root, signature, indexed);
     }
 
@@ -87,8 +84,8 @@ public class SigningServiceImpl implements SigningService {
             return VerificationResult.REVOKED;
         }
 
-        String expectedSignature = hmac(credential.getMerkleRoot() + "|" + credential.getInstitutionId());
-        if (!expectedSignature.equals(credential.getSignature())) {
+        if (!signatureValid(credential.getInstitutionId(), credential.getMerkleRoot(),
+                credential.getSignature())) {
             return VerificationResult.INVALID_NOT_FOUND;
         }
 
@@ -99,6 +96,28 @@ public class SigningServiceImpl implements SigningService {
 
         boolean valid = merkleService.verifyDisclosure(credential.getMerkleRoot(), proof);
         return valid ? VerificationResult.VERIFIED : VerificationResult.INVALID_NOT_FOUND;
+    }
+
+    @Override
+    public String sign(String data, UUID institutionId) {
+        Institution institution = institutionRepository.findById(institutionId).orElse(null);
+        return institution != null && institution.getPublicKey() != null
+                ? signingKeyService.sign(institution, data)
+                : hmac(data + "|" + institutionId);
+    }
+
+    @Override
+    public boolean signatureValid(UUID institutionId, String merkleRoot, String signature) {
+        if (merkleRoot == null || signature == null) {
+            return false;
+        }
+        // RSA first when the issuer has keys; the HMAC fallback also covers a keyed
+        // institution's credentials issued before its keys existed.
+        Institution institution = institutionRepository.findById(institutionId).orElse(null);
+        if (institution != null && signingKeyService.verify(institution, merkleRoot, signature)) {
+            return true;
+        }
+        return hmac(merkleRoot + "|" + institutionId).equals(signature);
     }
 
     private String hmac(String input) {

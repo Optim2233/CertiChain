@@ -11,6 +11,7 @@ import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.CredentialType;
 import com.certichain.certichainbackend.common.enums.DisputeStatus;
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
+import com.certichain.certichainbackend.common.enums.LedgerEventType;
 import com.certichain.certichainbackend.common.enums.Role;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
@@ -25,6 +26,7 @@ import com.certichain.certichainbackend.common.repository.UserRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.LedgerService;
 import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SignedCredential;
 import com.certichain.certichainbackend.common.service.SigningService;
@@ -74,6 +76,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final DisputeFlagRepository disputeFlagRepository;
     private final AuditLogEntryRepository auditLogEntryRepository;
     private final SigningService signingService;
+    private final LedgerService ledgerService;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final SupabaseStorageService supabaseStorageService;
@@ -920,6 +923,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         credential.setRevokeReason(piiCryptoService.encryptInstitutionField(
                 reason, credential.getInstitutionId()));
         credential.setRevokedAt(Instant.now());
+        ledgerService.append(LedgerEventType.REVOKED, credential.getId(),
+                credential.getInstitutionId(), credential.getMerkleRoot());
         auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate revoked",
@@ -951,6 +956,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         credential.setStatus(CredentialStatus.ISSUED);
         credential.setRevokeReason(null);
         credential.setRevokedAt(null);
+        ledgerService.append(LedgerEventType.RESTORED, credential.getId(),
+                credential.getInstitutionId(), credential.getMerkleRoot());
         auditLogService.log(AuditEvents.CERTIFICATE_RESTORED_EVENT, currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate restored",
@@ -1167,6 +1174,12 @@ public class InstitutionServiceImpl implements InstitutionService {
             credentialFieldCryptoService.encryptForStorage(toSave, credential.getInstitutionId());
             credentialFieldRepository.save(toSave);
         }
+
+        // The root just changed, so the chain must record the correction - otherwise a
+        // verifier comparing the ledger against the current root sees an unexplained
+        // mismatch. Amend (not erase) is the ledger's whole contract.
+        ledgerService.append(LedgerEventType.AMENDED, credential.getId(),
+                credential.getInstitutionId(), signed.merkleRoot());
     }
 
     /**
@@ -1259,6 +1272,8 @@ public class InstitutionServiceImpl implements InstitutionService {
             credentialFieldRepository.save(toSave);
         }
         auditLogService.log(AuditEvents.CERTIFICATE_ISSUED_EVENT, currentUser.id(), institutionId, credential.getId());
+        ledgerService.append(LedgerEventType.ISSUED, credential.getId(), institutionId,
+                signed.merkleRoot());
         // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null,
         // so email the address directly or the graduate never learns the credential exists.
         if (credential.getGraduateUserId() != null) {

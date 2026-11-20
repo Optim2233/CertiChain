@@ -12,6 +12,7 @@ import com.certichain.certichainbackend.common.repository.CredentialRepository;
 import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.Field;
+import com.certichain.certichainbackend.common.service.SigningService;
 import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
 import com.certichain.certichainbackend.common.service.impl.MerkleServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -44,15 +45,22 @@ class VerifierServiceImplTest {
     private final AuditLogService auditLogService = mock(AuditLogService.class);
     private final MerkleServiceImpl merkleService = new MerkleServiceImpl(null);
     private final CredentialFieldCryptoService credentialFieldCryptoService = mock(CredentialFieldCryptoService.class);
+    private final SigningService signingService = mock(SigningService.class);
 
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository,
-            null, null, merkleService, auditLogService, null, credentialFieldCryptoService,
+            null, null, merkleService, signingService,
+            mock(com.certichain.certichainbackend.common.service.LedgerService.class),
+            mock(com.certichain.certichainbackend.common.repository.LedgerAnchorRepository.class),
+            auditLogService, null, credentialFieldCryptoService,
             com.certichain.certichainbackend.support.TestCrypto.pii());
 
     {
         when(credentialFieldCryptoService.decrypted(anyList(), any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        // Seeded credentials carry opaque "sig" strings - the signature logic itself is
+        // SigningServiceImplTest's job; here it must just not block the flow under test.
+        when(signingService.signatureValid(any(), any(), any())).thenReturn(true);
     }
 
     private final List<Field> fields = List.of(

@@ -21,6 +21,8 @@ import com.certichain.certichainbackend.common.service.EncryptedPayload;
 import com.certichain.certichainbackend.common.service.EnvelopeEncryptionService;
 import com.certichain.certichainbackend.common.service.NotificationService;
 import com.certichain.certichainbackend.common.service.SupabaseStorageService;
+import com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService;
+import com.certichain.certichainbackend.common.service.impl.InstitutionSigningKeyService;
 import com.certichain.certichainbackend.common.service.impl.PiiCryptoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -60,6 +62,8 @@ public class AccreditationServiceImpl implements AccreditationService {
     private final EnvelopeEncryptionService envelopeEncryptionService;
     private final PiiCryptoService piiCryptoService;
     private final SupabaseStorageService supabaseStorageService;
+    private final CredentialFieldCryptoService credentialFieldCryptoService;
+    private final InstitutionSigningKeyService institutionSigningKeyService;
 
     @Override
     // Not @Cacheable: Spring Data's PageImpl has no default constructor and does not
@@ -133,12 +137,28 @@ public class AccreditationServiceImpl implements AccreditationService {
         // manually, never per-record. Guarded on dekWrapped being unset since the state
         // machine only ever reaches APPROVED via this method (REVOKED is terminal, so a
         // second approve() on the same institution can't normally happen).
+        SecretKey dek = null;
         if (institution.getDekWrapped() == null) {
-            SecretKey dek = envelopeEncryptionService.generateDek();
+            dek = envelopeEncryptionService.generateDek();
             EncryptedPayload wrapped = envelopeEncryptionService.encrypt(
                     dek.getEncoded(), envelopeEncryptionService.kek());
             institution.setDekWrapped(wrapped.ciphertext());
             institution.setDekIv(wrapped.iv());
+        }
+
+        // Mint this institution's signing keypair here, once, at first approval - same
+        // lifecycle as the DEK above. The DEK needed to encrypt the private key is either
+        // the one just minted or, in the common apply-time case, unwrapped from this same
+        // managed entity within the transaction. The public key is published to verifiers;
+        // the private key is DEK-encrypted and never leaves the backend.
+        if (institution.getPublicKey() == null) {
+            SecretKey keyDek = dek != null ? dek : credentialFieldCryptoService.institutionDek(id);
+            InstitutionSigningKeyService.GeneratedKeys keys =
+                    institutionSigningKeyService.generate(keyDek);
+            institution.setPublicKey(keys.publicKey());
+            institution.setPrivateKeyEnc(keys.privateKeyEnc());
+            institution.setKeyAlgorithm(InstitutionSigningKeyService.KEY_ALGORITHM);
+            institution.setKeyGeneratedAt(Instant.now());
         }
 
         audit("Institution approved", id,
@@ -197,12 +217,24 @@ public class AccreditationServiceImpl implements AccreditationService {
         institution.setStatusReason(null);
         // Pre-encryption institutions suspended before their first DEK mint would
         // otherwise stay DEK-less forever (approve() is the only minter).
+        SecretKey dek = null;
         if (institution.getDekWrapped() == null) {
-            SecretKey dek = envelopeEncryptionService.generateDek();
+            dek = envelopeEncryptionService.generateDek();
             EncryptedPayload wrapped = envelopeEncryptionService.encrypt(
                     dek.getEncoded(), envelopeEncryptionService.kek());
             institution.setDekWrapped(wrapped.ciphertext());
             institution.setDekIv(wrapped.iv());
+        }
+        // Same one-time signing keypair mint as approve(): a suspended institution that
+        // predates per-institution signing gets keys on its way back to APPROVED.
+        if (institution.getPublicKey() == null) {
+            SecretKey keyDek = dek != null ? dek : credentialFieldCryptoService.institutionDek(id);
+            InstitutionSigningKeyService.GeneratedKeys keys =
+                    institutionSigningKeyService.generate(keyDek);
+            institution.setPublicKey(keys.publicKey());
+            institution.setPrivateKeyEnc(keys.privateKeyEnc());
+            institution.setKeyAlgorithm(InstitutionSigningKeyService.KEY_ALGORITHM);
+            institution.setKeyGeneratedAt(Instant.now());
         }
         audit("Institution reinstated", id,
                 "Your institution was reinstated. You can now sign in and issue credentials.");

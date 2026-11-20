@@ -51,11 +51,24 @@ class VerifierShareAndBulkTest {
     private final AuditLogEntryRepository auditLogEntryRepository = mock(AuditLogEntryRepository.class);
     private final MerkleServiceImpl merkleService = new MerkleServiceImpl(null);
     private final CredentialFieldCryptoService credentialFieldCryptoService = passthroughCrypto();
-
+    private final com.certichain.certichainbackend.common.service.SigningService signingService =
+            mock(com.certichain.certichainbackend.common.service.SigningService.class);
     private final VerifierServiceImpl service = new VerifierServiceImpl(
             credentialRepository, credentialFieldRepository, institutionRepository, shareRepository,
-            shareFieldSelectionRepository, merkleService, auditLogService, auditLogEntryRepository, credentialFieldCryptoService,
+            shareFieldSelectionRepository, merkleService, signingService,
+            mock(com.certichain.certichainbackend.common.service.LedgerService.class),
+            mock(com.certichain.certichainbackend.common.repository.LedgerAnchorRepository.class),
+            auditLogService, auditLogEntryRepository, credentialFieldCryptoService,
             com.certichain.certichainbackend.support.TestCrypto.pii());
+
+    {
+        // Seeded credentials carry opaque "sig" strings; the signature check just must
+        // not block the share/bulk flows these tests are about.
+        org.mockito.Mockito.when(signingService.signatureValid(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    }
 
     private static CredentialFieldCryptoService passthroughCrypto() {
         CredentialFieldCryptoService c = org.mockito.Mockito.mock(CredentialFieldCryptoService.class);
