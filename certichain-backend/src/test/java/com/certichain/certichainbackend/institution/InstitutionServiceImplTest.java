@@ -10,6 +10,7 @@ import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.CredentialType;
 import com.certichain.certichainbackend.common.enums.DisputeStatus;
 import com.certichain.certichainbackend.common.enums.InstitutionStatus;
+import com.certichain.certichainbackend.common.enums.LedgerEventType;
 import com.certichain.certichainbackend.common.exception.ForbiddenActionException;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
@@ -365,7 +366,11 @@ class InstitutionServiceImplTest {
         assertEquals(DisputeStatus.UPHELD, d.getStatus());
         assertEquals("GPA was wrong",
                 pii.decryptInstitutionField(d.getResolutionNote(), c.getInstitutionId()));
-        verify(notificationService).notify(any(), eq("Dispute upheld"), anyString());
+        // A revocation via upheld dispute is on the chain exactly like a direct revoke -
+        // regression for the gap the live demo caught (status flipped, ledger silent).
+        verify(ledgerService).append(eq(LedgerEventType.REVOKED), eq(c.getId()),
+                eq(institutionId), eq(c.getMerkleRoot()));
+        verify(notificationService).notify(any(), eq("Dispute upheld"), anyString(), anyString(), anyString());
     }
 
     @Test

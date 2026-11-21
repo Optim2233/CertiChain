@@ -1,6 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
+import { onInstitutionLogoError } from "@/shared/lib/logo-fallback"
 
 const ICONS: Record<string, string> = { CERTIFICATE: "school", ACTIVITY_RECORD: "diversity_3" }
 const DAY_MS = 86_400_000
@@ -147,7 +148,8 @@ export function CredentialCard({
           <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg size-11`} style={{ background: medal.bg, border: medal.border as any }}>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" loading="lazy" className="size-full object-cover" />
+              <img src={logoUrl} alt="" loading="lazy" className="size-full object-cover"
+                onError={(e) => onInstitutionLogoError(e, institutionName)} />
             ) : initials ? (
               <span className="text-[11px] font-extrabold" style={{ color: "#c9a85c" }}>{initials}</span>
             ) : (

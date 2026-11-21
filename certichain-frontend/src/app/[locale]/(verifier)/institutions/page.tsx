@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { usePublicInstitutions } from "@/features/verifier"
 import type { PublicInstitution } from "@/features/verifier"
+import { onInstitutionLogoError } from "@/shared/lib/logo-fallback"
 
 const GRID_COLS = "3fr 2fr 1.2fr 1.5fr 1.4fr 1.4fr 1.4fr"
 
@@ -97,6 +98,7 @@ export default function AccreditedInstitutionsPage() {
                         src={r.profileImageUrl}
                         alt=""
                         className="size-9 shrink-0 rounded-full object-cover"
+                        onError={(e) => onInstitutionLogoError(e, r.name)}
                       />
                     ) : (
                       <span
@@ -181,7 +183,8 @@ export default function AccreditedInstitutionsPage() {
                 <div className="mb-3 flex items-start gap-3">
                   {r.profileImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.profileImageUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                    <img src={r.profileImageUrl} alt="" className="size-10 shrink-0 rounded-full object-cover"
+                      onError={(e) => onInstitutionLogoError(e, r.name)} />
                   ) : (
                     <span
                       aria-hidden="true"

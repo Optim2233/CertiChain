@@ -93,12 +93,25 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Async
-    public void sendNotification(String to, String type, String message) {
-        String ctaUrl = null; String ctaLabel = null;
-        String lower = type != null ? type.toLowerCase() : "";
-        if (lower.contains("issuing institution") || lower.contains("certificate")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
-        else if (lower.contains("approv") || lower.contains("reinstat")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Sign in"; }
-        else if (lower.contains("reject") || lower.contains("information requested") || lower.contains("suspend") || lower.contains("revok")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Review application"; }
+    public void sendNotification(String to, String type, String message, String ctaUrl, String ctaLabel) {
+        // Explicit CTAs (credential-lifecycle events) win outright. The legacy subject
+        // heuristic below only serves institution-status emails, which still arrive on
+        // the old 3-arg notify() with no CTA - and its "revok"/"certificate" branches
+        // must never route a *credential* event, because those call sites now pass an
+        // explicit deep link (they used to misroute "Certificate revoked" graduates to
+        // the institution login page labeled "Review application").
+        if (ctaUrl == null) {
+            String lower = type != null ? type.toLowerCase() : "";
+            // Institution-status broadcasts: graduates see their wallet ("Issuing
+            // institution..."), the institution's own registrant sees the application.
+            if (lower.contains("issuing institution")) { ctaUrl = emailBaseUrl + "/graduate"; ctaLabel = "View credentials"; }
+            else if (lower.contains("approv") || lower.contains("reinstat")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Sign in"; }
+            else if (lower.contains("reject") || lower.contains("information requested")
+                    || lower.contains("suspend") || lower.contains("revok")) { ctaUrl = emailBaseUrl + "/login"; ctaLabel = "Review application"; }
+        } else if (ctaUrl.startsWith("/")) {
+            // Relative CTAs stay single-sourced: only this class knows the public base.
+            ctaUrl = emailBaseUrl + ctaUrl;
+        }
         sendInternal(to, "CertiChain: " + type, message, ctaUrl, ctaLabel);
     }
 

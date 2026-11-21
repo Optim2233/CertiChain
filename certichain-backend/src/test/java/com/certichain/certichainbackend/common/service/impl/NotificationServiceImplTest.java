@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,6 +41,7 @@ class NotificationServiceImplTest {
         service.notify(null, "Certificate issued", "hi");
 
         verify(notificationRepository, never()).save(any());
+        verify(emailService, never()).sendNotification(anyString(), anyString(), anyString(), any(), any());
         verify(emailService, never()).send(anyString(), anyString(), anyString());
     }
 
@@ -56,7 +58,24 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(saved.capture());
         assertEquals("Certificate revoked", saved.getValue().getType());
         assertFalse(saved.getValue().isRead());
-        verify(emailService).send(eq("grad@x.com"), eq("CertiChain: Certificate revoked"), eq("Reason: fraud"));
+        // No cast to the impl anymore: this verifies the REAL delivery path, not the
+        // fallback that only used to trigger because the old cast threw on a mock.
+        verify(emailService).sendNotification(eq("grad@x.com"), eq("Certificate revoked"),
+                eq("Reason: fraud"), isNull(), isNull());
+    }
+
+    @Test
+    void explicitCtaIsPassedThroughToTheNotificationEmail() {
+        UUID uid = UUID.randomUUID();
+        when(userRepository.findById(uid)).thenReturn(Optional.of(User.builder()
+                .id(uid).email("grad@x.com").passwordHash("h").role(Role.GRADUATE)
+                .createdAt(Instant.now()).build()));
+
+        service.notify(uid, "Certificate issued", "msg",
+                "/graduate/credentials/abc", "View your credential");
+
+        verify(emailService).sendNotification(eq("grad@x.com"), eq("Certificate issued"), eq("msg"),
+                eq("/graduate/credentials/abc"), eq("View your credential"));
     }
 
     @Test
@@ -67,6 +86,7 @@ class NotificationServiceImplTest {
         service.notify(uid, "X", "y");
 
         verify(notificationRepository).save(any());
+        verify(emailService, never()).sendNotification(anyString(), anyString(), anyString(), any(), any());
         verify(emailService, never()).send(anyString(), anyString(), anyString());
     }
 

@@ -8,6 +8,7 @@ import { useInstitution, useInstitutionDocuments, useReinstateInstitution, useRe
 import type { InstitutionDetail, RegistrationPerson } from "@/features/accreditation/types/types"
 import { apiClient } from "@/shared/config/axioconfig"
 import { Skeleton } from "@/shared/components/ui/skeleton"
+import { onInstitutionLogoError } from "@/shared/lib/logo-fallback"
 
 function isPdf(fileName: string) {
   return fileName.toLowerCase().endsWith(".pdf")
@@ -328,7 +329,8 @@ export default function InstitutionDetailPage() {
               <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#02275A]">
                 {institution.profileImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={institution.profileImageUrl} alt="" loading="lazy" className="size-full object-cover" />
+                  <img src={institution.profileImageUrl} alt="" loading="lazy" className="size-full object-cover"
+                    onError={(e) => onInstitutionLogoError(e, institution.name)} />
                 ) : (
                   <span className="material-symbols-outlined text-[26px] text-white">account_balance</span>
                 )}

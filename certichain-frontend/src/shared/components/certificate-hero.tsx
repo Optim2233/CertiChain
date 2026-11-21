@@ -3,6 +3,7 @@ import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { institutionAccent } from "./credential-card"
+import { onInstitutionLogoError } from "@/shared/lib/logo-fallback"
 const QR_CELLS = "M0 0h3v3H0zM7 0h3v3H7zM0 7h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM4 5h2v1H4zM4 7h1v3H4zM6 4h1v1H6zM8 4h2v1H8zM6 6h1v4H6zM8 8h2v2H8z"
 
 export function CertificateHero({
@@ -61,7 +62,8 @@ export function CertificateHero({
           <div className={`flex shrink-0 items-center justify-center overflow-hidden ${logoRnd} ${medalSizeCls} rounded-full`} style={{ background: medalBg, border: "2px solid #c9a85c" }}>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" className="size-full object-cover" />
+              <img src={logoUrl} alt="" className="size-full object-cover"
+                onError={(e) => onInstitutionLogoError(e, institutionName)} />
             ) : initials ? (
               <span className="text-xs font-extrabold" style={{ color: "#c9a85c" }}>{initials}</span>
             ) : (

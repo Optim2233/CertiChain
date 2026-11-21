@@ -7,6 +7,7 @@ import { LocaleToggle } from "@/shared/components/locale-toggle"
 import { usePublicInstitutions, useTrustStats } from "@/features/verifier"
 import type { PublicInstitution } from "@/features/verifier"
 import { institutionAccent } from "@/shared/components/credential-card"
+import { onInstitutionLogoError } from "@/shared/lib/logo-fallback"
 
 const QR_PATH = "M0 0h3v3H0zM7 0h3v3H7zM0 7h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM4 5h2v1H4zM4 7h1v3H4zM6 4h1v1H6zM8 4h2v1H8zM6 6h1v4H6zM8 8h2v2H8z"
 
@@ -596,7 +597,8 @@ function RegistryCard({ inst }: { inst: PublicInstitution }) {
       >
         {inst.profileImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={inst.profileImageUrl} alt="" className="size-full object-cover" />
+          <img src={inst.profileImageUrl} alt="" className="size-full object-cover"
+            onError={(e) => onInstitutionLogoError(e, inst.name)} />
         ) : (
           monogram
         )}

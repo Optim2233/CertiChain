@@ -2,5 +2,7 @@
 <body><div th:fragment="content">
 <h1 th:text="${title}" style="margin:0 0 8px;color:#02275A;font-size:18px;font-weight:800"></h1>
 <p th:text="${message}" style="margin:0 0 20px;color:#44474e;font-size:14px;line-height:1.7;white-space:pre-wrap"></p>
-<p th:if="${ctaUrl}" style="margin:0"><a th:href="${ctaUrl}" th:text="${ctaLabel ?: 'Open CertiChain'}" style="display:inline-block;background:#0462BA;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px;font-weight:700;font-size:14px"></a></p>
+<p th:if="${ctaUrl}" style="margin:0 0 10px"><a th:href="${ctaUrl}" th:text="${ctaLabel ?: 'Open CertiChain'}" style="display:inline-block;background:#0462BA;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px;font-weight:700;font-size:14px"></a></p>
+<!-- Industry fallback (Parchment-style): buttons break in some clients; the plain link always works. -->
+<p th:if="${ctaUrl}" style="margin:0 0 20px;color:#75777f;font-size:12px;line-height:1.6;word-break:break-all">If the button doesn't work, copy and paste this link into your browser:<br/><a th:href="${ctaUrl}" th:text="${ctaUrl}" style="color:#0462BA;text-decoration:none"></a></p>
 </div></body></html>

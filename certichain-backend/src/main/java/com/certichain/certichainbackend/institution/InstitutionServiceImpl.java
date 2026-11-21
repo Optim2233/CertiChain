@@ -928,7 +928,11 @@ public class InstitutionServiceImpl implements InstitutionService {
         auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate revoked",
-                "A credential you hold was revoked. Reason: " + reason);
+                "\"" + storedCredentialTitle(credential) + "\" issued by "
+                        + institutionName(credential.getInstitutionId()) + " was revoked. Reason: " + reason + "\n\n"
+                        + "A revoked credential no longer verifies as valid. If you believe this is an error, "
+                        + "you can open a dispute from your CertiChain wallet.",
+                "/graduate/credentials/" + credential.getId(), "View credential details");
     }
 
     /**
@@ -961,7 +965,10 @@ public class InstitutionServiceImpl implements InstitutionService {
         auditLogService.log(AuditEvents.CERTIFICATE_RESTORED_EVENT, currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate restored",
-                "A credential you hold that was previously revoked has been restored by the issuing institution.");
+                "\"" + storedCredentialTitle(credential) + "\" issued by "
+                        + institutionName(credential.getInstitutionId()) + " has been restored - "
+                        + "it verifies as valid again.",
+                "/graduate/credentials/" + credential.getId(), "View credential");
     }
 
     @Override
@@ -1018,7 +1025,10 @@ public class InstitutionServiceImpl implements InstitutionService {
         auditLogService.log("Certificate edited", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(credential.getGraduateUserId(), "Certificate edited",
-                "A credential you hold was edited and re-signed by the issuing institution.");
+                "\"" + storedCredentialTitle(credential) + "\" issued by "
+                        + institutionName(credential.getInstitutionId()) + " was edited and re-signed. "
+                        + "The updated version is what verifiers now see.",
+                "/graduate/credentials/" + credential.getId(), "View credential");
         return piiCryptoService.decryptedCredentialCopy(credential);
     }
 
@@ -1082,6 +1092,10 @@ public class InstitutionServiceImpl implements InstitutionService {
             credential.setRevokeReason(piiCryptoService.encryptInstitutionField(
                     resolutionNote, credential.getInstitutionId()));
             credential.setRevokedAt(Instant.now());
+            // Same chain append as applyRevocation - a revocation via upheld dispute is
+            // a revocation, and must be as visible on the ledger as any other.
+            ledgerService.append(LedgerEventType.REVOKED, credential.getId(),
+                    credential.getInstitutionId(), credential.getMerkleRoot());
             auditLogService.log(AuditEvents.CERTIFICATE_REVOKED_EVENT, currentUser.id(),
                     credential.getInstitutionId(), credential.getId());
         } else if ("EDIT".equalsIgnoreCase(action)) {
@@ -1115,7 +1129,9 @@ public class InstitutionServiceImpl implements InstitutionService {
         auditLogService.log("Dispute upheld", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(dispute.getGraduateUserId(), "Dispute upheld",
-                "Your dispute was upheld. Resolution: " + resolutionNote);
+                "Your dispute about \"" + storedCredentialTitle(credential) + "\" was upheld. Resolution: "
+                        + resolutionNote,
+                "/graduate/credentials/" + credential.getId(), "View credential");
     }
 
     @Override
@@ -1138,7 +1154,9 @@ public class InstitutionServiceImpl implements InstitutionService {
         auditLogService.log("Dispute dismissed", currentUser.id(),
                 credential.getInstitutionId(), credential.getId());
         notificationService.notify(dispute.getGraduateUserId(), "Dispute dismissed",
-                "Your dispute was dismissed. Resolution: " + resolutionNote);
+                "Your dispute about \"" + storedCredentialTitle(credential) + "\" was dismissed. Resolution: "
+                        + resolutionNote,
+                "/graduate/credentials/" + credential.getId(), "View credential");
     }
 
     /** Re-signs a credential's field set and replaces its stored fields with the signed result. */
@@ -1180,6 +1198,42 @@ public class InstitutionServiceImpl implements InstitutionService {
         // mismatch. Amend (not erase) is the ledger's whole contract.
         ledgerService.append(LedgerEventType.AMENDED, credential.getId(),
                 credential.getInstitutionId(), signed.merkleRoot());
+    }
+
+    /**
+     * Display title of a plaintext signed field set - the same degree/activity/title
+     * preference the verifier uses, so email and verify page always agree on the name.
+     */
+    private static String titleOf(List<Field> fields) {
+        return fields.stream()
+                .filter(f -> f.name().equalsIgnoreCase("degree")
+                        || f.name().equalsIgnoreCase("activity")
+                        || f.name().equalsIgnoreCase("title"))
+                .map(Field::value)
+                .findFirst()
+                .orElse("credential");
+    }
+
+    /**
+     * Display title of a stored credential, decrypted under the institution's DEK.
+     * Only used on rare lifecycle events (revoke/restore/edit/dispute) - one indexed
+     * query each, never on the issuance hot path where the plaintext is in hand.
+     */
+    private String storedCredentialTitle(Credential credential) {
+        List<Field> fields = credentialFieldCryptoService
+                .decrypted(credentialFieldRepository.findByCredentialIdOrderByMerkleIndex(
+                        credential.getId()), credential.getInstitutionId())
+                .stream()
+                .map(f -> new Field(f.getFieldName(), f.getFieldValue()))
+                .toList();
+        return titleOf(fields);
+    }
+
+    /** Issuer name for email bodies - plaintext, public, safe outside the encryption boundary. */
+    private String institutionName(UUID institutionId) {
+        return institutionRepository.findById(institutionId)
+                .map(Institution::getName)
+                .orElse("your institution");
     }
 
     /**
@@ -1276,12 +1330,21 @@ public class InstitutionServiceImpl implements InstitutionService {
                 signed.merkleRoot());
         // Unclaimed (PENDING_CLAIM) credentials have no user yet - notify() no-ops on null,
         // so email the address directly or the graduate never learns the credential exists.
+        // Industry pattern (Credly/Accredible): the email names the credential and the
+        // issuer, and its single CTA lands on the specific record, not the dashboard.
+        String issuedName = titleOf(signed.fields().stream()
+                .map(f -> new Field(f.name(), f.value())).toList());
         if (credential.getGraduateUserId() != null) {
             notificationService.notify(credential.getGraduateUserId(), "Certificate issued",
-                    "A new credential has been issued to you by an accredited institution.");
+                    "\"" + issuedName + "\" issued by " + institution.getName() + " has been added to your wallet. "
+                            + "It is signed with the institution's key and recorded on the CertiChain ledger - "
+                            + "anyone you share it with can verify it in seconds.",
+                    "/graduate/credentials/" + credential.getId(), "View your credential");
         } else {
             notificationService.notifyEmail(normGradEmail, "Certificate issued",
-                    "A new credential has been issued to you by an accredited institution. Sign up with this email address to claim it.");
+                    institution.getName() + " has issued \"" + issuedName + "\" to this email address. "
+                            + "Sign up with this email to claim it and share it with employers.",
+                    "/register", "Claim your credential");
         }
         return credential;
     }

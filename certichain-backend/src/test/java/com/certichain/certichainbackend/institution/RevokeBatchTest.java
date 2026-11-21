@@ -6,7 +6,9 @@ import com.certichain.certichainbackend.common.enums.CredentialStatus;
 import com.certichain.certichainbackend.common.enums.CredentialType;
 import com.certichain.certichainbackend.common.exception.ResourceNotFoundException;
 import com.certichain.certichainbackend.common.exception.ValidationException;
+import com.certichain.certichainbackend.common.repository.CredentialFieldRepository;
 import com.certichain.certichainbackend.common.repository.CredentialRepository;
+import com.certichain.certichainbackend.common.repository.InstitutionRepository;
 import com.certichain.certichainbackend.common.service.AuditEvents;
 import com.certichain.certichainbackend.common.service.AuditLogService;
 import com.certichain.certichainbackend.common.service.NotificationService;
@@ -33,6 +35,19 @@ import static org.mockito.Mockito.when;
 class RevokeBatchTest {
 
     private final CredentialRepository credentialRepository = mock(CredentialRepository.class);
+    // Revocation emails name the credential + issuer: the title lookup needs the field
+    // repo, the issuer lookup needs the institution repo (mock defaults: empty results,
+    // which degrade gracefully to "credential" / "your institution" in the message).
+    private final InstitutionRepository institutionRepository = mock(InstitutionRepository.class);
+    private final CredentialFieldRepository credentialFieldRepository = mock(CredentialFieldRepository.class);
+    // Passthrough: lifecycle emails decrypt the title fields via the real service; with a
+    // mock returning its input, the empty field list degrades the title to "credential".
+    private final com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService
+            credentialFieldCryptoService = mock(com.certichain.certichainbackend.common.service.impl.CredentialFieldCryptoService.class);
+    {
+        when(credentialFieldCryptoService.decrypted(org.mockito.ArgumentMatchers.anyList(), any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+    }
     private final com.certichain.certichainbackend.common.service.LedgerService ledgerService =
             mock(com.certichain.certichainbackend.common.service.LedgerService.class);
     private final AuditLogService auditLogService = mock(AuditLogService.class);
@@ -46,8 +61,9 @@ class RevokeBatchTest {
     private final UUID batchId = UUID.randomUUID();
 
     private final InstitutionServiceImpl service = new InstitutionServiceImpl(
-            null, null, null, credentialRepository, null, null, null, null,
-            ledgerService, auditLogService, notificationService, null, null, currentUser, null, pii);
+            institutionRepository, null, null, credentialRepository, credentialFieldRepository, null, null, null,
+            ledgerService, auditLogService, notificationService, null, null, currentUser,
+            credentialFieldCryptoService, pii);
 
     private Credential member(CredentialStatus status) {
         return Credential.builder()
@@ -88,7 +104,7 @@ class RevokeBatchTest {
         }
         verify(auditLogService, times(2))
                 .log(eq(AuditEvents.CERTIFICATE_REVOKED_EVENT), eq(actorId), eq(institutionId), any());
-        verify(notificationService, times(2)).notify(any(), anyString(), anyString());
+        verify(notificationService, times(2)).notify(any(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -102,7 +118,7 @@ class RevokeBatchTest {
         assertEquals(0, result.revoked());
         assertEquals(2, result.alreadyRevoked());
         verify(auditLogService, never()).log(anyString(), any(), any(), any());
-        verify(notificationService, never()).notify(any(), anyString(), anyString());
+        verify(notificationService, never()).notify(any(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -151,7 +167,7 @@ class RevokeBatchTest {
         assertEquals(null, revoked.getRevokeReason());
         assertEquals(null, revoked.getRevokedAt());
         verify(auditLogService).log(eq(AuditEvents.CERTIFICATE_RESTORED_EVENT), eq(actorId), eq(institutionId), eq(revoked.getId()));
-        verify(notificationService).notify(any(), eq("Certificate restored"), anyString());
+        verify(notificationService).notify(any(), eq("Certificate restored"), anyString(), anyString(), anyString());
     }
 
     @Test

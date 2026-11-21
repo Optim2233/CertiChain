@@ -31,6 +31,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void notify(UUID recipientUserId, String type, String message) {
+        notify(recipientUserId, type, message, null, null);
+    }
+
+    @Override
+    @Transactional
+    public void notify(UUID recipientUserId, String type, String message, String ctaUrl, String ctaLabel) {
         if (recipientUserId == null) {
             return; // e.g. credential not yet claimed - nobody to notify yet
         }
@@ -45,14 +51,20 @@ public class NotificationServiceImpl implements NotificationService {
 
         userRepository.findById(recipientUserId)
                 .map(u -> piiCryptoService.decryptUserField(u.getEmail()))
-                .ifPresent(email -> notifyEmail(email, type, message));
+                .ifPresent(email -> notifyEmail(email, type, message, ctaUrl, ctaLabel));
     }
 
     @Override
     public void notifyEmail(String email, String type, String message) {
+        notifyEmail(email, type, message, null, null);
+    }
+
+    @Override
+    public void notifyEmail(String email, String type, String message, String ctaUrl, String ctaLabel) {
         if (email == null || email.isBlank()) return;
-        try { ((EmailServiceImpl) emailService).sendNotification(email, type, message); }
-        catch (Exception e) { emailService.send(email, "CertiChain: " + type, message); }
+        try {
+            emailService.sendNotification(email, type, message, ctaUrl, ctaLabel);
+        } catch (Exception e) { emailService.send(email, "CertiChain: " + type, message); }
     }
 
     @Override
