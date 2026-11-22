@@ -31,3 +31,5 @@ scripts/seed/node_modules/
 .env
 certichain-backend/.env
 certichain-frontend/.env
+.env.bak*
+certichain-backend/.env.bak*
